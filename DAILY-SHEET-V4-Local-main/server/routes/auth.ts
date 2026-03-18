@@ -4,6 +4,8 @@ import { storage } from "../storage";
 import { db } from "../db";
 import { users, systemInvites } from "@shared/models/auth";
 import { eq, count, isNotNull, and } from "drizzle-orm";
+import { randomBytes } from "crypto";
+import { sendInviteEmail } from "./utils";
 import { z } from "zod";
 import { DEPARTMENTS, CONTACT_ROLES, DEFAULT_TASK_TYPES, DEFAULT_CREW_POSITIONS } from "@shared/constants";
 import { isAuthenticated, invalidateUserCache } from "../replit_integrations/auth";
@@ -377,6 +379,62 @@ export function registerAuthRoutes(app: Express, upload: multer.Multer) {
       res.json({ valid: true, email: invite.email, role: invite.role });
     } catch (error) {
       res.status(500).json({ message: "Failed to check invite" });
+    }
+  });
+
+  app.post("/api/auth/forgot-password", async (req: any, res) => {
+    try {
+      const { email } = req.body;
+      if (!email || typeof email !== "string") {
+        return res.status(400).json({ message: "Email is required" });
+      }
+      // Always respond success so we don't leak whether an account exists
+      const user = await storage.getUserByEmail(email.toLowerCase().trim());
+      if (user && user.passwordHash) {
+        const token = randomBytes(32).toString("hex");
+        const expiry = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+        await storage.setPasswordResetToken(user.id, token, expiry);
+        const appUrl = `${req.protocol}://${req.get("host")}`;
+        try {
+          await sendInviteEmail(
+            user.email!,
+            "Reset your Daily Sheet password",
+            `<div style="font-family: 'Inter', Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+              <h1 style="color: #1e293b; font-size: 24px; margin-bottom: 16px;">Reset your password</h1>
+              <p style="color: #475569; font-size: 16px; line-height: 1.6;">
+                Click the button below to set a new password. This link expires in 1 hour.
+              </p>
+              <a href="${appUrl}/reset-password?token=${token}" style="display: inline-block; background-color: #1e40af; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 16px;">Reset Password</a>
+              <p style="color: #94a3b8; font-size: 13px; margin-top: 24px;">If you didn't request this, you can safely ignore this email.</p>
+            </div>`
+          );
+        } catch (emailErr: any) {
+          console.error("[email] Failed to send reset email:", emailErr?.message);
+        }
+      }
+      res.json({ message: "If an account exists for that email, a reset link has been sent." });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to process request" });
+    }
+  });
+
+  app.post("/api/auth/reset-password", async (req: any, res) => {
+    try {
+      const { token, password } = req.body;
+      if (!token || !password || typeof password !== "string" || password.length < 6) {
+        return res.status(400).json({ message: "Invalid request" });
+      }
+      const user = await storage.getUserByResetToken(token);
+      if (!user || !user.passwordResetExpiry || new Date() > new Date(user.passwordResetExpiry)) {
+        return res.status(400).json({ message: "Reset link is invalid or has expired." });
+      }
+      const bcrypt = await import("bcrypt");
+      const passwordHash = await bcrypt.default.hash(password, 10);
+      await storage.updateUserPassword(user.id, passwordHash);
+      await storage.setPasswordResetToken(user.id, null, null);
+      res.json({ message: "Password updated successfully. You can now sign in." });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to reset password" });
     }
   });
 }

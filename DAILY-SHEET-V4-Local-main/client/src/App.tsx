@@ -13,6 +13,7 @@ import Landing from "@/pages/Landing";
 import Register from "@/pages/Register";
 import AdminLogin from "@/pages/AdminLogin";
 import OrgSelectorPage from "@/pages/OrgSelectorPage";
+import ResetPassword from "@/pages/ResetPassword";
 import CalendarPage from "@/pages/CalendarPage";
 import ProjectPage from "@/pages/ProjectPage";
 import AccessPage from "@/pages/AccessPage";
@@ -114,6 +115,7 @@ function App() {
             <MobileNav />
             <Switch>
             <Route path="/register" component={Register} />
+            <Route path="/reset-password" component={ResetPassword} />
             <Route path="/admin-login" component={AdminLogin} />
             <Route path="/access/:token" component={AccessPage} />
 

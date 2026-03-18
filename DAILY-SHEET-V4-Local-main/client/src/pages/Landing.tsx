@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Calendar, Users, MapPin, LogIn, ArrowRight, UserPlus } from "lucide-react";
+import { Calendar, Users, MapPin, LogIn, ArrowRight, UserPlus, CheckCircle2 } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
@@ -13,6 +13,10 @@ export default function Landing() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isPending, setIsPending] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotPending, setForgotPending] = useState(false);
+  const [forgotSent, setForgotSent] = useState(false);
   const { toast } = useToast();
 
   const { data: setupStatus } = useQuery<{ needsSetup: boolean }>({
@@ -51,6 +55,23 @@ export default function Landing() {
       toast({ title: "Error", description: "Network error. Please try again.", variant: "destructive" });
     } finally {
       setIsPending(false);
+    }
+  };
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setForgotPending(true);
+    try {
+      await fetch((import.meta.env.VITE_API_URL ?? "") + "/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+      setForgotSent(true);
+    } catch {
+      toast({ title: "Error", description: "Network error. Please try again.", variant: "destructive" });
+    } finally {
+      setForgotPending(false);
     }
   };
 
@@ -134,6 +155,46 @@ export default function Landing() {
                     </Link>
                   </CardContent>
                 </Card>
+              ) : forgotMode ? (
+                <Card className="w-full max-w-md">
+                  <CardHeader className="text-center">
+                    {forgotSent ? (
+                      <div className="mx-auto h-12 w-12 bg-green-100 dark:bg-green-900/30 rounded-lg flex items-center justify-center mb-2">
+                        <CheckCircle2 className="h-6 w-6 text-green-600 dark:text-green-400" />
+                      </div>
+                    ) : null}
+                    <CardTitle className="text-2xl font-display uppercase tracking-wide">
+                      {forgotSent ? "Check Your Email" : "Forgot Password"}
+                    </CardTitle>
+                    <CardDescription>
+                      {forgotSent
+                        ? "If an account exists for that email, a reset link is on its way."
+                        : "Enter your email and we'll send you a reset link."}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {!forgotSent && (
+                      <form onSubmit={handleForgot} className="space-y-4">
+                        <div className="space-y-2">
+                          <label className="text-sm font-medium text-foreground">Email</label>
+                          <Input
+                            type="email"
+                            placeholder="you@example.com"
+                            value={forgotEmail}
+                            onChange={(e) => setForgotEmail(e.target.value)}
+                            required
+                          />
+                        </div>
+                        <Button type="submit" className="w-full" disabled={forgotPending}>
+                          {forgotPending ? "Sending..." : "Send Reset Link"}
+                        </Button>
+                      </form>
+                    )}
+                    <Button variant="ghost" className="w-full" onClick={() => { setForgotMode(false); setForgotSent(false); setForgotEmail(""); }}>
+                      <ArrowRight className="mr-2 h-4 w-4 rotate-180" /> Back to Sign In
+                    </Button>
+                  </CardContent>
+                </Card>
               ) : (
                 <Card className="w-full max-w-md">
                   <CardHeader className="text-center">
@@ -158,7 +219,12 @@ export default function Landing() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <label className="text-sm font-medium text-foreground">Password</label>
+                        <div className="flex items-center justify-between">
+                          <label className="text-sm font-medium text-foreground">Password</label>
+                          <button type="button" onClick={() => { setForgotEmail(email); setForgotMode(true); }} className="text-xs text-primary hover:underline">
+                            Forgot password?
+                          </button>
+                        </div>
                         <Input
                           type="password"
                           placeholder="Enter your password"

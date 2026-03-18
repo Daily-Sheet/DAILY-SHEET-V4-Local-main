@@ -30,6 +30,8 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
   dashboardPreferences: jsonb("dashboard_preferences").$type<DashboardPreferences>(),
+  passwordResetToken: varchar("password_reset_token"),
+  passwordResetExpiry: timestamp("password_reset_expiry"),
 });
 
 export type DashboardPreferences = {
