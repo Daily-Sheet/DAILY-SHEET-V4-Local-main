@@ -1,16 +1,18 @@
 import { useState } from "react";
-import { Sun, Moon, Eye, LogOut, Check, Users } from "lucide-react";
+import { Sun, Moon, Eye, LogOut, Check, Users, Building2, ArrowRightLeft, Loader2 } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, resetBootstrap } from "@/hooks/use-auth";
 import { useTheme } from "@/components/ThemeProvider";
 import { useColorScheme, PALETTES, type PaletteName } from "@/components/ColorSchemeProvider";
 import { ProfileDialog } from "./ProfileDialog";
 import { CrewDirectoryDialog } from "@/components/dashboard/crew/CrewDirectoryDialog";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import type { Contact } from "@shared/schema";
 
 export function HeaderUserMenu({ contacts, canEdit, allEventAssignments }: { contacts: Contact[]; canEdit: boolean; allEventAssignments: any[] }) {
@@ -20,6 +22,23 @@ export function HeaderUserMenu({ contacts, canEdit, allEventAssignments }: { con
   const isColorblind = palette === "colorblind";
   const [priorPalette, setPriorPalette] = useState<PaletteName>("default");
   const [profileOpen, setProfileOpen] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: userWorkspaces = [] } = useQuery<{ id: number; name: string; role: string }[]>({
+    queryKey: ["/api/workspaces"],
+  });
+
+  const switchOrgMutation = useMutation({
+    mutationFn: async (workspaceId: number) => {
+      const res = await apiRequest("PATCH", "/api/auth/workspace", { workspaceId });
+      return res.json();
+    },
+    onSuccess: () => {
+      resetBootstrap();
+      queryClient.clear();
+      window.location.reload();
+    },
+  });
 
   const handleColorblindToggle = () => {
     if (isColorblind) {
@@ -61,6 +80,41 @@ export function HeaderUserMenu({ contacts, canEdit, allEventAssignments }: { con
               My Profile
             </button>
             <CrewDirectoryDialog contacts={contacts} canEdit={canEdit} allEventAssignments={allEventAssignments} />
+            {userWorkspaces.length > 1 && (
+              <>
+                <Separator />
+                <div className="px-2 py-1">
+                  <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
+                    <Building2 className="h-3 w-3" /> Organizations
+                  </p>
+                  <div className="space-y-0.5">
+                    {userWorkspaces.map((ws) => {
+                      const isCurrent = ws.id === user?.workspaceId;
+                      return (
+                        <button
+                          key={ws.id}
+                          type="button"
+                          disabled={isCurrent || switchOrgMutation.isPending}
+                          onClick={() => !isCurrent && switchOrgMutation.mutate(ws.id)}
+                          className={cn(
+                            "w-full flex items-center justify-between gap-2 px-1.5 py-1.5 rounded-md text-xs transition-colors",
+                            isCurrent ? "bg-primary/10 font-medium cursor-default" : "hover-elevate cursor-pointer",
+                          )}
+                        >
+                          <span className="truncate">{ws.name}</span>
+                          {isCurrent
+                            ? <Check className="h-3 w-3 shrink-0 text-primary" />
+                            : switchOrgMutation.isPending && switchOrgMutation.variables === ws.id
+                              ? <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+                              : <ArrowRightLeft className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          }
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            )}
             <Separator />
             <button
               type="button"
