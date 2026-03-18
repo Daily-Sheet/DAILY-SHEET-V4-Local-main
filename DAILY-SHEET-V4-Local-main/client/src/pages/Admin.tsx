@@ -4364,6 +4364,9 @@ function SettingsAdmin() {
 
   const [, setLocation] = useLocation();
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const [showTransferOwnership, setShowTransferOwnership] = useState(false);
+  const [transferTargetId, setTransferTargetId] = useState("");
+  const [confirmTransfer, setConfirmTransfer] = useState(false);
 
   const { data: wsMembers = [] } = useQuery<any[]>({
     queryKey: ["/api/workspaces", user?.workspaceId, "members"],
@@ -4403,6 +4406,22 @@ function SettingsAdmin() {
     },
     onError: (error: any) => {
       toast({ title: "Error", description: error.message || "Failed to leave organization", variant: "destructive" });
+    },
+  });
+
+  const transferOwnership = useMutation({
+    mutationFn: async (newOwnerId: string) => {
+      await apiRequest("PATCH", `/api/workspaces/${user!.workspaceId}/transfer-ownership`, { newOwnerId });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries();
+      setShowTransferOwnership(false);
+      setConfirmTransfer(false);
+      setTransferTargetId("");
+      toast({ title: "Ownership transferred", description: "You are now a manager of this organization." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Error", description: error.message || "Failed to transfer ownership", variant: "destructive" });
     },
   });
 
@@ -4614,6 +4633,75 @@ function SettingsAdmin() {
           </div>
         </CardContent>
       </Card>
+
+      {isOrgOwner && (
+        <Card className="bg-card/50 backdrop-blur-sm border-border/30 rounded-xl">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <UserCheck className="w-5 h-5" /> Transfer Ownership
+            </CardTitle>
+            <p className="text-sm text-muted-foreground">
+              Transfer your owner role to another member. You will become a manager.
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {!showTransferOwnership ? (
+              <Button variant="outline" size="sm" onClick={() => setShowTransferOwnership(true)}>
+                Transfer Ownership
+              </Button>
+            ) : !confirmTransfer ? (
+              <div className="space-y-3">
+                <Select value={transferTargetId} onValueChange={setTransferTargetId}>
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select a member..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {wsMembers
+                      .filter((m: any) => m.userId !== user?.id)
+                      .map((m: any) => (
+                        <SelectItem key={m.userId} value={m.userId}>
+                          {m.name || m.email || m.userId} ({m.role})
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <div className="flex gap-2">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={!transferTargetId}
+                    onClick={() => setConfirmTransfer(true)}
+                  >
+                    Continue
+                  </Button>
+                  <Button variant="ghost" size="sm" onClick={() => { setShowTransferOwnership(false); setTransferTargetId(""); }}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-destructive font-medium">
+                  This cannot be undone. Are you sure you want to transfer ownership?
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    disabled={transferOwnership.isPending}
+                    onClick={() => transferOwnership.mutate(transferTargetId)}
+                  >
+                    {transferOwnership.isPending ? "Transferring..." : "Yes, transfer"}
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setConfirmTransfer(false)}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {!isOrgOwner && (
         <Card className="bg-card/50 backdrop-blur-sm border-border/30 border-destructive/30 rounded-xl">

@@ -396,4 +396,41 @@ export function registerWorkspaceRoutes(app: Express, upload: multer.Multer) {
       res.status(500).json({ message: "Failed to rename organization" });
     }
   });
+
+  app.patch("/api/workspaces/:id/transfer-ownership", isAuthenticated, requireRole("owner"), async (req: any, res) => {
+    try {
+      const wsId = parseInt(req.params.id);
+      const currentOwnerId = req.user.id;
+      const { newOwnerId } = req.body;
+
+      if (!newOwnerId || typeof newOwnerId !== "string") {
+        return res.status(400).json({ message: "newOwnerId is required" });
+      }
+      if (newOwnerId === currentOwnerId) {
+        return res.status(400).json({ message: "You are already the owner" });
+      }
+
+      const members = await storage.getWorkspaceMembers(wsId);
+      const targetMember = members.find((m: any) => m.userId === newOwnerId);
+      if (!targetMember) {
+        return res.status(404).json({ message: "Target user is not a member of this organization" });
+      }
+
+      // 1. Update workspace ownerId
+      await storage.updateWorkspace(wsId, { ownerId: newOwnerId });
+
+      // 2. Demote old owner's member row to "manager"
+      const oldOwnerMember = members.find((m: any) => m.userId === currentOwnerId);
+      if (oldOwnerMember) {
+        await storage.updateWorkspaceMemberRole(oldOwnerMember.id, "manager");
+      }
+
+      // 3. Promote new owner's member row to "owner"
+      await storage.updateWorkspaceMemberRole(targetMember.id, "owner");
+
+      res.json({ message: "Ownership transferred successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to transfer ownership" });
+    }
+  });
 }
