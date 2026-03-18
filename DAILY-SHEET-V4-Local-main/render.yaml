@@ -3,6 +3,7 @@ services:
     name: daily-sheet
     runtime: node
     plan: starter
+    rootDir: DAILY-SHEET-V4-Local-main
     buildCommand: npm install && npm run build
     startCommand: node dist/index.cjs
     healthCheckPath: /health
