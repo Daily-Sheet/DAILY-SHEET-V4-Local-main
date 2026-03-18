@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sun, Moon, Eye, LogOut, Check, Users, Building2, ArrowRightLeft, Loader2 } from "lucide-react";
+import { Sun, Moon, Eye, LogOut, Check, Users, Building2, ArrowRightLeft, Loader2, Plus, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -22,6 +22,8 @@ export function HeaderUserMenu({ contacts, canEdit, allEventAssignments }: { con
   const isColorblind = palette === "colorblind";
   const [priorPalette, setPriorPalette] = useState<PaletteName>("default");
   const [profileOpen, setProfileOpen] = useState(false);
+  const [createOrgOpen, setCreateOrgOpen] = useState(false);
+  const [newOrgName, setNewOrgName] = useState("");
   const queryClient = useQueryClient();
 
   const { data: userWorkspaces = [] } = useQuery<{ id: number; name: string; role: string }[]>({
@@ -37,6 +39,16 @@ export function HeaderUserMenu({ contacts, canEdit, allEventAssignments }: { con
       resetBootstrap();
       queryClient.clear();
       window.location.reload();
+    },
+  });
+
+  const createOrgMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await apiRequest("POST", "/api/workspaces", { name });
+      return res.json();
+    },
+    onSuccess: (workspace) => {
+      switchOrgMutation.mutate(workspace.id);
     },
   });
 
@@ -80,41 +92,71 @@ export function HeaderUserMenu({ contacts, canEdit, allEventAssignments }: { con
               My Profile
             </button>
             <CrewDirectoryDialog contacts={contacts} canEdit={canEdit} allEventAssignments={allEventAssignments} />
-            {userWorkspaces.length > 1 && (
-              <>
-                <Separator />
-                <div className="px-2 py-1">
-                  <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
-                    <Building2 className="h-3 w-3" /> Organizations
-                  </p>
-                  <div className="space-y-0.5">
-                    {userWorkspaces.map((ws) => {
-                      const isCurrent = ws.id === user?.workspaceId;
-                      return (
-                        <button
-                          key={ws.id}
-                          type="button"
-                          disabled={isCurrent || switchOrgMutation.isPending}
-                          onClick={() => !isCurrent && switchOrgMutation.mutate(ws.id)}
-                          className={cn(
-                            "w-full flex items-center justify-between gap-2 px-1.5 py-1.5 rounded-md text-xs transition-colors",
-                            isCurrent ? "bg-primary/10 font-medium cursor-default" : "hover-elevate cursor-pointer",
-                          )}
-                        >
-                          <span className="truncate">{ws.name}</span>
-                          {isCurrent
-                            ? <Check className="h-3 w-3 shrink-0 text-primary" />
-                            : switchOrgMutation.isPending && switchOrgMutation.variables === ws.id
-                              ? <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
-                              : <ArrowRightLeft className="h-3 w-3 shrink-0 text-muted-foreground" />
-                          }
-                        </button>
-                      );
-                    })}
-                  </div>
+            <>
+              <Separator />
+              <div className="px-2 py-1">
+                <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
+                  <Building2 className="h-3 w-3" /> Organizations
+                </p>
+                <div className="space-y-0.5">
+                  {userWorkspaces.map((ws) => {
+                    const isCurrent = ws.id === user?.workspaceId;
+                    return (
+                      <button
+                        key={ws.id}
+                        type="button"
+                        disabled={isCurrent || switchOrgMutation.isPending}
+                        onClick={() => !isCurrent && switchOrgMutation.mutate(ws.id)}
+                        className={cn(
+                          "w-full flex items-center justify-between gap-2 px-1.5 py-1.5 rounded-md text-xs transition-colors",
+                          isCurrent ? "bg-primary/10 font-medium cursor-default" : "hover-elevate cursor-pointer",
+                        )}
+                      >
+                        <span className="truncate">{ws.name}</span>
+                        {isCurrent
+                          ? <Check className="h-3 w-3 shrink-0 text-primary" />
+                          : switchOrgMutation.isPending && switchOrgMutation.variables === ws.id
+                            ? <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+                            : <ArrowRightLeft className="h-3 w-3 shrink-0 text-muted-foreground" />
+                        }
+                      </button>
+                    );
+                  })}
                 </div>
-              </>
-            )}
+                {createOrgOpen ? (
+                  <form
+                    className="mt-1.5 flex gap-1"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      if (!newOrgName.trim()) return;
+                      createOrgMutation.mutate(newOrgName.trim());
+                    }}
+                  >
+                    <input
+                      autoFocus
+                      className="flex-1 min-w-0 text-xs rounded-md border border-border bg-background px-2 py-1 outline-none focus:ring-1 focus:ring-primary"
+                      placeholder="Organization name"
+                      value={newOrgName}
+                      onChange={(e) => setNewOrgName(e.target.value)}
+                    />
+                    <button type="submit" disabled={createOrgMutation.isPending} className="text-xs px-2 py-1 rounded-md bg-primary text-primary-foreground hover:opacity-90 disabled:opacity-50">
+                      {createOrgMutation.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : "Create"}
+                    </button>
+                    <button type="button" onClick={() => { setCreateOrgOpen(false); setNewOrgName(""); }} className="text-xs px-1.5 py-1 rounded-md hover:bg-muted">
+                      <X className="h-3 w-3" />
+                    </button>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setCreateOrgOpen(true)}
+                    className="mt-1 w-full flex items-center gap-1.5 px-1.5 py-1.5 rounded-md text-xs text-muted-foreground hover-elevate cursor-pointer"
+                  >
+                    <Plus className="h-3 w-3" /> Create organization
+                  </button>
+                )}
+              </div>
+            </>
             <Separator />
             <button
               type="button"
