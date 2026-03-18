@@ -1,6 +1,9 @@
 import type { Express } from "express";
 import type multer from "multer";
 import { storage } from "../storage";
+import { db } from "../db";
+import { users } from "@shared/models/auth";
+import { eq } from "drizzle-orm";
 import { isAuthenticated } from "../replit_integrations/auth";
 import { requireRole } from "./utils";
 
@@ -43,17 +46,36 @@ export function registerUserRoutes(app: Express, upload: multer.Multer) {
     try {
       const targetId = req.params.id;
       if (targetId === req.user.id) {
-        return res.status(400).json({ message: "You cannot delete your own account" });
+        return res.status(400).json({ message: "You cannot remove yourself" });
       }
       const workspaceId = req.user.workspaceId;
       const members = await storage.getWorkspaceMembers(workspaceId);
-      if (!members.find((m: any) => m.userId === targetId)) {
+      const membership = members.find((m: any) => m.userId === targetId);
+      if (!membership) {
         return res.status(404).json({ message: "User not found in workspace" });
       }
-      await storage.deleteUser(targetId);
-      res.json({ message: "User deleted successfully" });
+
+      // Remove from workspace membership only — do NOT delete the user account
+      await storage.removeWorkspaceMember(membership.id);
+
+      // Remove their contacts and assignments scoped to this workspace
+      const allContacts = await storage.getContacts(workspaceId);
+      for (const c of allContacts.filter((c: any) => c.userId === targetId)) {
+        await storage.deleteContact(c.id);
+      }
+      await storage.deleteAssignmentsByUserInWorkspace(targetId, workspaceId);
+
+      // If this workspace was their active workspace, clear it so they land on workspace selection
+      const targetUser = await storage.getUser(targetId);
+      if (targetUser?.workspaceId === workspaceId) {
+        const remaining = await storage.getWorkspacesByUser(targetId);
+        const next = remaining.find((w: any) => w.id !== workspaceId);
+        await db.update(users).set({ workspaceId: next?.id ?? null }).where(eq(users.id, targetId));
+      }
+
+      res.json({ message: "User removed from workspace" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to delete user" });
+      res.status(500).json({ message: "Failed to remove user from workspace" });
     }
   });
 }

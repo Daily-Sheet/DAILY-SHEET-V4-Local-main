@@ -262,6 +262,35 @@ export default function Dashboard() {
   const [whatChangedBanner, setWhatChangedBanner] = useState<{ counts: { scheduleChanges: number; assignmentChanges: number; comments: number; fileChanges: number; total: number } } | null>(null);
   const [whatChangedDismissed, setWhatChangedDismissed] = useState(false);
 
+  // Workspace invite banner
+  const { data: workspaceInviteNotifications = [] } = useQuery<import("@shared/schema").Notification[]>({
+    queryKey: ["/api/notifications"],
+    select: (data) => data.filter((n: import("@shared/schema").Notification) => n.type === "workspace_invite" && !n.read),
+  });
+  const pendingInviteNotif = workspaceInviteNotifications[0] ?? null;
+  const [inviteBannerDismissed, setInviteBannerDismissed] = useState(false);
+
+  const markInviteReadMutation = useMutation({
+    mutationFn: (id: number) => apiRequest("PATCH", `/api/notifications/${id}/read`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/notifications/unread-count"] });
+    },
+  });
+
+  const switchToInviteWorkspaceMutation = useMutation({
+    mutationFn: async (workspaceId: number) => {
+      const res = await apiRequest("PATCH", "/api/auth/workspace", { workspaceId });
+      return res.json();
+    },
+    onSuccess: () => {
+      resetBootstrap();
+      queryClient.clear();
+      window.location.reload();
+    },
+    onError: () => toast({ title: "Failed to switch organization", variant: "destructive" }),
+  });
+
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = format(new Date(), "yyyy-MM-dd");
     const params = new URLSearchParams(window.location.search);
@@ -1136,6 +1165,52 @@ export default function Dashboard() {
                 <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={dismissWhatChanged} data-testid="button-dismiss-what-changed">
                   <X className="h-4 w-4" />
                 </Button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {pendingInviteNotif && !inviteBannerDismissed && (
+            <motion.div
+              initial={{ opacity: 0, y: -12, height: 0 }}
+              animate={{ opacity: 1, y: 0, height: "auto" }}
+              exit={{ opacity: 0, y: -12, height: 0 }}
+              transition={{ duration: 0.3 }}
+              className="mb-4 print:hidden"
+            >
+              <div className="rounded-xl border border-blue-500/30 bg-blue-500/5 backdrop-blur-sm px-4 py-3 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-sm min-w-0">
+                  <Users className="h-4 w-4 text-blue-500 flex-shrink-0" />
+                  <span className="truncate">{pendingInviteNotif.message}</span>
+                </div>
+                <div className="flex items-center gap-1 flex-shrink-0">
+                  {pendingInviteNotif.workspaceId && pendingInviteNotif.workspaceId !== user?.workspaceId && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs border-blue-500/40 hover:bg-blue-500/10"
+                      disabled={switchToInviteWorkspaceMutation.isPending}
+                      onClick={() => {
+                        markInviteReadMutation.mutate(pendingInviteNotif.id);
+                        switchToInviteWorkspaceMutation.mutate(pendingInviteNotif.workspaceId!);
+                      }}
+                    >
+                      Switch →
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => {
+                      markInviteReadMutation.mutate(pendingInviteNotif.id);
+                      setInviteBannerDismissed(true);
+                    }}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
             </motion.div>
           )}

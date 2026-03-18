@@ -154,6 +154,20 @@ export function registerWorkspaceRoutes(app: Express, upload: multer.Multer) {
           status: "accepted",
         });
 
+        // Auto-create a contact card for the user in this workspace
+        try {
+          await storage.createContact({
+            workspaceId: wsId,
+            userId: targetUser.id,
+            firstName: targetUser.firstName || "",
+            lastName: targetUser.lastName || "",
+            email: targetUser.email || "",
+            phone: targetUser.phone || null,
+            role: targetUser.department || "",
+            contactType: "crew",
+          });
+        } catch (_) {}
+
         // In-app notification
         try {
           await storage.createNotification({

@@ -16,8 +16,8 @@ export function ScheduleCommentsDialog({ scheduleId, itemTitle }: { scheduleId: 
   const { mutate: togglePin } = useToggleCommentPin(scheduleId);
   const [newComment, setNewComment] = useState("");
 
-  const canComment = false;
-  const canEdit = false;
+  const canComment = ["owner", "manager", "admin", "commenter", "client", "viewer"].includes(user?.role || "");
+  const canEdit = ["owner", "manager", "admin"].includes(user?.role || "");
 
   const handleSubmit = () => {
     if (!newComment.trim()) return;

@@ -877,7 +877,7 @@ function PeopleAdmin() {
                               <Pencil className="w-3.5 h-3.5" />
                             </Button>
                             {user && currentUser?.id !== user.id ? (
-                              <ConfirmDelete onConfirm={() => deleteUserMutation.mutate(user.id)} title="Delete user?" description={`Remove ${contact.firstName} ${contact.lastName} (${user.email})? This will also remove their show assignments.`} triggerVariant="ghost" triggerSize="icon" triggerClassName="h-7 w-7 text-destructive" triggerLabel={<Trash2 className="w-3.5 h-3.5" />} data-testid={`button-delete-person-${contact.id}`} />
+                              <ConfirmDelete onConfirm={() => deleteUserMutation.mutate(user.id)} title="Remove from workspace?" description={`Remove ${contact.firstName} ${contact.lastName} (${user.email}) from this workspace? Their account will not be deleted.`} triggerVariant="ghost" triggerSize="icon" triggerClassName="h-7 w-7 text-destructive" triggerLabel={<Trash2 className="w-3.5 h-3.5" />} data-testid={`button-delete-person-${contact.id}`} />
                             ) : invite ? (
                               <ConfirmDelete onConfirm={() => revokeInviteMutation.mutate(invite.id)} title="Revoke invite?" description={`Revoke the invite for ${invite.email}?`} triggerVariant="ghost" triggerSize="icon" triggerClassName="h-7 w-7 text-destructive" triggerLabel={<Trash2 className="w-3.5 h-3.5" />} data-testid={`button-revoke-invite-${invite.id}`} />
                             ) : !user ? (
@@ -957,7 +957,7 @@ function PeopleAdmin() {
                       </SelectContent>
                     </Select>
                     {currentUser?.id !== user.id && (
-                      <ConfirmDelete onConfirm={() => deleteUserMutation.mutate(user.id)} title="Delete user?" description={`Delete ${user.email}? This will also remove their show assignments.`} triggerVariant="ghost" triggerSize="icon" triggerClassName="h-8 w-8 text-destructive" triggerLabel={<Trash2 className="w-3.5 h-3.5" />} data-testid={`button-delete-orphan-user-${user.id}`} />
+                      <ConfirmDelete onConfirm={() => deleteUserMutation.mutate(user.id)} title="Remove from workspace?" description={`Remove ${user.email} from this workspace? Their account will not be deleted.`} triggerVariant="ghost" triggerSize="icon" triggerClassName="h-8 w-8 text-destructive" triggerLabel={<Trash2 className="w-3.5 h-3.5" />} data-testid={`button-delete-orphan-user-${user.id}`} />
                     )}
                   </div>
                 </div>
