@@ -321,9 +321,9 @@ export function registerAuthRoutes(app: Express, upload: multer.Multer) {
         eventDayVenues: dayVenues, files, fileFolders: allFileFolders,
         userActivity, departments: finalDepartments, crewPositions: finalCrewPositions,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Bootstrap error:", error);
-      res.status(500).json({ message: "Failed to load dashboard data" });
+      res.status(500).json({ message: "Failed to load dashboard data", detail: error?.message, code: error?.code });
     }
   });
 
