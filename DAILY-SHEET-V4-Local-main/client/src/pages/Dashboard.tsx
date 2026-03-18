@@ -1280,15 +1280,16 @@ export default function Dashboard() {
           </Dialog>
 
           <div className="space-y-2 print:hidden sticky top-[52px] sm:top-16 z-40 bg-background -mx-4 px-4 pb-3 pt-2 border-b border-border/40 shadow-sm">
-            <div className="flex justify-center items-center gap-2 overflow-hidden">
-              <TabsList className="bg-card p-1 rounded-xl inline-flex">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="flex-1 overflow-x-auto scrollbar-hide min-w-0">
+              <TabsList className="bg-card p-1 rounded-xl inline-flex w-max">
                 {visibleTabs.map(tabId => {
                   const meta = ALL_TABS.find(t => t.id === tabId)!;
                   return (
                     <TabsTrigger
                       key={tabId}
                       value={tabId}
-                      className="rounded-lg px-2 sm:px-4 py-2 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-medium transition-all whitespace-nowrap"
+                      className="rounded-lg px-2.5 sm:px-4 py-2 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-medium transition-all whitespace-nowrap"
                       data-testid={tabId === "timesheet" ? "tab-timesheet" : tabId === "activity" ? "tab-activity" : undefined}
                     >
                       {meta.label}
@@ -1296,6 +1297,7 @@ export default function Dashboard() {
                   );
                 })}
               </TabsList>
+              </div>
               <Button
                 variant="ghost"
                 size="icon"
@@ -1567,7 +1569,7 @@ export default function Dashboard() {
                                             href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(showVenue.address)}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
-                                            className="text-xs text-secondary-foreground/70 underline underline-offset-2 hover:text-secondary-foreground transition-colors truncate block max-w-[250px]"
+                                            className="text-xs text-secondary-foreground/70 underline underline-offset-2 hover:text-secondary-foreground transition-colors truncate block max-w-full"
                                             data-testid={`link-venue-bar-address-${showEvent?.id}`}
                                           >
                                             {showVenue.address}

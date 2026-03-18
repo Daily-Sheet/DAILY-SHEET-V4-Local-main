@@ -340,7 +340,7 @@ export function ShowSwitcher({
         data-testid="button-show-switcher"
       >
         <Mic2 className="h-3 w-3 shrink-0" />
-        <span className="truncate min-w-[3rem] max-w-[140px] sm:max-w-[200px]">
+        <span className="truncate min-w-0 max-w-[110px] sm:max-w-[200px]">
           {pillLabel}
         </span>
         <ChevronDown className="h-3 w-3 shrink-0" />
