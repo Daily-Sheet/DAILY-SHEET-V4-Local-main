@@ -141,6 +141,11 @@ export function registerWorkspaceRoutes(app: Express, upload: multer.Multer) {
           role: inviteRole,
         });
 
+        // If user has no workspace yet, assign this one as their primary
+        if (!targetUser.workspaceId) {
+          await db.update(users).set({ workspaceId: wsId }).where(eq(users.id, targetUser.id));
+        }
+
         const invite = await storage.createWorkspaceInvite({
           email,
           workspaceId: wsId,
@@ -148,6 +153,18 @@ export function registerWorkspaceRoutes(app: Express, upload: multer.Multer) {
           invitedBy: req.user.id,
           status: "accepted",
         });
+
+        // In-app notification
+        try {
+          await storage.createNotification({
+            userId: targetUser.id,
+            workspaceId: wsId,
+            title: "Added to workspace",
+            message: `${inviterName} added you to ${workspaceName} as ${inviteRole}.`,
+            type: "workspace_invite",
+            read: false,
+          });
+        } catch (_) {}
 
         try {
           await sendInviteEmail(
@@ -159,9 +176,9 @@ export function registerWorkspaceRoutes(app: Express, upload: multer.Multer) {
                 <strong>${inviterName}</strong> has added you to <strong>${workspaceName}</strong> on Daily Sheet as a <strong>${inviteRole}</strong>.
               </p>
               <p style="color: #475569; font-size: 16px; line-height: 1.6;">
-                Log in to start collaborating with the crew.
+                Log in to access your workspace. If you're already logged in, use the workspace switcher in the top menu.
               </p>
-              <a href="${appUrl}" style="display: inline-block; background-color: #1e40af; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 16px;">Open Daily Sheet</a>
+              <a href="${appUrl}/login" style="display: inline-block; background-color: #1e40af; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600; margin-top: 16px;">Log In to Daily Sheet</a>
             </div>`
           );
         } catch (emailErr: any) {

@@ -350,6 +350,18 @@ export function registerAuthRoutes(app: Express, upload: multer.Multer) {
     }
   });
 
+  app.get("/api/auth/check-email", async (req: any, res) => {
+    try {
+      const email = (req.query.email as string || "").toLowerCase().trim();
+      if (!email) return res.json({ exists: false });
+      const allUsers = await storage.getAllUsers();
+      const exists = allUsers.some((u: any) => (u.email || "").toLowerCase() === email);
+      res.json({ exists });
+    } catch {
+      res.json({ exists: false });
+    }
+  });
+
   app.get("/api/auth/check-invite", async (req: any, res) => {
     try {
       const token = req.query.token as string;

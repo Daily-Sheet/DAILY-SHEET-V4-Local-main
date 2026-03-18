@@ -37,6 +37,16 @@ export default function Register() {
     },
   });
 
+  const { data: emailCheck } = useQuery<{ exists: boolean }>({
+    queryKey: ["/api/auth/check-email", inviteEmail],
+    queryFn: async () => {
+      if (!inviteEmail) return { exists: false };
+      const res = await fetch((import.meta.env.VITE_API_URL ?? "") + `/api/auth/check-email?email=${encodeURIComponent(inviteEmail)}`);
+      return res.json();
+    },
+    enabled: !!inviteEmail,
+  });
+
   const { data: inviteStatus } = useQuery<{ valid: boolean; email?: string; role?: string }>({
     queryKey: ["/api/auth/check-invite", inviteToken],
     queryFn: async () => {
@@ -119,7 +129,26 @@ export default function Register() {
 
       <main className="flex-1 flex items-center justify-center">
         <div className="container mx-auto px-4 py-8 max-w-md">
-          {!canRegister ? (
+          {emailCheck?.exists ? (
+            <Card>
+              <CardHeader className="text-center">
+                <div className="mx-auto h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center mb-2">
+                  <LogIn className="h-6 w-6 text-primary" />
+                </div>
+                <CardTitle className="text-2xl font-display uppercase tracking-wide">You're already in</CardTitle>
+                <CardDescription>
+                  An account already exists for <strong>{inviteEmail}</strong>. You've been added to the workspace — just log in to access it.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Link href="/">
+                  <Button className="w-full">
+                    <LogIn className="mr-2 h-4 w-4" /> Log In
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ) : !canRegister ? (
             <Card>
               <CardHeader className="text-center">
                 <div className="mx-auto h-12 w-12 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center mb-2">
