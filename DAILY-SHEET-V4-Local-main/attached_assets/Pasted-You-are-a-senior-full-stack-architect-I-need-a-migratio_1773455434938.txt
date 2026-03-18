@@ -1,0 +1,81 @@
+You are a senior full-stack architect. I need a migration/structure plan only (no product feature changes) to make this app easy to offload from hosted services to localhost/self-hosted environments.
+
+## Current app context
+- App: Daily Sheet (production scheduling + crew coordination).
+- Frontend: Vite React app (currently deployed on Cloudflare Pages).
+- Backend: Express API (currently deployed on Render).
+- Database: PostgreSQL.
+- Session auth is cookie-based with credentialed requests.
+- Frontend env currently uses VITE_API_URL.
+- Backend env currently includes DATABASE_URL, SESSION_SECRET, CORS_ORIGIN, optional RESEND_API_KEY and optional R2 storage vars.
+- Build commands include:
+  - npm run dev
+  - npm run build
+  - backend-only build via npx tsx script/build-server.ts
+
+## What I want from you
+Create a practical, step-by-step restructuring plan to run reliably on localhost and be production-portable later.
+
+### Hard constraints
+1) Do NOT write app feature code.
+2) Do NOT redesign business logic.
+3) Focus on architecture, environment separation, repo structure, and deployment workflow.
+4) Keep auth/session behavior compatible.
+
+## Deliverables (required)
+1) **Target Architecture (localhost-first)**
+   - Recommended service topology (frontend, backend, db, optional reverse proxy).
+   - Port layout and local domain/cookie strategy.
+   - How to preserve secure cookie/session behavior between local and production.
+
+2) **Repo/Project Structure Proposal**
+   - Suggested folder layout for client/server/shared/config/deploy/scripts.
+   - How to isolate environment-specific config cleanly.
+   - What files should be source-of-truth vs generated.
+
+3) **Environment Strategy**
+   - Exact `.env` file matrix (e.g., `.env.example`, `.env.local`, `.env.development`, `.env.production`).
+   - Which vars belong to frontend vs backend.
+   - Validation policy recommendation (warn vs strict) by environment.
+
+4) **Local Dev Orchestration**
+   - Recommend Docker Compose vs native run, with rationale.
+   - If Compose: include service names, volumes, healthchecks, startup order conceptually.
+   - DB migration/seed workflow for local bootstrap.
+
+5) **Build/Run Standardization**
+   - Unified scripts for: dev, build, start, test, lint, typecheck.
+   - Backend-only and full-stack build flow.
+   - Artifact expectations for CI and local release testing.
+
+6) **Deployment Portability Plan**
+   - How to keep deployment target-agnostic (Render/Cloudflare now, local/VPS later).
+   - Reverse proxy guidance (Nginx/Caddy) for cookie/session and CORS consistency.
+   - Storage abstraction strategy for local disk/S3-compatible providers.
+
+7) **Risk Register + Mitigations**
+   - Top migration risks (sessions/cookies, CORS, env drift, DB schema drift, secrets handling).
+   - Concrete mitigations and rollback checkpoints.
+
+8) **Phased Implementation Roadmap**
+   - Phase 0–N with effort estimate, dependencies, and acceptance criteria.
+   - “Low-risk first” ordering.
+   - Explicit “definition of done” for localhost parity.
+
+9) **Verification Checklist**
+   - End-to-end checks to confirm local parity:
+     - auth login/logout/session persistence
+     - API credentialed calls
+     - DB connectivity and migrations
+     - CORS/cookie behavior
+     - frontend build + backend build consistency
+
+## Output format
+- Use Markdown with:
+  - Executive Summary
+  - Architecture Diagram (ASCII is fine)
+  - Detailed Plan (phased)
+  - Checklist
+  - Open Questions
+- Keep it implementation-ready and specific, not generic advice.
+- If assumptions are needed, state them explicitly.

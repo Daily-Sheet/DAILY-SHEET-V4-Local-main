@@ -1,0 +1,9 @@
+{
+  // Daily Sheet - Cloudflare Pages Configuration
+  // Frontend SPA deployed to Cloudflare Pages
+  // Backend API hosted separately on Render
+
+  "name": "daily-sheet",
+  "pages_build_output_dir": "dist/public",
+  "compatibility_date": "2024-09-23"
+}

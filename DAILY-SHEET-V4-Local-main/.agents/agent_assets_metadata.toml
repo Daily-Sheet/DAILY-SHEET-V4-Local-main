@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "UjaHQqMlNJ3iKAuiBksX-"
+uri = "file://LOCALHOST_MIGRATION_PLAN.md"
+type = "text"
+title = "Daily Sheet — Localhost-First Migration Plan"

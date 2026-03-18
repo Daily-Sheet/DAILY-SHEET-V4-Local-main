@@ -1,0 +1,42 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker --version)",
+      "Bash(npm --version)",
+      "Bash(npm install:*)",
+      "Bash(cp .env.example .env.local)",
+      "Bash(sed -i 's/SESSION_SECRET=change-me-to-a-random-32-char-or-longer-string/SESSION_SECRET=local-dev-secret-key-abc123xyz987-secure/' .env.local)",
+      "Bash(docker compose:*)",
+      "Bash(docker info:*)",
+      "Bash(psql --version)",
+      "Bash(DATABASE_URL=postgresql://dailysheet:dailysheet@localhost:5432/dailysheet npx drizzle-kit push 2>&1)",
+      "Bash(DATABASE_URL=postgresql://dailysheet:dailysheet@localhost:5432/dailysheet npx tsx script/seed.ts 2>&1)",
+      "Bash(npm run:*)",
+      "Bash(netstat -ano)",
+      "Bash(node:*)",
+      "Bash(wc -l C:UsersdrewtDownloadsDAILY-SHEET-V4-Local-mainDAILY-SHEET-V4-Local-mainserverroutes*.ts C:UsersdrewtDownloadsDAILY-SHEET-V4-Local-mainDAILY-SHEET-V4-Local-mainclientsrccomponentsdashboard***.tsx)",
+      "Bash(xargs wc:*)",
+      "Bash(npx tsc:*)",
+      "Bash(pkill -f \"tsx.*server/index\")",
+      "Bash(head -20 grep -rn \"AdminPage\\\\|admin.*tab\\\\|projects.*tab\\\\|Tab.*project\" /c/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/client/src/App.tsx)",
+      "Bash(grep -E \"\\\\.\\(ts|tsx\\)$\")",
+      "Bash(grep -r \"PUNCH_LOCATION\\\\|punch.*location\\\\|location.*punch\" C:UsersdrewtDownloadsDAILY-SHEET-V4-Local-mainDAILY-SHEET-V4-Local-main --include=*.ts --include=*.tsx --include=.env*)",
+      "Bash(find /c/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main -type f \\\\\\(-name *.sql -o -name *drizzle* -o -name *migration* \\\\\\))",
+      "Bash(find C:UsersdrewtDownloadsDAILY-SHEET-V4-Local-mainDAILY-SHEET-V4-Local-main -name *Admin* -o -name *admin*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd /c \"taskkill /F /PID 24368\" 2>&1)",
+      "Bash(cmd /c \"taskkill /F /PID 24368 2>&1\")",
+      "Bash(cmd /c \"taskkill /F /PID 24368\")",
+      "Bash(powershell -Command 'Stop-Process -Id 24368 -Force')",
+      "Bash(npx drizzle-kit:*)",
+      "Bash(DATABASE_URL=\"postgresql://dailysheet:dailysheet@localhost:5432/dailysheet\" npx drizzle-kit push)",
+      "Bash(DATABASE_URL=\"postgresql://dailysheet:dailysheet@localhost:5432/dailysheet\" npx drizzle-kit push --verbose)",
+      "Bash(PGPASSWORD=dailysheet psql -U dailysheet -h localhost -d dailysheet -c \"\\\\d events\")",
+      "Bash(xargs grep:*)",
+      "Bash(set -a)",
+      "Bash(source .env.local)",
+      "Bash(set +a)",
+      "Bash(grep -r useQuery.*settings /c/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/client/src --include=*.tsx --include=*.ts)"
+    ]
+  }
+}

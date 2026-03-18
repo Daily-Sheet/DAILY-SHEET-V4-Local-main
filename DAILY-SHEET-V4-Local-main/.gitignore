@@ -1,0 +1,13 @@
+node_modules
+dist
+.DS_Store
+server/public
+vite.config.ts.*
+*.tar.gz
+.cache/
+.local/
+
+# Environment files — only .env.example and .env.development are safe to commit
+.env.local
+.env.production
+.env.*.local

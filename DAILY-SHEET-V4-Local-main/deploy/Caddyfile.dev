@@ -1,0 +1,34 @@
+# Daily Sheet — Local Development Reverse Proxy
+#
+# Prerequisites:
+#   brew install caddy   (macOS)
+#   apt install caddy    (Debian/Ubuntu)
+#
+# Usage:
+#   caddy run --config deploy/Caddyfile.dev
+#
+# This puts the Vite dev server and the Express API behind a single origin
+# (localhost:80) so cookies and CORS work identically to production.
+# You do NOT need CORS_ORIGIN set in your .env when using this proxy.
+
+localhost {
+    # API — forward to Express
+    handle /api/* {
+        reverse_proxy localhost:5000
+    }
+
+    # Replit Object Storage proxy (if used)
+    handle /obj/* {
+        reverse_proxy localhost:5000
+    }
+
+    # File uploads served by Express
+    handle /uploads/* {
+        reverse_proxy localhost:5000
+    }
+
+    # Frontend — forward to Vite HMR dev server
+    handle {
+        reverse_proxy localhost:5173
+    }
+}

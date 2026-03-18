@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1a1a2e"/>
+      <stop offset="100%" stop-color="#16213e"/>
+    </linearGradient>
+    <clipPath id="topclip">
+      <rect x="4" y="6" width="24" height="9" rx="2"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <rect width="32" height="32" rx="7" fill="url(#bg)"/>
+
+  <!-- Clapperboard body -->
+  <rect x="4" y="15" width="24" height="13" rx="2" fill="#f0f0f0"/>
+
+  <!-- Subtle lines on body -->
+  <line x1="4" y1="19.5" x2="28" y2="19.5" stroke="#c8c8cc" stroke-width="0.8"/>
+  <line x1="4" y1="23.5" x2="28" y2="23.5" stroke="#c8c8cc" stroke-width="0.8"/>
+
+  <!-- Top bar base -->
+  <rect x="4" y="6" width="24" height="9" rx="2" fill="#1e1e2e"/>
+
+  <!-- Diagonal stripes on top bar -->
+  <g clip-path="url(#topclip)">
+    <path d="M3 6 L9 6 L3 15 Z" fill="#f5c842"/>
+    <path d="M9 6 L15 6 L9 15 L3 15 Z" fill="#1e1e2e"/>
+    <path d="M15 6 L21 6 L15 15 L9 15 Z" fill="#f5c842"/>
+    <path d="M21 6 L27 6 L21 15 L15 15 Z" fill="#1e1e2e"/>
+    <path d="M27 6 L33 6 L33 15 L21 15 Z" fill="#f5c842"/>
+  </g>
+
+  <!-- Hinge pin -->
+  <rect x="11" y="4" width="10" height="4" rx="1.5" fill="#2d2d44"/>
+  <circle cx="16" cy="6" r="1.5" fill="#f5c842"/>
+</svg>

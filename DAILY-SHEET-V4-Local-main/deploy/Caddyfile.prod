@@ -1,0 +1,45 @@
+# Daily Sheet — Production Reverse Proxy (VPS / Self-Hosted)
+#
+# Replace yourdomain.com with your actual domain.
+# Caddy automatically provisions TLS via Let's Encrypt.
+#
+# Prerequisites:
+#   - Caddy installed on the server
+#   - DNS A record pointing yourdomain.com → server IP
+#   - Node app running on port 5000 (via PM2 or systemd)
+#
+# Usage:
+#   sudo caddy run --config deploy/Caddyfile.prod
+#   # or
+#   sudo caddy start --config deploy/Caddyfile.prod
+
+yourdomain.com {
+    # API — forward to Express
+    handle /api/* {
+        reverse_proxy localhost:5000
+    }
+
+    # Object storage / file routes handled by Express
+    handle /obj/* {
+        reverse_proxy localhost:5000
+    }
+    handle /uploads/* {
+        reverse_proxy localhost:5000
+    }
+
+    # Frontend — serve built SPA static files
+    handle {
+        root * /srv/daily-sheet/dist/public
+        file_server
+        # SPA fallback: unknown paths → index.html (client-side routing)
+        try_files {path} /index.html
+    }
+
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        Referrer-Policy "strict-origin-when-cross-origin"
+    }
+}

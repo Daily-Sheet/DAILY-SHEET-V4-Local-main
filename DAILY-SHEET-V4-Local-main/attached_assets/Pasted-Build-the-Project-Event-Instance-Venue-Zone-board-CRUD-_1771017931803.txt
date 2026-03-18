@@ -1,0 +1,567 @@
+Build the Project → Event → Instance → Venue → Zone board + CRUD (Drizzle/Postgres + React)
+
+You are a senior full-stack engineer. Implement the hierarchy + UI board for a production event management app with the following stack:
+
+Frontend: React 18 + TypeScript, Vite, Tailwind, shadcn/ui, Wouter, TanStack React Query, React Hook Form + Zod, Framer Motion
+Backend: Node.js Express 5 + TypeScript (esbuild), Drizzle ORM, Zod validation
+DB: PostgreSQL
+Auth: Replit Auth (OIDC)
+Email: Resend (invites + daily sheets later; for now only invites stub is OK)
+
+Goal
+
+Implement the data model + API + frontend screens to support this exact structure:
+
+Project
+→ Event (aka Event Series)
+→ Event Instance (date-based occurrence)
+→ Venue
+→ Zones (Default Zone auto-created if none)
+→ each Zone contains:
+
+Schedule Items
+
+Equipment Assignments
+
+Crew Assignments
+
+Non-negotiable rules
+
+Every Event Instance must have a Venue.
+
+Every Venue/Instance must have at least one Zone. If user creates none, auto-create “Default Zone” (isDefault=true).
+
+All child entities must be scoped to an eventInstanceId and usually via zoneId.
+
+Permissions enforced server-side:
+
+Admin can CRUD everything and invite.
+
+Viewer is read-only.
+
+Provide a “Hierarchy Board” UI for an Event Instance: Venue header + Zone columns/cards + lists + quick-add.
+
+A) Database schema (Drizzle)
+
+Create Drizzle tables + relations + indexes:
+
+projects
+
+id (uuid pk)
+
+name (text not null)
+
+description (text)
+
+createdByUserId (text not null)
+
+createdAt, updatedAt (timestamptz)
+
+project_memberships
+
+id uuid pk
+
+projectId uuid fk projects
+
+userId text not null
+
+role enum: admin | viewer
+
+createdAt
+Unique index (projectId, userId)
+
+event_series (UI label: “Event”)
+
+id uuid pk
+
+projectId uuid fk
+
+name text not null
+
+type text (optional) // wedding/festival/corporate/tour/custom
+
+description text
+
+createdAt, updatedAt
+Index projectId
+
+venues
+
+id uuid pk
+
+name text not null
+
+address text
+
+city text
+
+state text
+
+country text
+
+notes text
+
+createdAt, updatedAt
+
+event_instances
+
+id uuid pk
+
+eventSeriesId uuid fk
+
+venueId uuid fk venues NOT NULL
+
+name text // optional “Event Date 1”
+
+startAt timestamptz not null
+
+endAt timestamptz
+
+status enum: draft | confirmed | completed
+
+notes text
+
+createdAt, updatedAt
+Index eventSeriesId, venueId, startAt
+
+zones
+
+id uuid pk
+
+eventInstanceId uuid fk
+
+venueId uuid fk // duplicate for convenience, must match instance.venueId
+
+name text not null
+
+orderIndex int not null default 0
+
+isDefault boolean not null default false
+
+createdAt, updatedAt
+Unique index (eventInstanceId, name)
+Index (eventInstanceId, orderIndex)
+
+schedule_items
+
+id uuid pk
+
+eventInstanceId uuid fk
+
+zoneId uuid fk zones
+
+title text not null
+
+category text // setup/show/meal/keynote/load-in/strike/custom
+
+startAt timestamptz
+
+endAt timestamptz
+
+description text
+
+sortOrder int default 0
+
+createdAt, updatedAt
+Index (zoneId, sortOrder)
+
+crew_members
+
+id uuid pk
+
+projectId uuid fk projects
+
+name text not null
+
+role text
+
+email text
+
+phone text
+
+createdAt, updatedAt
+Index projectId
+
+crew_assignments
+
+id uuid pk
+
+eventInstanceId uuid fk
+
+zoneId uuid fk
+
+crewMemberId uuid fk crew_members
+
+callTime timestamptz
+
+endTime timestamptz
+
+notes text
+
+createdAt, updatedAt
+Index (zoneId), (crewMemberId)
+
+equipment_assignments
+
+id uuid pk
+
+eventInstanceId uuid fk
+
+zoneId uuid fk
+
+equipmentName text not null
+
+qty int not null default 1
+
+notes text
+
+assignedCrewMemberId uuid fk crew_members (nullable)
+
+createdAt, updatedAt
+Index (zoneId)
+
+Cascades
+
+Deleting an event instance should delete zones + items + assignments (DB cascade or transaction).
+
+Default Zone logic
+
+On create event instance: create “Default Zone” automatically.
+
+On fetch board: if zones missing (legacy), create Default Zone lazily in a transaction.
+
+B) Shared Zod schemas (backend + frontend)
+
+Create shared/schemas/*.ts used by both sides (or replicate if monorepo isn’t set up). Include:
+
+ProjectSchema, EventSeriesSchema, VenueSchema, EventInstanceSchema, ZoneSchema
+
+Create/Update request schemas for each
+
+RoleSchema = z.enum(["admin","viewer"])
+
+StatusSchema = z.enum(["draft","confirmed","completed"])
+
+All API handlers must validate request bodies + params with Zod.
+
+C) Backend (Express 5) routes + middleware
+Auth + user identity
+
+Use Replit Auth OIDC. Implement middleware:
+
+requireAuth -> sets req.user = { id, email, name } (whatever Replit provides)
+
+requireProjectRole(projectId, minRole) -> checks membership:
+
+viewer can GET only
+
+admin can POST/PUT/PATCH/DELETE
+
+API routes (REST)
+
+Use prefix /api.
+
+Projects
+
+GET /api/projects -> projects where user is member
+
+POST /api/projects (admin creates; creator becomes admin)
+
+GET /api/projects/:projectId
+
+PATCH /api/projects/:projectId
+
+GET /api/projects/:projectId/members
+
+POST /api/projects/:projectId/invite -> create membership for email/userId (stub: store + send email via Resend)
+
+PATCH /api/projects/:projectId/members/:memberId -> change role
+
+DELETE /api/projects/:projectId/members/:memberId
+
+Event Series (Events)
+
+GET /api/projects/:projectId/events
+
+POST /api/projects/:projectId/events
+
+GET /api/events/:eventSeriesId
+
+PATCH /api/events/:eventSeriesId
+
+DELETE /api/events/:eventSeriesId
+
+Event Instances
+
+GET /api/events/:eventSeriesId/instances
+
+POST /api/events/:eventSeriesId/instances (requires venueId; creates default zone)
+
+GET /api/instances/:instanceId
+
+PATCH /api/instances/:instanceId
+
+DELETE /api/instances/:instanceId
+
+POST /api/instances/:instanceId/duplicate -> clones zones + schedule + equipment + crew assignments to new dates/venue
+
+Venues
+
+GET /api/venues?search=... (basic search)
+
+POST /api/venues
+
+PATCH /api/venues/:venueId
+
+Zones + reorder
+
+GET /api/instances/:instanceId/zones
+
+POST /api/instances/:instanceId/zones
+
+PATCH /api/zones/:zoneId
+
+DELETE /api/zones/:zoneId
+
+POST /api/instances/:instanceId/zones/reorder body: { orderedZoneIds: string[] }
+
+Board aggregate endpoint (important)
+
+GET /api/instances/:instanceId/board
+Return:
+
+{
+  instance,
+  venue,
+  zones: [
+    {
+      zone,
+      scheduleItems: [],
+      equipmentAssignments: [],
+      crewAssignments: [{ assignment, crewMember }]
+    }
+  ]
+}
+
+
+This endpoint should ensure default zone exists.
+
+Schedule Items
+
+POST /api/zones/:zoneId/schedule-items
+
+PATCH /api/schedule-items/:id
+
+DELETE /api/schedule-items/:id
+
+Equipment Assignments
+
+POST /api/zones/:zoneId/equipment
+
+PATCH /api/equipment/:id
+
+DELETE /api/equipment/:id
+
+Crew Members (project-level)
+
+GET /api/projects/:projectId/crew
+
+POST /api/projects/:projectId/crew
+
+PATCH /api/crew/:id
+
+DELETE /api/crew/:id
+
+Crew Assignments
+
+POST /api/zones/:zoneId/crew-assignments
+
+PATCH /api/crew-assignments/:id
+
+DELETE /api/crew-assignments/:id
+
+Backend deliverables
+
+Drizzle migrations
+
+Route files organized by domain
+
+Central error handler with Zod errors formatted cleanly
+
+Transaction usage for create instance + default zone, duplicate instance, lazy default zone creation
+
+D) Frontend (React + Wouter + React Query + shadcn)
+
+Create these routes:
+
+/
+
+Projects list (cards)
+
+“New Project” button (admin only for creation)
+
+Uses React Query useProjects()
+
+/projects/:projectId
+
+Project Overview:
+
+Event Series list (cards)
+
+“New Event” modal form (RHF + Zod)
+
+Clicking event goes to /events/:eventSeriesId
+
+/events/:eventSeriesId
+
+Event Series page:
+
+Instances list in chronological order
+
+Create Instance modal:
+
+name optional
+
+start/end
+
+venue picker (typeahead from /api/venues?search=)
+
+creates instance and navigates to board
+
+/instances/:instanceId
+
+Event Instance page:
+
+Top header: instance name/date + venue name
+
+Main content: Hierarchy Board:
+
+Hierarchy Board UI requirements
+
+Render Zones as columns (like Kanban) using shadcn Card
+
+Each Zone Card contains:
+
+Zone header with inline editable name + menu (rename/delete)
+
+Buttons:
+
+“+ Schedule”
+
+“+ Equipment”
+
+“+ Crew”
+
+Three sections (accordion or tabs ok):
+
+Schedule Items list (sortable display by time then sortOrder)
+
+Equipment Assignments list
+
+Crew Assignments list
+
+Use Framer Motion for:
+
+Zone column entrance animation
+
+Item add/remove animation
+
+Zone reorder:
+
+simple up/down controls OR drag-and-drop (only if easy; otherwise up/down)
+
+persists via /zones/reorder
+
+Forms:
+
+All create/edit forms must use RHF + Zod.
+
+Use shadcn Dialog, Form, Input, Textarea, Select, Button.
+
+Data:
+
+Use React Query:
+
+useInstanceBoard(instanceId) -> GET /board
+
+Mutations for create/update/delete should invalidate board query.
+
+Permissions UI:
+
+If viewer: hide create/edit buttons and disable inline edits.
+
+Still rely on server to enforce.
+
+E) Templates (fast setup like diagram examples)
+
+Implement templates selectable when creating an Event Series or Instance.
+
+Minimal version (do now)
+
+On “Create Event” modal: template dropdown:
+
+Wedding Planner
+
+Festival Organizer
+
+Corporate Session
+
+Touring Band
+
+Blank
+
+When creating the first instance (or via a button “Apply Template to Instance”):
+Auto-create zones based on template:
+
+Wedding: Ceremony, Reception Hall, Prayer Zone, In-and-Out
+
+Festival: Main Stage, B-Stage, Third Stage
+
+Corporate: Reception Hall, General Session, Test Kitchen, Default Zone (or “Breakout”)
+
+Touring: VIP Pre-Show, Show
+
+Also seed starter schedule items per zone (setup/load-in/show/strike etc.) where appropriate.
+
+Store template as a string on event_series.type or separate field.
+
+F) Seed script (dev only)
+
+Create a seed.ts that inserts:
+
+4 projects (Wedding/Festival/Corporate/Touring)
+
+events + 3 instances each
+
+venues
+
+zones + sample items (bands, meals, demos, meet&greet, strike)
+This should make the UI look like the diagram immediately.
+
+G) Quality + structure requirements
+
+Keep code organized by domain: server/routes/projects.ts, events.ts, instances.ts, etc.
+
+Shared types from Zod inference: type T = z.infer<typeof Schema>
+
+No duplicated logic: put membership checks in middleware
+
+Return consistent API shapes { data, error } or standard JSON with proper status codes
+
+Include basic loading/error states on every page
+
+H) Output expected from you (the agent)
+
+Drizzle schema + migrations
+
+Express routes + middleware + validation
+
+Board aggregate query and default-zone enforcement
+
+React pages + components + hooks + queries/mutations
+
+Seed script
+
+Minimal styling with Tailwind/shadcn, animations with Framer Motion
+
+Proceed to implement now, creating/adjusting files as needed.
