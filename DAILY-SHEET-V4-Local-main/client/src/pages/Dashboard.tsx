@@ -892,14 +892,7 @@ export default function Dashboard() {
             <div className="flex items-center gap-3">
               <h1 className="text-base sm:text-xl font-display uppercase tracking-wide text-foreground">Daily Sheet</h1>
             </div>
-            <div className="flex items-center gap-2">
-              <button onClick={toggleTheme} className="h-9 w-9 rounded-lg flex items-center justify-center hover-elevate" data-testid="button-toggle-theme-waiting">
-                {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              </button>
-              <button onClick={() => logout()} className="h-9 w-9 rounded-lg flex items-center justify-center hover-elevate" data-testid="button-logout-waiting">
-                <LogOut className="h-5 w-5" />
-              </button>
-            </div>
+            <HeaderUserMenu contacts={[]} canEdit={false} allEventAssignments={[]} />
           </div>
         </header>
         <div className="flex-1 flex items-center justify-center p-8">
@@ -929,14 +922,7 @@ export default function Dashboard() {
               <h1 className="text-base sm:text-xl font-display uppercase tracking-wide text-foreground">Daily Sheet</h1>
               {currentWorkspace && <p className="text-xs text-muted-foreground">{currentWorkspace.name}</p>}
             </div>
-            <div className="flex items-center gap-2">
-              <button onClick={toggleTheme} className="h-9 w-9 rounded-lg flex items-center justify-center hover-elevate" data-testid="button-toggle-theme-empty">
-                {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-              </button>
-              <button onClick={() => logout()} className="h-9 w-9 rounded-lg flex items-center justify-center hover-elevate" data-testid="button-logout-empty">
-                <LogOut className="h-5 w-5" />
-              </button>
-            </div>
+            <HeaderUserMenu contacts={[]} canEdit={false} allEventAssignments={[]} />
           </div>
         </header>
         <div className="flex-1 flex items-center justify-center p-8">
