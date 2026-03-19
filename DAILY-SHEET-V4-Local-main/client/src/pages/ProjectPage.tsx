@@ -1580,11 +1580,13 @@ function VenueTab({
   event,
   venues,
   isAdmin,
+  resolvedVenueId,
 }: {
   venue: Venue | null | undefined;
   event: Event;
   venues: Venue[];
   isAdmin: boolean;
+  resolvedVenueId: number | null;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -1600,6 +1602,7 @@ function VenueTab({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/event-day-venues"] });
       toast({ title: "Venue Updated" });
       setShowVenueSelect(false);
     },
@@ -1657,7 +1660,7 @@ function VenueTab({
           ) : (
             <div className="flex items-center gap-2 flex-wrap">
               <Select
-                value={event.venueId ? String(event.venueId) : "none"}
+                value={resolvedVenueId ? String(resolvedVenueId) : "none"}
                 onValueChange={(val) => {
                   if (val === "create-new") {
                     setCreateVenueOpen(true);
@@ -3185,7 +3188,7 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
                             <CrewTab eventName={show.event.name} contacts={contacts} allEventAssignments={allEventAssignments} isAdmin={isAdmin} selectedDate={selectedDate} isTour={true} projectAssignments={projectAssignments} projectId={project.id} />
                           </TabsContent>
                           <TabsContent value="venue" className="mt-3">
-                            <VenueTab venue={resolvedVenue} event={show.event} venues={venues} isAdmin={isAdmin} />
+                            <VenueTab venue={resolvedVenue} event={show.event} venues={venues} isAdmin={isAdmin} resolvedVenueId={resolvedVenueId ?? null} />
                           </TabsContent>
                           <TabsContent value="files" className="mt-3">
                             <FilesTab eventName={show.event.name} files={allFiles} folders={fileFolders} isAdmin={isAdmin} />
@@ -3713,6 +3716,7 @@ export default function ProjectPage() {
                                   event={event}
                                   venues={venues}
                                   isAdmin={isAdmin}
+                                  resolvedVenueId={resolvedVenueId ?? null}
                                 />
                               </TabsContent>
 
