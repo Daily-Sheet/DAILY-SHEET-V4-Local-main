@@ -172,7 +172,7 @@ export default function Admin() {
   const activeItem = ADMIN_NAV_ITEMS.find(i => i.value === activeTab);
 
   return (
-    <div className="min-h-screen bg-background font-body overflow-x-clip">
+    <div className="min-h-screen bg-background font-body overflow-x-clip pb-20 sm:pb-0">
       <header className="bg-card/80 backdrop-blur-md border-b border-border/30 sticky top-0 z-10 shadow-sm">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-2">
           <div className="flex items-center gap-3">

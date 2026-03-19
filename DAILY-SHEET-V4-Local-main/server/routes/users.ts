@@ -65,6 +65,9 @@ export function registerUserRoutes(app: Express, upload: multer.Multer) {
       }
       await storage.deleteAssignmentsByUserInWorkspace(targetId, workspaceId);
 
+      // Unassign them as manager from any projects they managed in this workspace
+      await storage.clearProjectManagerInWorkspace(targetId, workspaceId);
+
       // If this workspace was their active workspace, clear it so they land on workspace selection
       const targetUser = await storage.getUser(targetId);
       if (targetUser?.workspaceId === workspaceId) {

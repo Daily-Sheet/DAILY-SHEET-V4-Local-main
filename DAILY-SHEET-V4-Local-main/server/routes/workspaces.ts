@@ -312,6 +312,7 @@ export function registerWorkspaceRoutes(app: Express, upload: multer.Multer) {
       for (const c of linkedContacts) {
         await storage.deleteContact(c.id);
       }
+      await storage.clearProjectManagerInWorkspace(targetMember.userId, wsId);
       res.status(204).send();
     } catch (error) {
       res.status(500).json({ message: "Failed to remove member" });
@@ -427,6 +428,9 @@ export function registerWorkspaceRoutes(app: Express, upload: multer.Multer) {
 
       // 3. Promote new owner's member row to "owner"
       await storage.updateWorkspaceMemberRole(targetMember.id, "owner");
+
+      // 4. Reassign project managerId from old owner to new owner
+      await storage.reassignProjectManagerInWorkspace(currentOwnerId, newOwnerId, wsId);
 
       res.json({ message: "Ownership transferred successfully" });
     } catch (error) {

@@ -1017,6 +1017,18 @@ export class DatabaseStorage implements IStorage {
     await db.delete(projects).where(eq(projects.id, id));
   }
 
+  async clearProjectManagerInWorkspace(userId: string, workspaceId: number): Promise<void> {
+    await db.update(projects)
+      .set({ managerId: null })
+      .where(and(eq(projects.workspaceId, workspaceId), eq(projects.managerId, userId)));
+  }
+
+  async reassignProjectManagerInWorkspace(oldUserId: string, newUserId: string, workspaceId: number): Promise<void> {
+    await db.update(projects)
+      .set({ managerId: newUserId })
+      .where(and(eq(projects.workspaceId, workspaceId), eq(projects.managerId, oldUserId)));
+  }
+
   // Sections
   async getSectionsByEvent(eventId: number): Promise<Section[]> {
     return await db.select().from(sections)

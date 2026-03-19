@@ -198,7 +198,7 @@ export function registerAuthRoutes(app: Express, upload: multer.Multer) {
       let files = allFiles;
       let assignments: any[] = allAssignments;
 
-      if (isManager) {
+      if (workspaceRole === "manager") {
         projects = allProjects.filter((p: any) => p.managerId === user.id || !p.managerId);
         const managerProjectIds = new Set(projects.map((p: any) => p.id));
         events = allEvents.filter((e: any) => !e.projectId || managerProjectIds.has(e.projectId));

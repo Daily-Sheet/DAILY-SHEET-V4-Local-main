@@ -491,7 +491,7 @@ export default function CalendarPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background pb-20 sm:pb-0">
+    <div className="min-h-screen bg-background pb-24 sm:pb-0">
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border/40 px-4 py-3">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">

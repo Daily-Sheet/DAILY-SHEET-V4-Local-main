@@ -13,7 +13,9 @@ export function registerProjectRoutes(app: Express, upload: multer.Multer) {
     if (!workspaceId) return res.json([]);
     let projectList = await storage.getProjects(workspaceId);
     const workspaceRole = await getWorkspaceRole(req.user.id, workspaceId);
-    if (workspaceRole === "commenter" || workspaceRole === "client") {
+    if (workspaceRole === "manager") {
+      projectList = projectList.filter((p: any) => p.managerId === req.user.id || !p.managerId);
+    } else if (workspaceRole === "commenter" || workspaceRole === "client") {
       const allowed = await (async () => {
         const allAssignments = await storage.getAllAssignments(workspaceId);
         const directNames = allAssignments

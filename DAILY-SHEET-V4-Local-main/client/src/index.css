@@ -906,6 +906,12 @@ body::after {
     radial-gradient(ellipse 35% 35% at 20% 40%,  hsl(var(--accent)  / 0.07) 0%, transparent 50%);
 }
 
+/* ── Mobile Safe Area ───────────────────────────────────────────────────── */
+/* Used by MobileNav to expand below its content into the iPhone home-indicator zone */
+.safe-area-pb {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 /* ── Glass Cards ─────────────────────────────────────────────────────────── */
 /* :where() keeps specificity at 0 so any Tailwind utility can override it   */
 :where(.shadcn-card) {

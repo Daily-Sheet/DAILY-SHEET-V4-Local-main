@@ -1053,7 +1053,7 @@ export default function Dashboard() {
 
   return (
     <PullToRefresh>
-    <div className="min-h-screen bg-background pb-20 font-body print:pb-0 print:min-h-0 overflow-x-clip">
+    <div className="min-h-screen bg-background pb-24 sm:pb-0 font-body print:pb-0 print:min-h-0 overflow-x-clip">
       <header className="bg-card border-b border-border sticky top-0 z-50 shadow-sm print:static print:border-none print:hidden">
         <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-0 sm:h-16 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
           <div className="flex items-center justify-between gap-1 sm:gap-2">
