@@ -1581,12 +1581,14 @@ function VenueTab({
   venues,
   isAdmin,
   resolvedVenueId,
+  selectedDate,
 }: {
   venue: Venue | null | undefined;
   event: Event;
   venues: Venue[];
   isAdmin: boolean;
   resolvedVenueId: number | null;
+  selectedDate: string;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -1595,9 +1597,14 @@ function VenueTab({
   const [newVenueName, setNewVenueName] = useState("");
   const { mutate: createVenue, isPending: creatingVenue } = useCreateVenue();
 
-  const changeVenueMutation = useMutation({
+  // Sets venue for the currently selected day only — matches Dashboard VenueQuickSelect behavior
+  const setDayVenueMutation = useMutation({
     mutationFn: async (venueId: number | null) => {
-      const res = await apiRequest("PATCH", `/api/events/${event.id}`, { venueId });
+      if (venueId === null) {
+        await apiRequest("DELETE", `/api/events/${event.id}/day-venues/${selectedDate}`);
+        return null;
+      }
+      const res = await apiRequest("PUT", `/api/events/${event.id}/day-venues/${selectedDate}`, { venueId });
       return res.json();
     },
     onSuccess: () => {
@@ -1617,7 +1624,7 @@ function VenueTab({
       { name: newVenueName.trim() } as any,
       {
         onSuccess: (data: any) => {
-          changeVenueMutation.mutate(data.id);
+          setDayVenueMutation.mutate(data.id);
           setCreateVenueOpen(false);
           setNewVenueName("");
         },
@@ -1655,7 +1662,7 @@ function VenueTab({
               className="gap-1.5"
               data-testid={`button-change-venue-${event.id}`}
             >
-              <Pencil className="w-3.5 h-3.5" /> {venue ? "Change Venue" : "Assign Venue"}
+              <Pencil className="w-3.5 h-3.5" /> {venue ? `Change Venue · ${format(parseISO(selectedDate), "MMM d")}` : "Assign Venue"}
             </Button>
           ) : (
             <div className="flex items-center gap-2 flex-wrap">
@@ -1665,7 +1672,7 @@ function VenueTab({
                   if (val === "create-new") {
                     setCreateVenueOpen(true);
                   } else {
-                    changeVenueMutation.mutate(val === "none" ? null : Number(val));
+                    setDayVenueMutation.mutate(val === "none" ? null : Number(val));
                   }
                 }}
               >
@@ -3188,7 +3195,7 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
                             <CrewTab eventName={show.event.name} contacts={contacts} allEventAssignments={allEventAssignments} isAdmin={isAdmin} selectedDate={selectedDate} isTour={true} projectAssignments={projectAssignments} projectId={project.id} />
                           </TabsContent>
                           <TabsContent value="venue" className="mt-3">
-                            <VenueTab venue={resolvedVenue} event={show.event} venues={venues} isAdmin={isAdmin} resolvedVenueId={resolvedVenueId ?? null} />
+                            <VenueTab venue={resolvedVenue} event={show.event} venues={venues} isAdmin={isAdmin} resolvedVenueId={resolvedVenueId ?? null} selectedDate={selectedDate} />
                           </TabsContent>
                           <TabsContent value="files" className="mt-3">
                             <FilesTab eventName={show.event.name} files={allFiles} folders={fileFolders} isAdmin={isAdmin} />
@@ -3717,6 +3724,7 @@ export default function ProjectPage() {
                                   venues={venues}
                                   isAdmin={isAdmin}
                                   resolvedVenueId={resolvedVenueId ?? null}
+                                  selectedDate={selectedDate}
                                 />
                               </TabsContent>
 

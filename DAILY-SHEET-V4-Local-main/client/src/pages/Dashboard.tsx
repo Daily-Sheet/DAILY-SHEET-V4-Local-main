@@ -478,16 +478,27 @@ export default function Dashboard() {
   const [editingShow, setEditingShow] = useState<Event | null>(null);
 
   const [travelDayDialogOpen, setTravelDayDialogOpen] = useState(false);
+  const [addTravelProjectId, setAddTravelProjectId] = useState<number | null>(null);
   const [newTravelForm, setNewTravelForm] = useState({ notes: "", flightNumber: "", airline: "", departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: "" });
+  const emptyTravelForm = { notes: "", flightNumber: "", airline: "", departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: "" };
+
+  const activeTourProjects = useMemo(() => allProjects.filter((p: Project) => p.isTour && !p.archived), [allProjects]);
+
+  const openTravelDayDialog = (projectId: number) => {
+    setAddTravelProjectId(projectId);
+    setNewTravelForm(emptyTravelForm);
+    setTravelDayDialogOpen(true);
+  };
 
   const createTravelDayMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", `/api/projects/${firstTourProjectId}/travel-days`, { date: selectedDate, ...newTravelForm });
+      await apiRequest("POST", `/api/projects/${addTravelProjectId}/travel-days`, { date: selectedDate, ...newTravelForm });
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", addTravelProjectId, "travel-days"] });
       queryClient.invalidateQueries({ queryKey: ["/api/projects", firstTourProjectId, "travel-days"] });
       setTravelDayDialogOpen(false);
-      setNewTravelForm({ notes: "", flightNumber: "", airline: "", departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: "" });
+      setNewTravelForm(emptyTravelForm);
       toast({ title: "Travel day added" });
     },
     onError: () => toast({ title: "Error adding travel day", variant: "destructive" }),
@@ -1486,17 +1497,24 @@ export default function Dashboard() {
                                 })()}
                               </div>
                             </div>
-                            {isAdmin && (
-                              <ConfirmDelete
-                                title="Delete Travel Day?"
-                                description="This will remove the travel day and all crew travel details."
-                                onConfirm={() => deleteTravelDayMutation.mutate(travelDayForSelectedDate.id)}
-                                triggerVariant="ghost"
-                                triggerSize="icon"
-                                triggerClassName="h-7 w-7 text-amber-600 dark:text-amber-400 hover:text-destructive"
-                                data-testid="button-delete-travel-day"
-                              />
-                            )}
+                            <div className="flex items-center gap-1">
+                              <Link href={`/project/${travelDayForSelectedDate.projectId}`}>
+                                <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-amber-600 dark:text-amber-400 hover:text-amber-700 hover:bg-amber-500/10" data-testid="button-travel-day-itinerary">
+                                  View Itinerary
+                                </Button>
+                              </Link>
+                              {isAdmin && (
+                                <ConfirmDelete
+                                  title="Delete Travel Day?"
+                                  description="This will remove the travel day and all crew travel details."
+                                  onConfirm={() => deleteTravelDayMutation.mutate(travelDayForSelectedDate.id)}
+                                  triggerVariant="ghost"
+                                  triggerSize="icon"
+                                  triggerClassName="h-7 w-7 text-amber-600 dark:text-amber-400 hover:text-destructive"
+                                  data-testid="button-delete-travel-day"
+                                />
+                              )}
+                            </div>
                           </div>
                           {travelDayForSelectedDate.departureAirport && travelDayForSelectedDate.arrivalAirport && (
                             <div className="flex items-center gap-2 text-sm">
@@ -1524,17 +1542,21 @@ export default function Dashboard() {
                       </Card>
                     </motion.div>
                   )}
-                  {!travelDayForSelectedDate && firstTourProjectId && isAdmin && (
-                    <div className="flex justify-start">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 text-xs"
-                        onClick={() => setTravelDayDialogOpen(true)}
-                        data-testid="button-add-travel-day"
-                      >
-                        <Plane className="w-3.5 h-3.5" /> Add Travel Day
-                      </Button>
+                  {!travelDayForSelectedDate && activeTourProjects.length > 0 && isAdmin && (
+                    <div className="flex gap-2 flex-wrap">
+                      {activeTourProjects.map((tp: Project) => (
+                        <Button
+                          key={tp.id}
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 text-xs"
+                          onClick={() => openTravelDayDialog(tp.id)}
+                          data-testid={`button-add-travel-day-${tp.id}`}
+                        >
+                          <Plane className="w-3.5 h-3.5" />
+                          {activeTourProjects.length > 1 ? `Add Travel Day · ${tp.name}` : "Add Travel Day"}
+                        </Button>
+                      ))}
                     </div>
                   )}
                   {showsForSelectedDate.length === 0 && !travelDayForSelectedDate && (
@@ -2480,7 +2502,10 @@ export default function Dashboard() {
         <DialogContent className="sm:max-w-[480px] max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="font-display uppercase tracking-wide">Add Travel Day</DialogTitle>
-            <DialogDescription>Travel details for {format(parseISO(selectedDate + "T12:00:00"), "MMMM d, yyyy")}</DialogDescription>
+            <DialogDescription>
+              {format(parseISO(selectedDate + "T12:00:00"), "MMMM d, yyyy")}
+              {addTravelProjectId && (() => { const proj = allProjects.find((p: Project) => p.id === addTravelProjectId); return proj ? ` · ${proj.name}` : ""; })()}
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1">
             <div className="grid grid-cols-2 gap-3">
