@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Checkbox } from "@/components/ui/checkbox";
+import { ConfirmDelete } from "@/components/ConfirmDelete";
+import { Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Event, Venue } from "@shared/schema";
@@ -18,11 +20,13 @@ export function EditShowDialog({
   onClose,
   show,
   venuesList,
+  canDelete = false,
 }: {
   open: boolean;
   onClose: () => void;
   show: Event;
   venuesList: Venue[];
+  canDelete?: boolean;
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -57,6 +61,22 @@ export function EditShowDialog({
       qc.invalidateQueries({ queryKey: ["/api/events"] });
       qc.invalidateQueries({ queryKey: ["/api/event-day-venues"] });
       toast({ title: "Show Updated" });
+      onClose();
+    },
+    onError: (err: any) => {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/events/${show.id}`);
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/events"] });
+      qc.invalidateQueries({ queryKey: ["/api/event-assignments"] });
+      qc.invalidateQueries({ queryKey: ["/api/event-day-venues"] });
+      toast({ title: "Show Deleted" });
       onClose();
     },
     onError: (err: any) => {
@@ -175,7 +195,19 @@ export function EditShowDialog({
                 <FormMessage />
               </FormItem>
             )} />
-            <DialogFooter>
+            <DialogFooter className="flex-row items-center gap-2">
+              {canDelete && (
+                <ConfirmDelete
+                  title="Delete Show?"
+                  description={`This will permanently delete "${show.name}" and all its schedule items. This cannot be undone.`}
+                  onConfirm={() => deleteMutation.mutate()}
+                  triggerLabel={<><Trash2 className="w-3.5 h-3.5" /> Delete</>}
+                  triggerVariant="outline"
+                  triggerSize="sm"
+                  triggerClassName="mr-auto gap-1.5 text-destructive border-destructive/30"
+                  data-testid="button-delete-show"
+                />
+              )}
               <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
               <Button type="submit" disabled={updateMutation.isPending} data-testid="button-save-edit-show">
                 {updateMutation.isPending ? "Saving..." : "Save"}

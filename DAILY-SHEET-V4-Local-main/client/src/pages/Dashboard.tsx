@@ -477,6 +477,32 @@ export default function Dashboard() {
   const [showSendDialog, setShowSendDialog] = useState(false);
   const [editingShow, setEditingShow] = useState<Event | null>(null);
 
+  const [travelDayDialogOpen, setTravelDayDialogOpen] = useState(false);
+  const [newTravelForm, setNewTravelForm] = useState({ notes: "", flightNumber: "", airline: "", departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: "" });
+
+  const createTravelDayMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", `/api/projects/${firstTourProjectId}/travel-days`, { date: selectedDate, ...newTravelForm });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", firstTourProjectId, "travel-days"] });
+      setTravelDayDialogOpen(false);
+      setNewTravelForm({ notes: "", flightNumber: "", airline: "", departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: "" });
+      toast({ title: "Travel day added" });
+    },
+    onError: () => toast({ title: "Error adding travel day", variant: "destructive" }),
+  });
+
+  const deleteTravelDayMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/travel-days/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", firstTourProjectId, "travel-days"] });
+      toast({ title: "Travel day removed" });
+    },
+  });
+
   const [gearRequestOpen, setGearRequestOpen] = useState(false);
 
   const [speedDialOpen, setSpeedDialOpen] = useState(false);
@@ -1460,16 +1486,17 @@ export default function Dashboard() {
                                 })()}
                               </div>
                             </div>
-                            {(() => {
-                              const tourProject = allProjects.find((p: Project) => p.id === travelDayForSelectedDate.projectId);
-                              return tourProject ? (
-                                <Link href={`/project/${tourProject.id}`}>
-                                  <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-amber-600 dark:text-amber-400 hover:text-amber-700" data-testid="button-travel-day-itinerary">
-                                    View Itinerary
-                                  </Button>
-                                </Link>
-                              ) : null;
-                            })()}
+                            {isAdmin && (
+                              <ConfirmDelete
+                                title="Delete Travel Day?"
+                                description="This will remove the travel day and all crew travel details."
+                                onConfirm={() => deleteTravelDayMutation.mutate(travelDayForSelectedDate.id)}
+                                triggerVariant="ghost"
+                                triggerSize="icon"
+                                triggerClassName="h-7 w-7 text-amber-600 dark:text-amber-400 hover:text-destructive"
+                                data-testid="button-delete-travel-day"
+                              />
+                            )}
                           </div>
                           {travelDayForSelectedDate.departureAirport && travelDayForSelectedDate.arrivalAirport && (
                             <div className="flex items-center gap-2 text-sm">
@@ -1496,6 +1523,19 @@ export default function Dashboard() {
                         </CardContent>
                       </Card>
                     </motion.div>
+                  )}
+                  {!travelDayForSelectedDate && firstTourProjectId && isAdmin && (
+                    <div className="flex justify-start">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 text-xs"
+                        onClick={() => setTravelDayDialogOpen(true)}
+                        data-testid="button-add-travel-day"
+                      >
+                        <Plane className="w-3.5 h-3.5" /> Add Travel Day
+                      </Button>
+                    </div>
                   )}
                   {showsForSelectedDate.length === 0 && !travelDayForSelectedDate && (
                     <div className="flex flex-col items-center justify-center py-24 text-center" data-testid="overview-empty">
@@ -1558,9 +1598,14 @@ export default function Dashboard() {
                                         <div className="text-sm sm:text-base font-display uppercase tracking-wide truncate flex items-center gap-1.5" data-testid={`text-venue-bar-name-${showEvent?.id}`}>
                                           <span className="font-bold" data-testid={`text-venue-bar-show-${showEvent?.id}`}>{showName}</span>
                                           {canEdit && showEvent && (
-                                            <Link href={`/project/${showEvent.projectId}`} className="opacity-50 hover:opacity-100 transition-opacity flex-shrink-0 print:hidden" data-testid={`link-edit-show-${showEvent.id}`}>
+                                            <button
+                                              type="button"
+                                              onClick={() => setEditingShow(showEvent)}
+                                              className="opacity-50 hover:opacity-100 transition-opacity flex-shrink-0 print:hidden"
+                                              data-testid={`button-edit-show-${showEvent.id}`}
+                                            >
                                               <Pencil className="w-3 h-3" />
-                                            </Link>
+                                            </button>
                                           )}
                                           <span className="mx-1.5 opacity-50">|</span>
                                           {showVenue.name}
@@ -1851,6 +1896,23 @@ export default function Dashboard() {
                               </Button>
                             }
                           />
+                          {filteredSchedule.length > 0 && (
+                            <>
+                              <SaveAsTemplateButton
+                                schedules={filteredSchedule}
+                                eventName={effectiveSelectedEvents.length === 1 ? effectiveSelectedEvents[0] : undefined}
+                              />
+                              <CopyDayScheduleButton
+                                schedules={filteredSchedule}
+                                defaultEventName={effectiveSelectedEvents.length === 1 ? effectiveSelectedEvents[0] : undefined}
+                              />
+                              <ClearDayButton
+                                date={selectedDate}
+                                eventName={effectiveSelectedEvents.length === 1 ? effectiveSelectedEvents[0] : undefined}
+                                count={filteredSchedule.length}
+                              />
+                            </>
+                          )}
                         </>
                       )}
                       <div className="flex items-center border border-border/30 rounded-lg bg-card/50 backdrop-blur-sm" data-testid="schedule-view-toggle">
@@ -2410,8 +2472,60 @@ export default function Dashboard() {
           onClose={() => setEditingShow(null)}
           show={editingShow}
           venuesList={venuesList}
+          canDelete={isAdmin}
         />
       )}
+
+      <Dialog open={travelDayDialogOpen} onOpenChange={setTravelDayDialogOpen}>
+        <DialogContent className="sm:max-w-[480px] max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="font-display uppercase tracking-wide">Add Travel Day</DialogTitle>
+            <DialogDescription>Travel details for {format(parseISO(selectedDate + "T12:00:00"), "MMMM d, yyyy")}</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Airline</Label>
+                <Input placeholder="e.g. United" value={newTravelForm.airline} onChange={e => setNewTravelForm(p => ({ ...p, airline: e.target.value }))} className="mt-1 h-8 text-sm" data-testid="input-travel-airline" />
+              </div>
+              <div>
+                <Label className="text-xs">Flight Number</Label>
+                <Input placeholder="e.g. UA1234" value={newTravelForm.flightNumber} onChange={e => setNewTravelForm(p => ({ ...p, flightNumber: e.target.value }))} className="mt-1 h-8 text-sm" data-testid="input-travel-flight-number" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Departure Airport</Label>
+                <Input placeholder="e.g. SFO" value={newTravelForm.departureAirport} onChange={e => setNewTravelForm(p => ({ ...p, departureAirport: e.target.value.toUpperCase() }))} className="mt-1 h-8 text-sm" maxLength={4} data-testid="input-travel-dep-airport" />
+              </div>
+              <div>
+                <Label className="text-xs">Arrival Airport</Label>
+                <Input placeholder="e.g. LAX" value={newTravelForm.arrivalAirport} onChange={e => setNewTravelForm(p => ({ ...p, arrivalAirport: e.target.value.toUpperCase() }))} className="mt-1 h-8 text-sm" maxLength={4} data-testid="input-travel-arr-airport" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="text-xs">Departure Time</Label>
+                <TimePicker value={newTravelForm.departureTime} onChange={(v) => setNewTravelForm(p => ({ ...p, departureTime: v }))} data-testid="input-travel-dep-time" />
+              </div>
+              <div>
+                <Label className="text-xs">Arrival Time</Label>
+                <TimePicker value={newTravelForm.arrivalTime} onChange={(v) => setNewTravelForm(p => ({ ...p, arrivalTime: v }))} data-testid="input-travel-arr-time" />
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs">Notes</Label>
+              <Textarea placeholder="Additional travel notes..." value={newTravelForm.notes} onChange={e => setNewTravelForm(p => ({ ...p, notes: e.target.value }))} className="mt-1 resize-none text-sm" rows={2} data-testid="input-travel-day-notes" />
+            </div>
+          </div>
+          <DialogFooter className="mt-4">
+            <Button variant="outline" onClick={() => setTravelDayDialogOpen(false)}>Cancel</Button>
+            <Button onClick={() => createTravelDayMutation.mutate()} disabled={createTravelDayMutation.isPending} data-testid="button-save-travel-day">
+              {createTravelDayMutation.isPending ? "Adding..." : "Add Travel Day"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
 
       <CommandPalette
