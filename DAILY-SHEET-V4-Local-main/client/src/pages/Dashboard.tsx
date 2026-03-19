@@ -1320,7 +1320,10 @@ export default function Dashboard() {
           <div className="space-y-2 print:hidden sticky top-[52px] sm:top-16 z-40 bg-background -mx-4 px-4 pb-3 pt-2 border-b border-border/40 shadow-sm">
             <div className="flex items-center gap-2 min-w-0">
               <div className="flex-1 overflow-x-auto scrollbar-hide min-w-0 text-center">
-              <TabsList className="bg-card p-1 rounded-xl inline-flex w-max">
+              <TabsList
+                className="bg-card p-1 rounded-xl inline-flex w-max"
+                onKeyDown={(e) => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") e.preventDefault(); }}
+              >
                 {visibleTabs.map(tabId => {
                   const meta = ALL_TABS.find(t => t.id === tabId)!;
                   return (
