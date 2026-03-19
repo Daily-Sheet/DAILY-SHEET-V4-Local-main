@@ -64,18 +64,20 @@ export function registerProjectRoutes(app: Express, upload: multer.Multer) {
       const project = await storage.getProject(projectId);
       if (!project) return res.status(404).json({ message: "Project not found" });
       if (project.workspaceId !== workspaceId) return res.status(403).json({ message: "Forbidden" });
-      if (!project.isTour) return res.status(400).json({ message: "Only tour projects support auto-generating shows" });
 
       const { count, startDate } = req.body;
       if (!count || count < 1 || count > 100) return res.status(400).json({ message: "Count must be between 1 and 100" });
       if (!startDate || !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) return res.status(400).json({ message: "Valid start date required (YYYY-MM-DD)" });
 
+      const isFestival = project.isFestival ?? false;
+      const entityLabel = isFestival ? "Stage" : "Show";
+
       const existingEvents = await storage.getEvents(workspaceId);
       const existingForProject = existingEvents.filter((e: any) => e.projectId === projectId);
-      const prefix = `${project.name} - Show`;
+      const prefix = `${project.name} - ${entityLabel}`;
       let highestNum = 0;
       for (const ev of existingForProject) {
-        const match = ev.name.match(/Show\s+(\d+)$/);
+        const match = ev.name.match(new RegExp(`${entityLabel}\\s+(\\d+)$`));
         if (match) highestNum = Math.max(highestNum, parseInt(match[1]));
       }
 
@@ -84,8 +86,9 @@ export function registerProjectRoutes(app: Express, upload: multer.Multer) {
       const created = [];
       const start = new Date(startDate + "T00:00:00");
       for (let i = 0; i < count; i++) {
+        // Festivals: all stages share the same date; tours/regular: consecutive dates
         const showDate = new Date(start);
-        showDate.setDate(start.getDate() + i);
+        if (!isFestival) showDate.setDate(start.getDate() + i);
         const dateStr = showDate.toISOString().split("T")[0];
         const showNum = highestNum + i + 1;
         const showName = `${prefix} ${showNum}`;

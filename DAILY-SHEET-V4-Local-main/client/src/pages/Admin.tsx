@@ -3776,8 +3776,9 @@ function ProjectsAdmin() {
 
   const handleCreate = () => {
     if (!newName.trim()) return;
-    const autoGenCount = newIsTour ? newAutoGenCount : 0;
+    const autoGenCount = newAutoGenCount;
     const autoGenStart = newAutoGenStartDate || newStartDate;
+    const entityLabel = newIsFestival ? "stages" : "shows";
     createProject.mutate(
       { name: newName.trim(), description: newDescription.trim() || null, projectNumber: newProjectNumber.trim() || null, startDate: newStartDate || null, endDate: newEndDate || null, driveUrl: newDriveUrl.trim() || null, isFestival: newIsFestival, isTour: newIsTour },
       {
@@ -3790,9 +3791,9 @@ function ProjectsAdmin() {
               });
               queryClient.invalidateQueries({ queryKey: ["/api/events"] });
               queryClient.invalidateQueries({ queryKey: ["/api/bootstrap"] });
-              toast({ title: "Tour Created", description: `Project created with ${autoGenCount} shows.` });
+              toast({ title: "Project Created", description: `Project created with ${autoGenCount} ${entityLabel}.` });
             } catch (err: any) {
-              toast({ title: "Project Created", description: `Project created but failed to generate shows: ${err.message}`, variant: "destructive" });
+              toast({ title: "Project Created", description: `Project created but failed to generate ${entityLabel}: ${err.message}`, variant: "destructive" });
             }
           } else {
             toast({ title: "Project Created", description: "New project has been created." });
@@ -3938,38 +3939,52 @@ function ProjectsAdmin() {
               <Label htmlFor="new-tour-mode" className="text-sm cursor-pointer">Tour</Label>
               <span className="text-xs text-muted-foreground">(Unlock route map, itinerary, and travel days)</span>
             </div>
-            {newIsTour && (
-              <div className="ml-6 border-l-2 border-primary/20 pl-4 space-y-3 py-2">
-                <p className="text-xs text-muted-foreground">Auto-generate shows for this tour. Each show gets consecutive dates starting from the date below. You can rename and adjust dates later.</p>
-                <div className="flex items-center gap-3">
-                  <div className="flex-1">
-                    <Label className="text-xs text-muted-foreground mb-1 block">Number of shows</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      max={100}
-                      value={newAutoGenCount || ""}
-                      onChange={(e) => setNewAutoGenCount(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
-                      placeholder="0"
-                      className="h-8"
-                      data-testid="input-auto-gen-count"
-                    />
+            {(() => {
+              const label = newIsFestival ? "stage" : "show";
+              const labelPlural = newIsFestival ? "stages" : "shows";
+              const hint = newIsFestival
+                ? "Auto-generate stages for this festival. All stages share the same date. You can rename them later."
+                : newIsTour
+                  ? "Auto-generate shows for this tour. Each show gets consecutive dates starting from the date below. You can rename and adjust dates later."
+                  : "Auto-generate shows for this project. Each show gets consecutive dates starting from the date below. You can rename and adjust dates later.";
+              const dateLabel = newIsFestival ? "Festival date" : "Starting date";
+              const prefix = newName.trim() || "Project";
+              const entityLabel = newIsFestival ? "Stage" : "Show";
+              return (
+                <div className="ml-0 border-l-2 border-primary/20 pl-4 space-y-3 py-2">
+                  <p className="text-xs text-muted-foreground">{hint}</p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1">
+                      <Label className="text-xs text-muted-foreground mb-1 block">Number of {labelPlural}</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        max={100}
+                        value={newAutoGenCount || ""}
+                        onChange={(e) => setNewAutoGenCount(Math.min(100, Math.max(0, parseInt(e.target.value) || 0)))}
+                        placeholder="0"
+                        className="h-8"
+                        data-testid="input-auto-gen-count"
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <Label className="text-xs text-muted-foreground mb-1 block">{dateLabel}</Label>
+                      <DatePicker
+                        value={newAutoGenStartDate || newStartDate}
+                        onChange={(v) => setNewAutoGenStartDate(v)}
+                        compact
+                        data-testid="input-auto-gen-start-date"
+                      />
+                    </div>
                   </div>
-                  <div className="flex-1">
-                    <Label className="text-xs text-muted-foreground mb-1 block">Starting date</Label>
-                    <DatePicker
-                      value={newAutoGenStartDate || newStartDate}
-                      onChange={(v) => setNewAutoGenStartDate(v)}
-                      compact
-                      data-testid="input-auto-gen-start-date"
-                    />
-                  </div>
+                  {newAutoGenCount > 0 && (newAutoGenStartDate || newStartDate) && (
+                    <p className="text-xs text-primary/70">
+                      Will create {newAutoGenCount} {labelPlural}: {prefix} - {entityLabel} 1{newAutoGenCount > 1 ? ` through ${entityLabel} ${newAutoGenCount}` : ""}
+                    </p>
+                  )}
                 </div>
-                {newAutoGenCount > 0 && (newAutoGenStartDate || newStartDate) && (
-                  <p className="text-xs text-primary/70">Will create {newAutoGenCount} shows: {newName.trim() || "Tour"} - Show 1 through Show {newAutoGenCount}</p>
-                )}
-              </div>
-            )}
+              );
+            })()}
             <div className="flex gap-2 justify-end">
               <Button variant="outline" size="sm" onClick={() => { setShowAdd(false); setNewName(""); setNewDescription(""); setNewProjectNumber(""); setNewStartDate(""); setNewEndDate(""); setNewDriveUrl(""); setNewIsFestival(false); setNewIsTour(false); setNewAutoGenCount(0); setNewAutoGenStartDate(""); }} data-testid="button-cancel-add-project">
                 <X className="w-4 h-4 mr-1" /> Cancel
