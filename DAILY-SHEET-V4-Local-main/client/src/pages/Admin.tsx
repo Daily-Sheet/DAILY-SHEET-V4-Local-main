@@ -4658,11 +4658,15 @@ function SettingsAdmin() {
                   <SelectContent>
                     {wsMembers
                       .filter((m: any) => m.userId !== user?.id)
-                      .map((m: any) => (
-                        <SelectItem key={m.userId} value={m.userId}>
-                          {m.name || m.email || m.userId} ({m.role})
-                        </SelectItem>
-                      ))}
+                      .map((m: any) => {
+                        const u = users.find((u: any) => u.id === m.userId);
+                        const label = u ? `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email || m.userId : m.userId;
+                        return (
+                          <SelectItem key={m.userId} value={m.userId}>
+                            {label} ({m.role})
+                          </SelectItem>
+                        );
+                      })}
                   </SelectContent>
                 </Select>
                 <div className="flex gap-2">
