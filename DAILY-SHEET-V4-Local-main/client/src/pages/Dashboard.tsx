@@ -1111,6 +1111,16 @@ export default function Dashboard() {
 
               <Tooltip>
                 <TooltipTrigger asChild>
+                  <Link href="/map">
+                    <Button variant="outline" size="icon" className="hidden sm:flex bg-card/50 backdrop-blur-sm border-border/30">
+                      <MapPin className="h-4 w-4" />
+                    </Button>
+                  </Link>
+                </TooltipTrigger>
+                <TooltipContent>Community Map</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
                   <Button variant="outline" size="icon" className="bg-card/50 backdrop-blur-sm border-border/30" onClick={() => setCommandPaletteOpen(true)} data-testid="button-command-palette">
                     <Search className="h-4 w-4" />
                   </Button>
