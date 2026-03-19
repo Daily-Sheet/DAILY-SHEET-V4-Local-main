@@ -94,6 +94,42 @@ export function registerMapRoutes(app: Express, _upload: multer.Multer) {
     res.status(201).json(comment);
   });
 
+  // --- User Locations ---
+
+  // Get all active user locations (sharing=true, updated < 2hrs)
+  app.get("/api/map/locations", isAuthenticated, async (req: any, res) => {
+    const { pool } = await import("../db");
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000);
+    const result = await pool.query(
+      `SELECT user_id, user_name, lat, lng, updated_at FROM user_locations WHERE sharing = true AND updated_at > $1`,
+      [twoHoursAgo]
+    );
+    res.json(result.rows);
+  });
+
+  // Upsert my location
+  app.post("/api/map/location", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.id;
+    const userName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Anonymous";
+    const { lat, lng } = req.body;
+    if (lat == null || lng == null) return res.status(400).json({ message: "lat and lng required" });
+    const { pool } = await import("../db");
+    await pool.query(
+      `INSERT INTO user_locations (user_id, user_name, lat, lng, sharing, updated_at)
+       VALUES ($1, $2, $3, $4, true, NOW())
+       ON CONFLICT (user_id) DO UPDATE SET user_name=$2, lat=$3, lng=$4, sharing=true, updated_at=NOW()`,
+      [userId, userName, parseFloat(lat), parseFloat(lng)]
+    );
+    res.json({ ok: true });
+  });
+
+  // Stop sharing my location
+  app.delete("/api/map/location", isAuthenticated, async (req: any, res) => {
+    const { pool } = await import("../db");
+    await pool.query(`UPDATE user_locations SET sharing=false WHERE user_id=$1`, [req.user.id]);
+    res.json({ ok: true });
+  });
+
   // Delete a comment (owner only)
   app.delete("/api/map/comments/:id", isAuthenticated, async (req: any, res) => {
     const id = parseInt(req.params.id);

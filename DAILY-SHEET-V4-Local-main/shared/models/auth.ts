@@ -38,6 +38,7 @@ export type DashboardPreferences = {
   tabOrder: string[];
   hiddenTabs: string[];
   defaultTab: string;
+  locationSharingEnabled?: boolean;
 };
 
 export type UpsertUser = typeof users.$inferInsert;

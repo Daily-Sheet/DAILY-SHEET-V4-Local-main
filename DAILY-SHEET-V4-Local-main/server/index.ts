@@ -106,6 +106,14 @@ app.use((req, res, next) => {
         content TEXT NOT NULL,
         created_at TIMESTAMP DEFAULT NOW() NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS user_locations (
+        user_id VARCHAR PRIMARY KEY,
+        user_name TEXT NOT NULL,
+        lat DOUBLE PRECISION NOT NULL,
+        lng DOUBLE PRECISION NOT NULL,
+        sharing BOOLEAN NOT NULL DEFAULT true,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
     `);
     log("Map tables ready");
   } catch (err) {
