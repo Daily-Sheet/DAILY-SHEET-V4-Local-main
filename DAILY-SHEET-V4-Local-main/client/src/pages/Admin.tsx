@@ -4372,6 +4372,7 @@ function SettingsAdmin() {
     queryKey: ["/api/workspaces", user?.workspaceId, "members"],
     enabled: !!user?.workspaceId,
   });
+  const { data: wsUsers = [] } = useQuery<any[]>({ queryKey: ["/api/users"] });
 
   const isOrgOwner = currentOrg?.ownerId === user?.id;
   const isLastAdmin = wsMembers.filter((m: any) => ["owner", "manager"].includes(m.role)).length <= 1 && wsMembers.some((m: any) => m.userId === user?.id && ["owner", "manager"].includes(m.role));
@@ -4659,7 +4660,7 @@ function SettingsAdmin() {
                     {wsMembers
                       .filter((m: any) => m.userId !== user?.id)
                       .map((m: any) => {
-                        const u = users.find((u: any) => u.id === m.userId);
+                        const u = wsUsers.find((u: any) => u.id === m.userId);
                         const label = u ? `${u.firstName || ""} ${u.lastName || ""}`.trim() || u.email || m.userId : m.userId;
                         return (
                           <SelectItem key={m.userId} value={m.userId}>
