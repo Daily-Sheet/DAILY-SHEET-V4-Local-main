@@ -1543,20 +1543,16 @@ export default function Dashboard() {
                     </motion.div>
                   )}
                   {!travelDayForSelectedDate && activeTourProjects.length > 0 && isAdmin && (
-                    <div className="flex gap-2 flex-wrap">
-                      {activeTourProjects.map((tp: Project) => (
-                        <Button
-                          key={tp.id}
-                          variant="outline"
-                          size="sm"
-                          className="gap-1.5 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 text-xs"
-                          onClick={() => openTravelDayDialog(tp.id)}
-                          data-testid={`button-add-travel-day-${tp.id}`}
-                        >
-                          <Plane className="w-3.5 h-3.5" />
-                          {activeTourProjects.length > 1 ? `Add Travel Day · ${tp.name}` : "Add Travel Day"}
-                        </Button>
-                      ))}
+                    <div className="flex justify-start">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 text-xs"
+                        onClick={() => openTravelDayDialog(activeTourProjects[0].id)}
+                        data-testid="button-add-travel-day"
+                      >
+                        <Plane className="w-3.5 h-3.5" /> Add Travel Day
+                      </Button>
                     </div>
                   )}
                   {showsForSelectedDate.length === 0 && !travelDayForSelectedDate && (
@@ -2502,12 +2498,27 @@ export default function Dashboard() {
         <DialogContent className="sm:max-w-[480px] max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="font-display uppercase tracking-wide">Add Travel Day</DialogTitle>
-            <DialogDescription>
-              {format(parseISO(selectedDate + "T12:00:00"), "MMMM d, yyyy")}
-              {addTravelProjectId && (() => { const proj = allProjects.find((p: Project) => p.id === addTravelProjectId); return proj ? ` · ${proj.name}` : ""; })()}
-            </DialogDescription>
+            <DialogDescription>{format(parseISO(selectedDate + "T12:00:00"), "MMMM d, yyyy")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1">
+            {activeTourProjects.length > 1 && (
+              <div>
+                <Label className="text-xs">Tour</Label>
+                <Select
+                  value={addTravelProjectId ? String(addTravelProjectId) : ""}
+                  onValueChange={(v) => setAddTravelProjectId(Number(v))}
+                >
+                  <SelectTrigger className="mt-1 h-8 text-sm" data-testid="select-travel-day-project">
+                    <SelectValue placeholder="Select a tour..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {activeTourProjects.map((tp: Project) => (
+                      <SelectItem key={tp.id} value={String(tp.id)}>{tp.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="text-xs">Airline</Label>
@@ -2545,7 +2556,7 @@ export default function Dashboard() {
           </div>
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setTravelDayDialogOpen(false)}>Cancel</Button>
-            <Button onClick={() => createTravelDayMutation.mutate()} disabled={createTravelDayMutation.isPending} data-testid="button-save-travel-day">
+            <Button onClick={() => createTravelDayMutation.mutate()} disabled={createTravelDayMutation.isPending || !addTravelProjectId} data-testid="button-save-travel-day">
               {createTravelDayMutation.isPending ? "Adding..." : "Add Travel Day"}
             </Button>
           </DialogFooter>
