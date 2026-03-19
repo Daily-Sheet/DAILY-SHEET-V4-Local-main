@@ -55,6 +55,7 @@ function ScrollColumn({
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const selectedRef = useRef<HTMLButtonElement>(null);
+  const lastTouchY = useRef<number | null>(null);
 
   useEffect(() => {
     if (selectedRef.current && containerRef.current) {
@@ -82,9 +83,28 @@ function ScrollColumn({
   return (
     <div
       ref={containerRef}
-      className="flex flex-col overflow-y-auto h-48 px-1"
+      className="flex flex-col overflow-y-scroll h-48 px-1"
       data-timepicker-column
       style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehavior: "contain" }}
+      onWheel={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        containerRef.current?.scrollBy({ top: e.deltaY });
+      }}
+      onTouchStart={(e) => {
+        lastTouchY.current = e.touches[0].clientY;
+      }}
+      onTouchMove={(e) => {
+        e.stopPropagation();
+        if (lastTouchY.current !== null && containerRef.current) {
+          const delta = lastTouchY.current - e.touches[0].clientY;
+          containerRef.current.scrollBy({ top: delta });
+          lastTouchY.current = e.touches[0].clientY;
+        }
+      }}
+      onTouchEnd={() => {
+        lastTouchY.current = null;
+      }}
     >
       {items.map((item) => {
         const isSelected = item === selected;
