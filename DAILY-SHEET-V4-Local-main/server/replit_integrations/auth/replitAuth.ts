@@ -68,7 +68,7 @@ export async function setupAuth(app: Express) {
         return res.status(400).json({ message: parsed.error.issues[0].message });
       }
       const { email, password, firstName, lastName, phone, department, token } = parsed.data;
-      const selfSignup = req.body.selfSignup === true;
+      const selfSignup = false; // self-service org creation is disabled
       const standaloneSignup = req.body.standaloneSignup === true;
       const organizationName = req.body.organizationName;
 

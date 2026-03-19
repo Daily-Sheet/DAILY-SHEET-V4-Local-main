@@ -61,9 +61,8 @@ export default function Register() {
   const isFirstUser = setupStatus?.needsSetup === true;
   const hasValidInvite = inviteStatus?.valid === true;
   const hasWorkspaceInvite = !!inviteEmail && !inviteToken;
-  const isSelfSignup = params.get("signup") === "admin";
-  const isStandaloneSignup = params.get("signup") === "user";
-  const canRegister = isFirstUser || hasValidInvite || hasWorkspaceInvite || isSelfSignup || isStandaloneSignup;
+  const isStandaloneSignup = !isFirstUser && !hasValidInvite && !hasWorkspaceInvite;
+  const canRegister = true;
 
   useEffect(() => {
     if (inviteEmail) {
@@ -94,7 +93,6 @@ export default function Register() {
           phone: phone || undefined,
           department,
           token: inviteToken || undefined,
-          ...(isSelfSignup ? { selfSignup: true, organizationName: organizationName || undefined } : {}),
           ...(isStandaloneSignup ? { standaloneSignup: true } : {}),
           ...(isFirstUser ? { organizationName: organizationName || undefined } : {}),
         }),
@@ -178,23 +176,21 @@ export default function Register() {
                   </div>
                 )}
                 <CardTitle className="text-2xl font-display uppercase tracking-wide">
-                  {isFirstUser ? "Create Admin Account" : isSelfSignup ? "Create Your Organization" : "Create Your Account"}
+                  {isFirstUser ? "Create Admin Account" : "Create Your Account"}
                 </CardTitle>
                 <CardDescription>
                   {isFirstUser
                     ? "Set up the first admin account to create your organization and get started."
-                    : isSelfSignup
-                      ? "Create your organization to manage your events, schedules, and crew."
-                      : isStandaloneSignup
-                        ? "Create your account. An admin will invite you to their organization."
-                        : hasValidInvite
-                          ? `You've been invited to join Daily Sheet as ${inviteStatus?.role === "admin" ? "an admin" : "a user"}. Create your account below.`
-                          : "You've been invited to join a crew on Daily Sheet. Create your account to get started."}
+                    : hasValidInvite
+                      ? `You've been invited to join Daily Sheet as ${inviteStatus?.role === "admin" ? "an admin" : "a user"}. Create your account below.`
+                      : hasWorkspaceInvite
+                        ? "You've been invited to join a crew on Daily Sheet. Create your account to get started."
+                        : "Create your free account to track your personal events and schedule."}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
-                  {(isFirstUser || isSelfSignup) && (
+                  {isFirstUser && (
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-foreground">Organization Name</label>
                       <Input
@@ -284,10 +280,6 @@ export default function Register() {
                     ) : isFirstUser ? (
                       <>
                         <UserPlus className="mr-2 h-4 w-4" /> Create Admin Account
-                      </>
-                    ) : isSelfSignup ? (
-                      <>
-                        <UserPlus className="mr-2 h-4 w-4" /> Create Organization
                       </>
                     ) : (
                       <>
