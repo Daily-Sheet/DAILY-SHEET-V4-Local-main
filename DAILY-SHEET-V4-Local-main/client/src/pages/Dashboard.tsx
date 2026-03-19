@@ -230,6 +230,8 @@ export default function Dashboard() {
   const [scheduleViewMode, setScheduleViewMode] = useState<"list" | "timeline">("list");
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const handleDateSelectRef = useRef<((date: string) => void) | null>(null);
+  const selectedDateRef = useRef<string>("");
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === "k") {
@@ -243,13 +245,13 @@ export default function Dashboard() {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       if (e.key === "t" || e.key === "T") {
-        handleDateSelect(format(new Date(), "yyyy-MM-dd"));
+        handleDateSelectRef.current?.(format(new Date(), "yyyy-MM-dd"));
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
-        handleDateSelect(format(addDays(parseISO(selectedDate), -1), "yyyy-MM-dd"));
+        handleDateSelectRef.current?.(format(addDays(parseISO(selectedDateRef.current), -1), "yyyy-MM-dd"));
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
-        handleDateSelect(format(addDays(parseISO(selectedDate), 1), "yyyy-MM-dd"));
+        handleDateSelectRef.current?.(format(addDays(parseISO(selectedDateRef.current), 1), "yyyy-MM-dd"));
       } else if (e.key >= "1" && e.key <= "9") {
         const idx = parseInt(e.key) - 1;
         if (idx < visibleTabs.length) setActiveTab(visibleTabs[idx]);
@@ -257,7 +259,7 @@ export default function Dashboard() {
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [visibleTabs, selectedDate, handleDateSelect]);
+  }, [visibleTabs]);
 
   const [whatChangedBanner, setWhatChangedBanner] = useState<{ counts: { scheduleChanges: number; assignmentChanges: number; comments: number; fileChanges: number; total: number } } | null>(null);
   const [whatChangedDismissed, setWhatChangedDismissed] = useState(false);
@@ -301,6 +303,7 @@ export default function Dashboard() {
     }
     return today;
   });
+  selectedDateRef.current = selectedDate;
   const queryClient = useQueryClient();
 
   const savePreferencesMutation = useMutation({
@@ -748,6 +751,7 @@ export default function Dashboard() {
       eventSelection.setSelectedEvents(showsOnDate);
     }
   }, [availableEvents, eventsList, eventSelection]);
+  handleDateSelectRef.current = handleDateSelect;
 
   const effectiveSelectedEvents: string[] = useMemo(() => {
     if (!isManager && availableEvents.length === 0) return [];
