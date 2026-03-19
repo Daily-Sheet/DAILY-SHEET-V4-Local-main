@@ -1111,12 +1111,14 @@ function CrewTab({
   allEventAssignments,
   isAdmin,
   selectedDate,
+  isTour,
 }: {
   eventName: string;
   contacts: Contact[];
   allEventAssignments: any[];
   isAdmin: boolean;
   selectedDate: string;
+  isTour?: boolean;
 }) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -1320,7 +1322,7 @@ function CrewTab({
               </DialogContent>
             </Dialog>
           )}
-          {isAdmin && (
+          {isAdmin && !isTour && (
             <Popover open={assignOpen} onOpenChange={setAssignOpen}>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="gap-1.5" data-testid={`button-assign-crew-${eventName.replace(/\s+/g, '-')}`}>
@@ -3149,7 +3151,7 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
                             <ScheduleTab eventName={show.event.name} selectedDate={selectedDate} schedules={schedules} isAdmin={isAdmin} zones={zones} sections={sections} />
                           </TabsContent>
                           <TabsContent value="crew" className="mt-3">
-                            <CrewTab eventName={show.event.name} contacts={contacts} allEventAssignments={allEventAssignments} isAdmin={isAdmin} selectedDate={selectedDate} />
+                            <CrewTab eventName={show.event.name} contacts={contacts} allEventAssignments={allEventAssignments} isAdmin={isAdmin} selectedDate={selectedDate} isTour={true} />
                           </TabsContent>
                           <TabsContent value="venue" className="mt-3">
                             <VenueTab venue={resolvedVenue} event={show.event} venues={venues} isAdmin={isAdmin} />

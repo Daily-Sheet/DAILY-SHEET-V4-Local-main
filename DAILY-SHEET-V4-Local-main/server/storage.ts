@@ -243,6 +243,7 @@ export interface IStorage {
   getProjectAssignmentsByUser(userId: string, workspaceId: number): Promise<ProjectAssignment[]>;
   getAllProjectAssignments(workspaceId: number): Promise<ProjectAssignment[]>;
   createProjectAssignment(assignment: InsertProjectAssignment): Promise<ProjectAssignment>;
+  updateProjectAssignment(id: number, data: { position?: string | null }): Promise<ProjectAssignment>;
   deleteProjectAssignment(id: number): Promise<void>;
 
   // Access Links
@@ -1233,6 +1234,11 @@ export class DatabaseStorage implements IStorage {
   async createProjectAssignment(assignment: InsertProjectAssignment): Promise<ProjectAssignment> {
     const [created] = await db.insert(projectAssignments).values(assignment).returning();
     return created;
+  }
+
+  async updateProjectAssignment(id: number, data: { position?: string | null }): Promise<ProjectAssignment> {
+    const [updated] = await db.update(projectAssignments).set(data).where(eq(projectAssignments.id, id)).returning();
+    return updated;
   }
 
   async deleteProjectAssignment(id: number): Promise<void> {

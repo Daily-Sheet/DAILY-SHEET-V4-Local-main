@@ -60,6 +60,37 @@ export function registerWorkspaceRoutes(app: Express, upload: multer.Multer) {
     }
   });
 
+  app.patch("/api/project-assignments/:id", isAuthenticated, requireRole("owner", "manager", "admin"), async (req: any, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const workspaceId = req.user.workspaceId;
+      if (!workspaceId) return res.status(400).json({ message: "No workspace" });
+      const all = await storage.getAllProjectAssignments(workspaceId);
+      const assignment = all.find((a: any) => a.id === id);
+      if (!assignment) return res.status(404).json({ message: "Assignment not found" });
+      const { position } = req.body;
+      const updated = await storage.updateProjectAssignment(id, { position: position ?? null });
+
+      // Cascade position update to all event assignments for this user in this project
+      const project = await storage.getProject(assignment.projectId);
+      if (project?.isTour) {
+        const tourEvents = await storage.getEvents(workspaceId);
+        const projectEvents = tourEvents.filter((e: any) => e.projectId === assignment.projectId);
+        const allAssignments = await storage.getAllAssignments(workspaceId);
+        for (const ev of projectEvents) {
+          const ea = allAssignments.find((a: any) => a.userId === assignment.userId && a.eventName === ev.name);
+          if (ea) {
+            await storage.updateAssignment(ea.id, { position: position ?? null });
+          }
+        }
+      }
+
+      res.json(updated);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to update project assignment" });
+    }
+  });
+
   app.delete("/api/project-assignments/:id", isAuthenticated, requireRole("owner", "manager", "admin"), async (req: any, res) => {
     try {
       const id = parseInt(req.params.id);

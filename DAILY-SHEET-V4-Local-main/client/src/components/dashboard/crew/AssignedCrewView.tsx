@@ -1,16 +1,18 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { format } from "date-fns";
 import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   Eye, Users, Phone, Mail, Search, Loader2,
-  CheckCircle2, Circle, LogIn, LogOut, UtensilsCrossed, RotateCcw, Plus, UserPlus,
+  CheckCircle2, Circle, LogIn, LogOut, UtensilsCrossed, RotateCcw, Plus, UserPlus, Pencil, Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -177,7 +179,69 @@ function AssignContactToEventDialog({ eventName, contacts, allEventAssignments, 
   );
 }
 
-function AssignProjectCrewDialog({ projectId, projectName, contacts }: { projectId: number; projectName: string; contacts: Contact[] }) {
+function ProjectPositionEditor({ assignmentId, currentPosition }: { assignmentId: number; currentPosition: string }) {
+  const [open, setOpen] = useState(false);
+  const [value, setValue] = useState(currentPosition);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: crewPositionPresets = [] } = useQuery<any[]>({ queryKey: ["/api/crew-positions"] });
+
+  const updateMutation = useMutation({
+    mutationFn: async (position: string) => {
+      const res = await apiRequest("PATCH", `/api/project-assignments/${assignmentId}`, { position: position || null });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/project-assignments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/event-assignments"] });
+      setOpen(false);
+    },
+    onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  useEffect(() => { setValue(currentPosition); }, [currentPosition]);
+
+  return (
+    <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) setValue(currentPosition); }}>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="sm" className="h-5 px-1 text-[10px] text-muted-foreground gap-0.5" data-testid={`button-edit-proj-position-${assignmentId}`}>
+          <Pencil className="w-2.5 h-2.5" />
+          {currentPosition ? "Edit" : "Position"}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-56 p-3" align="start">
+        <div className="space-y-2">
+          <Label className="text-xs">Tour Position</Label>
+          {crewPositionPresets.length > 0 && (
+            <div className="flex flex-wrap gap-1">
+              {crewPositionPresets.map((p: any) => (
+                <Button key={p.id} variant={value === p.name ? "default" : "outline"} size="sm"
+                  className="text-[10px] px-1.5 uppercase tracking-wide"
+                  onClick={() => { setValue(p.name); updateMutation.mutate(p.name); }}>
+                  {p.name}
+                </Button>
+              ))}
+            </div>
+          )}
+          <Input value={value} onChange={(e) => setValue(e.target.value)} placeholder="Or type custom..."
+            className="text-sm"
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); updateMutation.mutate(value.trim()); } }}
+          />
+          <div className="flex gap-1.5 justify-end">
+            {currentPosition && (
+              <Button variant="ghost" size="sm" onClick={() => updateMutation.mutate("")}>Clear</Button>
+            )}
+            <Button size="sm" onClick={() => updateMutation.mutate(value.trim())} disabled={updateMutation.isPending}>
+              <Check className="w-3 h-3 mr-1" /> Save
+            </Button>
+          </div>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function AssignProjectCrewDialog({ projectId, projectName, contacts, isTour }: { projectId: number; projectName: string; contacts: Contact[]; isTour?: boolean }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const queryClient = useQueryClient();
@@ -209,7 +273,7 @@ function AssignProjectCrewDialog({ projectId, projectName, contacts }: { project
       <DialogTrigger asChild>
         <Button size="sm" variant="outline" className="text-xs h-7 gap-1" data-testid="button-assign-project-crew">
           <UserPlus className="h-3 w-3" />
-          Assign to Festival
+          {isTour ? "Assign to Tour" : "Assign to Festival"}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md max-h-[80vh] flex flex-col" data-testid="dialog-assign-project-crew">
@@ -552,7 +616,7 @@ export function AssignedCrewView({ contacts, user, selectedEvents, allEventAssig
               )}
             </h3>
             {canEdit && (
-              <AssignProjectCrewDialog projectId={festivalProject.id} projectName={festivalProject.name} contacts={contacts} />
+              <AssignProjectCrewDialog projectId={festivalProject.id} projectName={festivalProject.name} contacts={contacts} isTour={isTourProject} />
             )}
           </div>
           {projectCrewContacts.length === 0 ? (
@@ -589,6 +653,9 @@ export function AssignedCrewView({ contacts, user, selectedEvents, allEventAssig
                         <div className="flex items-center justify-between gap-2 mt-0.5">
                           <span className="text-[11px] text-muted-foreground uppercase tracking-wide truncate min-w-0">{contact.role}</span>
                           <div className="flex items-center gap-2 flex-shrink-0">
+                            {canEdit && assignment && (
+                              <ProjectPositionEditor assignmentId={assignment.id} currentPosition={assignment.position || ""} />
+                            )}
                             {contact.phone && (
                               <a href={`tel:${contact.phone}`} className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-colors" data-testid={`link-project-crew-phone-${contact.id}`}>
                                 <Phone className="h-3 w-3" />
@@ -664,7 +731,7 @@ export function AssignedCrewView({ contacts, user, selectedEvents, allEventAssig
               )}
             </h3>
             <div className="flex items-center gap-2">
-              {canEdit && <AssignContactToEventDialog eventName={groupEventName} contacts={contacts} allEventAssignments={allEventAssignments} selectedDate={selectedDate} />}
+              {canEdit && !isTourProject && <AssignContactToEventDialog eventName={groupEventName} contacts={contacts} allEventAssignments={allEventAssignments} selectedDate={selectedDate} />}
             </div>
           </div>
           {sortedCrewList.length === 0 ? (
