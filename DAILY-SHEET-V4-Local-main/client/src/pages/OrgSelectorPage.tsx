@@ -1,11 +1,12 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth, resetBootstrap } from "@/hooks/use-auth";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Loader2, Building2, CheckCircle2 } from "lucide-react";
+import { Loader2, Building2, CheckCircle2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Workspace {
@@ -19,10 +20,25 @@ export default function OrgSelectorPage() {
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [newOrgName, setNewOrgName] = useState("");
+  const [showCreateForm, setShowCreateForm] = useState(false);
 
   const { data: workspaces = [], isLoading: wsLoading } = useQuery<Workspace[]>({
     queryKey: ["/api/workspaces"],
     enabled: !!user,
+  });
+
+  const createOrgMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const res = await apiRequest("POST", "/api/workspaces", { name });
+      return res.json();
+    },
+    onSuccess: (workspace: Workspace) => {
+      switchMutation.mutate(workspace.id);
+    },
+    onError: (err: any) => {
+      toast({ title: "Failed to create organization", description: err.message, variant: "destructive" });
+    },
   });
 
   const switchMutation = useMutation({
@@ -60,12 +76,46 @@ export default function OrgSelectorPage() {
 
   if (workspaces.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>No Organizations</CardTitle>
-            <CardDescription>You are not a member of any organization yet. Contact an admin to get invited.</CardDescription>
+          <CardHeader className="text-center">
+            <Building2 className="mx-auto h-12 w-12 text-primary mb-3" />
+            <CardTitle>Create Your Organization</CardTitle>
+            <CardDescription>Set up your organization to get started, or wait for an invite from an existing org.</CardDescription>
           </CardHeader>
+          <CardContent className="space-y-3">
+            {!showCreateForm ? (
+              <Button className="w-full" onClick={() => setShowCreateForm(true)}>
+                <Plus className="w-4 h-4 mr-2" /> Create Organization
+              </Button>
+            ) : (
+              <div className="space-y-3">
+                <Input
+                  placeholder="Organization name..."
+                  value={newOrgName}
+                  onChange={(e) => setNewOrgName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && newOrgName.trim()) createOrgMutation.mutate(newOrgName.trim());
+                  }}
+                  autoFocus
+                />
+                <div className="flex gap-2">
+                  <Button
+                    className="flex-1"
+                    disabled={!newOrgName.trim() || createOrgMutation.isPending || switchMutation.isPending}
+                    onClick={() => createOrgMutation.mutate(newOrgName.trim())}
+                  >
+                    {(createOrgMutation.isPending || switchMutation.isPending) ? (
+                      <><Loader2 className="w-4 h-4 animate-spin mr-2" /> Creating...</>
+                    ) : "Create"}
+                  </Button>
+                  <Button variant="ghost" onClick={() => { setShowCreateForm(false); setNewOrgName(""); }}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </CardContent>
         </Card>
       </div>
     );
