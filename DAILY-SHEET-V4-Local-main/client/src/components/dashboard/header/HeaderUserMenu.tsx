@@ -65,7 +65,20 @@ export function HeaderUserMenu({ contacts, canEdit, allEventAssignments }: { con
 
   return (
     <>
-      <Popover>
+      <div className="flex items-center gap-0.5">
+        {/* Always-visible logout button in the header */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
+          onClick={() => logout()}
+          title="Log Out"
+          data-testid="button-logout-header"
+        >
+          <LogOut className="h-4 w-4" />
+        </Button>
+
+        <Popover>
         <PopoverTrigger asChild>
           <Button variant="ghost" size="icon" className="rounded-full" data-testid="button-user-menu">
             <Avatar className="h-8 w-8">
@@ -74,13 +87,23 @@ export function HeaderUserMenu({ contacts, canEdit, allEventAssignments }: { con
             </Avatar>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-64 p-2" align="end">
+        <PopoverContent className="w-64 p-2 max-h-[80vh] overflow-y-auto" align="end">
           <div className="space-y-1">
             <div className="px-2 py-1.5">
               <p className="text-sm font-medium truncate">{user?.firstName} {user?.lastName}</p>
               <p className="text-[11px] text-muted-foreground truncate">{user?.email}</p>
               <Badge variant="secondary" className="mt-1 text-[10px]" data-testid="badge-user-role">{user?.workspaceRole || user?.role}</Badge>
             </div>
+            <Separator />
+            <button
+              type="button"
+              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm text-destructive hover-elevate cursor-pointer"
+              onClick={() => logout()}
+              data-testid="button-logout"
+            >
+              <LogOut className="h-4 w-4" />
+              Log Out
+            </button>
             <Separator />
             <button
               type="button"
@@ -230,6 +253,7 @@ export function HeaderUserMenu({ contacts, canEdit, allEventAssignments }: { con
           </div>
         </PopoverContent>
       </Popover>
+      </div>
       <ProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
     </>
   );
