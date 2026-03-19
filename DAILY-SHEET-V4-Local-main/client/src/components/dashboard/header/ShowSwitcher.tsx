@@ -195,6 +195,7 @@ export function ShowSwitcher({
     const ev = eventsMap.get(name);
     const isViaProject = projectAssignedEventNames.has(name);
     const isActiveToday = isOnSelectedDate(name);
+    const evProject = ev?.projectId ? projects.find(p => p.id === ev.projectId) : null;
     const dateLabel = ev?.startDate
       ? `${format(parseISO(ev.startDate), "MMM d")}${ev.endDate && ev.endDate !== ev.startDate ? ` – ${format(parseISO(ev.endDate), "MMM d")}` : ""}`
       : null;
@@ -232,7 +233,7 @@ export function ShowSwitcher({
             {isActiveToday && <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />}
             <span className="truncate">{name}</span>
             {isViaProject && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 whitespace-nowrap flex-shrink-0">All Stages</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 whitespace-nowrap flex-shrink-0">{evProject?.isTour ? "All Shows" : "All Stages"}</span>
             )}
           </div>
           {dateLabel && (

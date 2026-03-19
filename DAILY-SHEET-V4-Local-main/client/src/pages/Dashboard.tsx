@@ -983,6 +983,7 @@ export default function Dashboard() {
                 const eventVenue = event.venueId ? venuesList.find(v => v.id === event.venueId) : null;
                 const eventProject = event.projectId ? allProjects.find((p: Project) => p.id === event.projectId) : null;
                 const isFestival = eventProject?.isFestival;
+                const isTour = eventProject?.isTour;
                 const dateRange = event.startDate && event.endDate
                   ? `${format(new Date(event.startDate + "T00:00:00"), "MMM d")} – ${format(new Date(event.endDate + "T00:00:00"), "MMM d, yyyy")}`
                   : event.startDate
@@ -1005,7 +1006,7 @@ export default function Dashboard() {
                             {event.name}
                           </h3>
                           {projAssignedNames.has(event.name) && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 whitespace-nowrap flex-shrink-0">All Stages</span>
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 whitespace-nowrap flex-shrink-0">{isTour ? "All Shows" : "All Stages"}</span>
                           )}
                         </div>
                         {isFestival && eventProject && (

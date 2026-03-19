@@ -3272,7 +3272,7 @@ function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival
   );
 }
 
-function ProjectCrewManager({ projectId, projectName, label = "Festival Crew" }: { projectId: number; projectName: string; label?: string }) {
+function ProjectCrewManager({ projectId, projectName, label = "Festival Crew", isTour = false }: { projectId: number; projectName: string; label?: string; isTour?: boolean }) {
   const { data: contacts = [] } = useContacts();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -3334,7 +3334,7 @@ function ProjectCrewManager({ projectId, projectName, label = "Festival Crew" }:
                 >
                   <Users className="w-3 h-3" />
                   {[contact!.firstName, contact!.lastName].filter(Boolean).join(" ")}
-                  <span className="text-[9px] opacity-70 ml-0.5">All Stages</span>
+                  <span className="text-[9px] opacity-70 ml-0.5">{isTour ? "All Shows" : "All Stages"}</span>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -4251,7 +4251,7 @@ function ProjectsAdmin() {
 
                       {(project.isFestival || project.isTour) && !isEditing && (
                         <div className="mt-3 border-t border-purple-500/10 pt-3">
-                          <ProjectCrewManager projectId={project.id} projectName={project.name} label={project.isTour ? "Tour Crew" : "Festival Crew"} />
+                          <ProjectCrewManager projectId={project.id} projectName={project.name} label={project.isTour ? "Tour Crew" : "Festival Crew"} isTour={project.isTour ?? false} />
                         </div>
                       )}
 
