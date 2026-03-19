@@ -75,6 +75,43 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Ensure community map tables exist (idempotent — safe on every deploy)
+  try {
+    const { pool } = await import("./db");
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS map_pins (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR NOT NULL,
+        user_name TEXT NOT NULL,
+        lat DOUBLE PRECISION NOT NULL,
+        lng DOUBLE PRECISION NOT NULL,
+        title TEXT NOT NULL,
+        category TEXT NOT NULL DEFAULT 'other',
+        description TEXT,
+        address TEXT,
+        website TEXT,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS map_pin_likes (
+        id SERIAL PRIMARY KEY,
+        pin_id INTEGER NOT NULL,
+        user_id VARCHAR NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS map_pin_comments (
+        id SERIAL PRIMARY KEY,
+        pin_id INTEGER NOT NULL,
+        user_id VARCHAR NOT NULL,
+        user_name TEXT NOT NULL,
+        content TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+    `);
+    log("Map tables ready");
+  } catch (err) {
+    console.error("Map table migration error (non-fatal):", err);
+  }
+
   await registerRoutes(httpServer, app);
 
   storage.deduplicateContacts().then(count => {
