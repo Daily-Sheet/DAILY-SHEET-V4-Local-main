@@ -243,13 +243,13 @@ export default function Dashboard() {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       if (e.key === "t" || e.key === "T") {
-        setSelectedDate(format(new Date(), "yyyy-MM-dd"));
+        handleDateSelect(format(new Date(), "yyyy-MM-dd"));
       } else if (e.key === "ArrowLeft") {
         e.preventDefault();
-        setSelectedDate(d => format(addDays(parseISO(d), -1), "yyyy-MM-dd"));
+        handleDateSelect(format(addDays(parseISO(selectedDate), -1), "yyyy-MM-dd"));
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
-        setSelectedDate(d => format(addDays(parseISO(d), 1), "yyyy-MM-dd"));
+        handleDateSelect(format(addDays(parseISO(selectedDate), 1), "yyyy-MM-dd"));
       } else if (e.key >= "1" && e.key <= "9") {
         const idx = parseInt(e.key) - 1;
         if (idx < visibleTabs.length) setActiveTab(visibleTabs[idx]);
@@ -257,7 +257,7 @@ export default function Dashboard() {
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [visibleTabs]);
+  }, [visibleTabs, selectedDate, handleDateSelect]);
 
   const [whatChangedBanner, setWhatChangedBanner] = useState<{ counts: { scheduleChanges: number; assignmentChanges: number; comments: number; fileChanges: number; total: number } } | null>(null);
   const [whatChangedDismissed, setWhatChangedDismissed] = useState(false);
