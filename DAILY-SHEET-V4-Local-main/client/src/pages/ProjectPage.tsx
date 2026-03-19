@@ -47,29 +47,33 @@ import { buildNestedSchedule, flattenNested } from "@/lib/schedule-nesting";
 import GanttScheduleView from "@/components/GanttScheduleView";
 import { useColorScheme } from "@/components/ColorSchemeProvider";
 
-function CrewPositionEditorProject({ assignmentId, currentPosition }: { assignmentId: number; currentPosition: string }) {
+function CrewPositionEditorProject({ assignmentId, projectId, currentPosition }: { assignmentId: number; projectId?: number | null; currentPosition: string }) {
   const [open, setOpen] = useState(false);
   const [value, setValue] = useState(currentPosition);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: crewPositionPresets = [] } = useQuery<any[]>({ queryKey: ["/api/crew-positions"] });
-  const saveNewPreset = async (name: string) => {
-    if (!name) return;
-    const exists = crewPositionPresets.some((p: any) => p.name.toLowerCase() === name.toLowerCase());
-    if (!exists) {
-      await apiRequest("POST", "/api/crew-positions", { name });
-      queryClient.invalidateQueries({ queryKey: ["/api/crew-positions"] });
+  const saveNewPresets = async (val: string) => {
+    const parts = val.split(" / ").map(s => s.trim()).filter(Boolean);
+    for (const name of parts) {
+      const exists = crewPositionPresets.some((p: any) => p.name.toLowerCase() === name.toLowerCase());
+      if (!exists) {
+        await apiRequest("POST", "/api/crew-positions", { name });
+      }
     }
+    if (parts.length > 0) queryClient.invalidateQueries({ queryKey: ["/api/crew-positions"] });
   };
   const updateMutation = useMutation({
     mutationFn: async (position: string) => {
-      const res = await apiRequest("PATCH", `/api/event-assignments/${assignmentId}`, { position });
+      const res = await apiRequest("PATCH", `/api/project-assignments/${assignmentId}`, { position: position || null });
       return res.json();
     },
     onSuccess: (_data, position) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/project-assignments"] });
+      if (projectId) queryClient.invalidateQueries({ queryKey: ["/api/project-assignments", projectId] });
       queryClient.invalidateQueries({ queryKey: ["/api/event-assignments"] });
       setOpen(false);
-      if (position) saveNewPreset(position);
+      if (position) saveNewPresets(position);
     },
     onError: (err: any) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
@@ -77,6 +81,14 @@ function CrewPositionEditorProject({ assignmentId, currentPosition }: { assignme
   useEffect(() => {
     setValue(currentPosition);
   }, [currentPosition]);
+
+  const selectedPresets = value ? value.split(" / ").filter(Boolean) : [];
+  const togglePreset = (name: string) => {
+    const next = selectedPresets.includes(name)
+      ? selectedPresets.filter(s => s !== name)
+      : [...selectedPresets, name];
+    setValue(next.join(" / "));
+  };
 
   return (
     <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) setValue(currentPosition); }}>
@@ -86,18 +98,18 @@ function CrewPositionEditorProject({ assignmentId, currentPosition }: { assignme
           {currentPosition ? "Edit" : "Position"}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-56 p-3" align="start">
+      <PopoverContent className="w-60 p-3" align="start">
         <div className="space-y-2">
-          <Label className="text-xs">Show Position</Label>
+          <Label className="text-xs">Project Position</Label>
           {crewPositionPresets.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {crewPositionPresets.map((p: any) => (
                 <Button
                   key={p.id}
-                  variant={value === p.name ? "default" : "outline"}
+                  variant={selectedPresets.includes(p.name) ? "default" : "outline"}
                   size="sm"
                   className="text-[10px] px-1.5 uppercase tracking-wide"
-                  onClick={() => { setValue(p.name); updateMutation.mutate(p.name); }}
+                  onClick={() => togglePreset(p.name)}
                   data-testid={`button-preset-position-project-${p.id}`}
                 >
                   {p.name}
@@ -628,16 +640,27 @@ function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose: () => 
                         </button>
                       </div>
                       <div className="flex items-center gap-2 flex-wrap">
-                        <Select value={member.position || "__none__"} onValueChange={(val) => updateCrewPosition(member.name, val === "__none__" ? null : val)}>
-                          <SelectTrigger className="h-7 text-xs flex-1 min-w-0">
-                            <SelectValue placeholder="No position" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="__none__">No position</SelectItem>
-                            {(crewPositions as any[]).map((p: any) => <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>)}
-                            {member.position && !(crewPositions as any[]).some((p: any) => p.name === member.position) && <SelectItem value={member.position}>{member.position}</SelectItem>}
-                          </SelectContent>
-                        </Select>
+                        {crewPositions.length > 0 ? (
+                          <div className="flex flex-wrap gap-1 flex-1">
+                            {(crewPositions as any[]).map((p: any) => {
+                              const selectedPositions = (member.position || "").split(" / ").filter(Boolean);
+                              const isSelected = selectedPositions.includes(p.name);
+                              return (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  className={`text-[10px] px-1.5 py-0.5 rounded border uppercase tracking-wide transition-colors ${isSelected ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted text-foreground"}`}
+                                  onClick={() => {
+                                    const next = isSelected ? selectedPositions.filter(s => s !== p.name) : [...selectedPositions, p.name];
+                                    updateCrewPosition(member.name, next.join(" / ") || null);
+                                  }}
+                                >
+                                  {p.name}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        ) : null}
                         {(member.departments || []).map((dept: string) => (
                           <Badge key={dept} variant="outline" className="text-[10px] px-1.5 py-0 flex-shrink-0">{dept}</Badge>
                         ))}
@@ -1112,6 +1135,8 @@ function CrewTab({
   isAdmin,
   selectedDate,
   isTour,
+  projectAssignments,
+  projectId,
 }: {
   eventName: string;
   contacts: Contact[];
@@ -1119,6 +1144,8 @@ function CrewTab({
   isAdmin: boolean;
   selectedDate: string;
   isTour?: boolean;
+  projectAssignments?: any[];
+  projectId?: number | null;
 }) {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -1439,6 +1466,8 @@ function CrewTab({
                   {grouped[dept].map(c => {
                     const fullName = [c.firstName, c.lastName].filter(Boolean).join(" ");
                     const assignment = eventAssignmentsForShow.find((a: any) => a.userId === c.userId);
+                    const projectAssignment = projectAssignments?.find((pa: any) => pa.userId === c.userId);
+                    const displayPosition = projectAssignment?.position || assignment?.position || "";
                     const dailyCheckin = c.userId ? dailyCheckinsMap.get(c.userId) : null;
                     const isCheckedIn = !!dailyCheckin?.checkedInAt;
                     const isCheckedOut = !!dailyCheckin?.checkedOutAt;
@@ -1480,14 +1509,16 @@ function CrewTab({
                               {c.role && (
                                 <span className="text-xs text-muted-foreground">{c.role}</span>
                               )}
-                              {assignment?.position && (
+                              {displayPosition && (
                                 <>
                                   <span className="text-xs text-muted-foreground">&middot;</span>
-                                  <Badge variant="outline" className="text-[10px] uppercase tracking-wide">{assignment.position}</Badge>
+                                  {displayPosition.split(" / ").filter(Boolean).map((pos, i) => (
+                                    <Badge key={i} variant="outline" className="text-[10px] uppercase tracking-wide">{pos}</Badge>
+                                  ))}
                                 </>
                               )}
-                              {isAdmin && assignment && (
-                                <CrewPositionEditorProject assignmentId={assignment.id} currentPosition={assignment.position || ""} />
+                              {isAdmin && projectAssignment && (
+                                <CrewPositionEditorProject assignmentId={projectAssignment.id} projectId={projectId} currentPosition={projectAssignment.position || ""} />
                               )}
                             </div>
                             {(isCheckedIn || isCheckedOut) && (
@@ -3151,7 +3182,7 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
                             <ScheduleTab eventName={show.event.name} selectedDate={selectedDate} schedules={schedules} isAdmin={isAdmin} zones={zones} sections={sections} />
                           </TabsContent>
                           <TabsContent value="crew" className="mt-3">
-                            <CrewTab eventName={show.event.name} contacts={contacts} allEventAssignments={allEventAssignments} isAdmin={isAdmin} selectedDate={selectedDate} isTour={true} />
+                            <CrewTab eventName={show.event.name} contacts={contacts} allEventAssignments={allEventAssignments} isAdmin={isAdmin} selectedDate={selectedDate} isTour={true} projectAssignments={projectAssignments} projectId={project.id} />
                           </TabsContent>
                           <TabsContent value="venue" className="mt-3">
                             <VenueTab venue={resolvedVenue} event={show.event} venues={venues} isAdmin={isAdmin} />
@@ -3265,6 +3296,11 @@ export default function ProjectPage() {
   const { data: allDayVenues = [] } = useQuery<EventDayVenue[]>({ queryKey: ["/api/event-day-venues"] });
   const { data: travelDays = [] } = useQuery<TravelDay[]>({
     queryKey: ["/api/projects", projectId, "travel-days"],
+    enabled: !!projectId,
+  });
+
+  const { data: projectAssignments = [] } = useQuery<any[]>({
+    queryKey: ["/api/project-assignments", projectId],
     enabled: !!projectId,
   });
 
@@ -3666,6 +3702,8 @@ export default function ProjectPage() {
                                   allEventAssignments={allEventAssignments}
                                   isAdmin={isAdmin}
                                   selectedDate={selectedDate}
+                                  projectAssignments={projectAssignments}
+                                  projectId={projectId}
                                 />
                               </TabsContent>
 

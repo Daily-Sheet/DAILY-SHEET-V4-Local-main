@@ -35,9 +35,11 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
     }
 
     // Enrich crew data: for records where crew is empty/null, derive from crewNames + contacts/assignments
-    const [allContacts, allAssignments] = await Promise.all([
+    const [allContacts, allAssignments, allEvents, allProjectAssignments] = await Promise.all([
       storage.getContacts(workspaceId),
       storage.getAllAssignments(workspaceId),
+      storage.getEvents(workspaceId),
+      storage.getAllProjectAssignments(workspaceId),
     ]);
     const contactByName = new Map<string, any>();
     allContacts.forEach((c: any) => {
@@ -48,11 +50,21 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
     allAssignments.forEach((a: any) => {
       assignmentByUserEvent.set(`${a.userId}::${a.eventName}`, a);
     });
+    // Map eventName → projectId for project assignment lookup
+    const eventNameToProjectId = new Map<string, number>();
+    allEvents.forEach((e: any) => {
+      if (e.projectId) eventNameToProjectId.set(e.name, e.projectId);
+    });
+    const projectAssignmentByUserProject = new Map<string, any>();
+    allProjectAssignments.forEach((pa: any) => {
+      projectAssignmentByUserProject.set(`${pa.userId}::${pa.projectId}`, pa);
+    });
 
     const enriched = allSchedules.map((s: any) => {
       if (s.crew && (s.crew as any[]).length > 0) return s;
       const names: string[] = s.crewNames || [];
       if (names.length === 0) return s;
+      const projectId = s.eventName ? eventNameToProjectId.get(s.eventName) : null;
       const crew = names.map((name: string) => {
         const contact = contactByName.get(name.toLowerCase());
         const departments: string[] = contact?.role
@@ -61,7 +73,11 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
         const assignment = contact?.userId
           ? assignmentByUserEvent.get(`${contact.userId}::${s.eventName}`)
           : null;
-        return { name, userId: contact?.userId || null, position: assignment?.position || null, departments };
+        const projectAssignment = contact?.userId && projectId
+          ? projectAssignmentByUserProject.get(`${contact.userId}::${projectId}`)
+          : null;
+        const position = projectAssignment?.position || assignment?.position || null;
+        return { name, userId: contact?.userId || null, position, departments };
       });
       return { ...s, crew };
     });

@@ -20,7 +20,6 @@ import { apiRequest } from "@/lib/queryClient";
 import { useProjects } from "@/hooks/use-projects";
 import { useUserActivity, ActiveDot, matchesSearch } from "@/components/dashboard/utils";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
-import { CrewPositionEditor } from "@/components/dashboard/crew/CrewPositionEditor";
 import type { Contact, Event } from "@shared/schema";
 import type { AuthUser } from "@/hooks/use-auth";
 
@@ -201,6 +200,14 @@ function ProjectPositionEditor({ assignmentId, currentPosition }: { assignmentId
 
   useEffect(() => { setValue(currentPosition); }, [currentPosition]);
 
+  const selectedPresets = value ? value.split(" / ").filter(Boolean) : [];
+  const togglePreset = (name: string) => {
+    const next = selectedPresets.includes(name)
+      ? selectedPresets.filter(s => s !== name)
+      : [...selectedPresets, name];
+    setValue(next.join(" / "));
+  };
+
   return (
     <Popover open={open} onOpenChange={(o) => { setOpen(o); if (o) setValue(currentPosition); }}>
       <PopoverTrigger asChild>
@@ -209,15 +216,15 @@ function ProjectPositionEditor({ assignmentId, currentPosition }: { assignmentId
           {currentPosition ? "Edit" : "Position"}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-56 p-3" align="start">
+      <PopoverContent className="w-60 p-3" align="start">
         <div className="space-y-2">
-          <Label className="text-xs">Tour Position</Label>
+          <Label className="text-xs">Project Position</Label>
           {crewPositionPresets.length > 0 && (
             <div className="flex flex-wrap gap-1">
               {crewPositionPresets.map((p: any) => (
-                <Button key={p.id} variant={value === p.name ? "default" : "outline"} size="sm"
+                <Button key={p.id} variant={selectedPresets.includes(p.name) ? "default" : "outline"} size="sm"
                   className="text-[10px] px-1.5 uppercase tracking-wide"
-                  onClick={() => { setValue(p.name); updateMutation.mutate(p.name); }}>
+                  onClick={() => togglePreset(p.name)}>
                   {p.name}
                 </Button>
               ))}
@@ -643,11 +650,11 @@ export function AssignedCrewView({ contacts, user, selectedEvents, allEventAssig
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-semibold text-sm truncate">{[contact.firstName, contact.lastName].filter(Boolean).join(" ")}</span>
-                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <div className="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
                             <Badge variant="outline" className="text-[10px] border-purple-500/30 text-purple-600 dark:text-purple-400">{isTourProject ? "All Shows" : "All Stages"}</Badge>
-                            {assignment?.position && (
-                              <Badge variant="outline" className="text-[10px] uppercase tracking-wide font-medium max-w-[100px] truncate">{assignment.position}</Badge>
-                            )}
+                            {assignment?.position && assignment.position.split(" / ").filter(Boolean).map((pos: string, i: number) => (
+                              <Badge key={i} variant="outline" className="text-[10px] uppercase tracking-wide font-medium">{pos}</Badge>
+                            ))}
                           </div>
                         </div>
                         <div className="flex items-center justify-between gap-2 mt-0.5">
@@ -822,12 +829,9 @@ export function AssignedCrewView({ contacts, user, selectedEvents, allEventAssig
                                   {assignment?.date && (
                                     <Badge variant="outline" className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20">Today</Badge>
                                   )}
-                                  {assignment?.position && (
-                                    <Badge variant="outline" className="text-[10px] uppercase tracking-wide font-medium max-w-[100px] truncate">{assignment.position}</Badge>
-                                  )}
-                                  {canEdit && (
-                                    <CrewPositionEditor assignmentId={assignment?.id} currentPosition={assignment?.position || ""} />
-                                  )}
+                                  {assignment?.position && assignment.position.split(" / ").filter(Boolean).map((pos: string, i: number) => (
+                                    <Badge key={i} variant="outline" className="text-[10px] uppercase tracking-wide font-medium">{pos}</Badge>
+                                  ))}
                                 </div>
                               </div>
                               <div className="flex items-center justify-between gap-2 mt-0.5">

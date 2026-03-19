@@ -41,6 +41,14 @@ export function CrewPositionEditor({ assignmentId, currentPosition }: { assignme
     setValue(currentPosition);
   }, [currentPosition]);
 
+  const selectedPresets = value ? value.split(" / ").filter(Boolean) : [];
+  const togglePreset = (name: string) => {
+    const next = selectedPresets.includes(name)
+      ? selectedPresets.filter(s => s !== name)
+      : [...selectedPresets, name];
+    setValue(next.join(" / "));
+  };
+
   if (!assignmentId) return null;
 
   return (
@@ -51,7 +59,7 @@ export function CrewPositionEditor({ assignmentId, currentPosition }: { assignme
           {currentPosition ? "Edit" : "Position"}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-56 p-3" align="start">
+      <PopoverContent className="w-60 p-3" align="start">
         <div className="space-y-2">
           <Label className="text-xs">Show Position</Label>
           {crewPositionPresets.length > 0 && (
@@ -59,10 +67,10 @@ export function CrewPositionEditor({ assignmentId, currentPosition }: { assignme
               {crewPositionPresets.map((p: any) => (
                 <Button
                   key={p.id}
-                  variant={value === p.name ? "default" : "outline"}
+                  variant={selectedPresets.includes(p.name) ? "default" : "outline"}
                   size="sm"
                   className="text-[10px] px-1.5 uppercase tracking-wide"
-                  onClick={() => { setValue(p.name); updateMutation.mutate(p.name); }}
+                  onClick={() => togglePreset(p.name)}
                   data-testid={`button-preset-position-${p.id}`}
                 >
                   {p.name}

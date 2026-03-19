@@ -657,23 +657,27 @@ export function CreateScheduleDialog({ defaultEventName, defaultDate, trigger }:
                             </button>
                           </div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <Select
-                              value={member.position || "__none__"}
-                              onValueChange={(val) => updateCrewPosition(member.name, val === "__none__" ? null : val)}
-                            >
-                              <SelectTrigger className="h-7 text-xs flex-1 min-w-0">
-                                <SelectValue placeholder="No position" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="__none__">No position</SelectItem>
-                                {(crewPositions as any[]).map((p: any) => (
-                                  <SelectItem key={p.id} value={p.name}>{p.name}</SelectItem>
-                                ))}
-                                {member.position && !(crewPositions as any[]).some((p: any) => p.name === member.position) && (
-                                  <SelectItem value={member.position}>{member.position}</SelectItem>
-                                )}
-                              </SelectContent>
-                            </Select>
+                            {crewPositions.length > 0 ? (
+                              <div className="flex flex-wrap gap-1 flex-1">
+                                {(crewPositions as any[]).map((p: any) => {
+                                  const selectedPositions = (member.position || "").split(" / ").filter(Boolean);
+                                  const isSelected = selectedPositions.includes(p.name);
+                                  return (
+                                    <button
+                                      key={p.id}
+                                      type="button"
+                                      className={`text-[10px] px-1.5 py-0.5 rounded border uppercase tracking-wide transition-colors ${isSelected ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted text-foreground"}`}
+                                      onClick={() => {
+                                        const next = isSelected ? selectedPositions.filter(s => s !== p.name) : [...selectedPositions, p.name];
+                                        updateCrewPosition(member.name, next.join(" / ") || null);
+                                      }}
+                                    >
+                                      {p.name}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : null}
                             {(member.departments || []).map((dept: string) => (
                               <Badge key={dept} variant="outline" className="text-[10px] px-1.5 py-0 flex-shrink-0">{dept}</Badge>
                             ))}
