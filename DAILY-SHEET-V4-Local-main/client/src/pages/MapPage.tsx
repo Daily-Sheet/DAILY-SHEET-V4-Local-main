@@ -1,9 +1,11 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from "react-leaflet";
-import MarkerClusterGroup from "react-leaflet-cluster";
+import { MapContainer, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
+import "leaflet.markercluster/dist/MarkerCluster.css";
+import "leaflet.markercluster/dist/MarkerCluster.Default.css";
+import "leaflet.markercluster";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
@@ -13,10 +15,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
-import { Heart, MessageCircle, MapPin, Globe, Navigation, X, Plus, Trash2, ExternalLink } from "lucide-react";
+import { Heart, MessageCircle, Globe, Navigation, X, Plus, Trash2, ExternalLink, MapPin, ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Link } from "wouter";
-import { ArrowLeft } from "lucide-react";
 
 // Fix Leaflet default icon paths
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -46,26 +47,11 @@ function createPinIcon(category: string, isOwn: boolean) {
   const border = isOwn ? "3px solid #facc15" : "2px solid rgba(255,255,255,0.6)";
   return L.divIcon({
     className: "",
-    html: `<div style="
-      width:36px;height:36px;border-radius:50% 50% 50% 0;
-      background:${meta.color};border:${border};
-      display:flex;align-items:center;justify-content:center;
-      font-size:16px;transform:rotate(-45deg);
-      box-shadow:0 2px 8px rgba(0,0,0,0.4);cursor:pointer;
-    "><span style="transform:rotate(45deg)">${meta.emoji}</span></div>`,
+    html: `<div style="width:36px;height:36px;border-radius:50% 50% 50% 0;background:${meta.color};border:${border};display:flex;align-items:center;justify-content:center;font-size:16px;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,0.4);cursor:pointer;"><span style="transform:rotate(45deg)">${meta.emoji}</span></div>`,
     iconSize: [36, 36],
     iconAnchor: [18, 36],
     popupAnchor: [0, -36],
   });
-}
-
-function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
-  useMapEvents({
-    click(e) {
-      onMapClick(e.latlng.lat, e.latlng.lng);
-    },
-  });
-  return null;
 }
 
 type EnrichedPin = {
@@ -80,6 +66,58 @@ type MapPinComment = {
   content: string; createdAt: string;
 };
 
+// Inner component that manages markers + clustering
+function ClusteredMarkers({
+  pins, currentUserId, onPinClick,
+}: {
+  pins: EnrichedPin[];
+  currentUserId: string;
+  onPinClick: (pin: EnrichedPin) => void;
+}) {
+  const map = useMap();
+  const clusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
+
+  useEffect(() => {
+    if (clusterGroupRef.current) {
+      map.removeLayer(clusterGroupRef.current);
+    }
+    const group = (L as any).markerClusterGroup({
+      showCoverageOnHover: false,
+      maxClusterRadius: 50,
+      spiderfyOnMaxZoom: true,
+    });
+
+    pins.forEach(pin => {
+      const marker = L.marker([pin.lat, pin.lng], {
+        icon: createPinIcon(pin.category, pin.userId === currentUserId),
+      });
+      marker.on("click", (e) => {
+        L.DomEvent.stopPropagation(e);
+        onPinClick(pin);
+      });
+      group.addLayer(marker);
+    });
+
+    map.addLayer(group);
+    clusterGroupRef.current = group;
+
+    return () => {
+      map.removeLayer(group);
+    };
+  }, [map, pins, currentUserId, onPinClick]);
+
+  return null;
+}
+
+function MapClickHandler({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) {
+  useMapEvents({
+    click(e) {
+      onMapClick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
+
 export default function MapPage() {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -89,9 +127,7 @@ export default function MapPage() {
   const [selectedPin, setSelectedPin] = useState<EnrichedPin | null>(null);
   const [pendingLatLng, setPendingLatLng] = useState<{ lat: number; lng: number } | null>(null);
   const [newComment, setNewComment] = useState("");
-  const commentInputRef = useRef<HTMLTextAreaElement>(null);
 
-  // Add pin form state
   const [form, setForm] = useState({
     title: "", category: "dining", description: "", address: "", website: "",
   });
@@ -113,7 +149,7 @@ export default function MapPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/map/pins"] });
       setPendingLatLng(null);
       setForm({ title: "", category: "dining", description: "", address: "", website: "" });
-      toast({ title: "Pin dropped!" });
+      toast({ title: "Pin dropped! 📍" });
     },
     onError: () => toast({ title: "Failed to drop pin", variant: "destructive" }),
   });
@@ -161,10 +197,10 @@ export default function MapPage() {
     setPendingLatLng({ lat, lng });
   }, [selectedPin]);
 
-  const handleSubmitPin = () => {
-    if (!pendingLatLng || !form.title.trim()) return;
-    createPinMutation.mutate({ ...form, ...pendingLatLng });
-  };
+  const handlePinClick = useCallback((pin: EnrichedPin) => {
+    setPendingLatLng(null);
+    setSelectedPin(pin);
+  }, []);
 
   const filteredPins = categoryFilter === "all" ? pins : pins.filter(p => p.category === categoryFilter);
 
@@ -179,7 +215,7 @@ export default function MapPage() {
         </Link>
         <div>
           <h1 className="text-sm font-semibold leading-tight">Community Map</h1>
-          <p className="text-[10px] text-muted-foreground">{pins.length} pins worldwide · tap map to drop one</p>
+          <p className="text-[10px] text-muted-foreground">{pins.length} pin{pins.length !== 1 ? "s" : ""} worldwide · tap map to drop one</p>
         </div>
       </div>
 
@@ -215,31 +251,15 @@ export default function MapPage() {
             maxZoom={19}
           />
           <MapClickHandler onMapClick={handleMapClick} />
-          <MarkerClusterGroup
-            chunkedLoading
-            showCoverageOnHover={false}
-            maxClusterRadius={50}
-          >
-            {filteredPins.map(pin => (
-              <Marker
-                key={pin.id}
-                position={[pin.lat, pin.lng]}
-                icon={createPinIcon(pin.category, pin.userId === user?.id)}
-                eventHandlers={{
-                  click: (e) => {
-                    e.originalEvent.stopPropagation();
-                    setSelectedPin(pin);
-                    setPendingLatLng(null);
-                  },
-                }}
-              />
-            ))}
-          </MarkerClusterGroup>
+          <ClusteredMarkers
+            pins={filteredPins}
+            currentUserId={user?.id ?? ""}
+            onPinClick={handlePinClick}
+          />
         </MapContainer>
 
-        {/* Pending pin indicator */}
         {pendingLatLng && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] bg-primary text-primary-foreground text-xs px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[1000] bg-primary text-primary-foreground text-xs px-3 py-1.5 rounded-full shadow-lg flex items-center gap-1.5 pointer-events-none">
             <MapPin className="h-3 w-3" /> Pin ready — fill in details below
           </div>
         )}
@@ -277,7 +297,7 @@ export default function MapPage() {
               ))}
             </div>
             <Textarea
-              placeholder="Tell the crew about it — what's good, pro tips..."
+              placeholder="Tell the crew about it — what's good, pro tips…"
               value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
               rows={3}
@@ -299,7 +319,7 @@ export default function MapPage() {
               </Button>
               <Button
                 className="flex-1"
-                onClick={handleSubmitPin}
+                onClick={() => createPinMutation.mutate({ ...form, ...pendingLatLng })}
                 disabled={!form.title.trim() || createPinMutation.isPending}
               >
                 {createPinMutation.isPending ? "Dropping…" : "Drop Pin"}
@@ -314,7 +334,6 @@ export default function MapPage() {
         <SheetContent side="bottom" className="rounded-t-2xl max-h-[85vh] flex flex-col p-0">
           {selectedPin && (
             <>
-              {/* Pin header */}
               <div className="flex items-start gap-3 p-4 border-b border-border/30">
                 <div
                   className="w-10 h-10 rounded-full flex items-center justify-center text-lg shrink-0"
@@ -324,7 +343,7 @@ export default function MapPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <h2 className="font-semibold text-sm leading-tight">{selectedPin.title}</h2>
-                  <div className="flex items-center gap-1.5 mt-0.5">
+                  <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
                     <Badge variant="outline" className="text-[10px] py-0 px-1.5 h-4">
                       {getCategoryMeta(selectedPin.category).label}
                     </Badge>
@@ -345,12 +364,9 @@ export default function MapPage() {
               </div>
 
               <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {/* Description */}
                 {selectedPin.description && (
                   <p className="text-sm text-muted-foreground leading-relaxed">{selectedPin.description}</p>
                 )}
-
-                {/* Address / Website */}
                 {(selectedPin.address || selectedPin.website) && (
                   <div className="space-y-1.5">
                     {selectedPin.address && (
@@ -373,7 +389,6 @@ export default function MapPage() {
                   </div>
                 )}
 
-                {/* Like button */}
                 <div className="flex items-center gap-3">
                   <button
                     onClick={() => likeMutation.mutate(selectedPin.id)}
@@ -392,7 +407,6 @@ export default function MapPage() {
                   </span>
                 </div>
 
-                {/* Comments */}
                 <div className="space-y-3">
                   {comments.map(comment => (
                     <div key={comment.id} className="flex gap-2 group">
@@ -421,10 +435,8 @@ export default function MapPage() {
                 </div>
               </div>
 
-              {/* Comment input */}
               <div className="flex gap-2 p-3 border-t border-border/30 bg-card/50">
                 <Textarea
-                  ref={commentInputRef}
                   placeholder="Add a comment…"
                   value={newComment}
                   onChange={e => setNewComment(e.target.value)}
