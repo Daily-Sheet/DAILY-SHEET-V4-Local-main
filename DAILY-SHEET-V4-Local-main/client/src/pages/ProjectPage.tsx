@@ -33,8 +33,9 @@ import type { Event, Project, Venue, Schedule, Contact, FileFolder, Zone, Sectio
 import { useAuth } from "@/hooks/use-auth";
 import { useContacts } from "@/hooks/use-contacts";
 import { useSchedules, useDeleteSchedule, useUpdateSchedule } from "@/hooks/use-schedules";
-import { useVenues, useCreateVenue } from "@/hooks/use-venue";
+import { useVenues } from "@/hooks/use-venue";
 import { TechPacketHistory } from "@/components/dashboard/venue/VenueView";
+import { CreateVenueDialog } from "@/components/dashboard/venue/VenueForm";
 import { useZones } from "@/hooks/use-zones";
 import { useSections } from "@/hooks/use-sections";
 import { useComments, useCreateComment, useDeleteComment, useToggleCommentPin } from "@/hooks/use-comments";
@@ -1594,8 +1595,6 @@ function VenueTab({
   const queryClient = useQueryClient();
   const [showVenueSelect, setShowVenueSelect] = useState(false);
   const [createVenueOpen, setCreateVenueOpen] = useState(false);
-  const [newVenueName, setNewVenueName] = useState("");
-  const { mutate: createVenue, isPending: creatingVenue } = useCreateVenue();
 
   // Sets venue for the currently selected day only — matches Dashboard VenueQuickSelect behavior
   const setDayVenueMutation = useMutation({
@@ -1617,23 +1616,6 @@ function VenueTab({
       toast({ title: "Error", description: err.message, variant: "destructive" });
     },
   });
-
-  const handleCreateVenue = () => {
-    if (!newVenueName.trim()) return;
-    createVenue(
-      { name: newVenueName.trim() } as any,
-      {
-        onSuccess: (data: any) => {
-          setDayVenueMutation.mutate(data.id);
-          setCreateVenueOpen(false);
-          setNewVenueName("");
-        },
-        onError: (err: any) => {
-          toast({ title: "Error", description: err.message, variant: "destructive" });
-        },
-      }
-    );
-  };
 
   const rows: { label: string; value: string | null | undefined; isLink?: boolean; href?: string }[] = venue ? [
     { label: "Address", value: venue.address, isLink: true },
@@ -1698,27 +1680,11 @@ function VenueTab({
             </div>
           )}
 
-          <Dialog open={createVenueOpen} onOpenChange={setCreateVenueOpen}>
-            <DialogContent className="sm:max-w-[360px]">
-              <DialogHeader>
-                <DialogTitle className="font-display uppercase tracking-wide">Create New Venue</DialogTitle>
-                <DialogDescription>Enter a name for the new venue.</DialogDescription>
-              </DialogHeader>
-              <Input
-                placeholder="Venue name..."
-                value={newVenueName}
-                onChange={(e) => setNewVenueName(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCreateVenue()}
-                data-testid="input-new-venue-name"
-              />
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setCreateVenueOpen(false)}>Cancel</Button>
-                <Button onClick={handleCreateVenue} disabled={creatingVenue || !newVenueName.trim()} data-testid="button-create-venue">
-                  {creatingVenue ? "Creating..." : "Create & Assign"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <CreateVenueDialog
+            open={createVenueOpen}
+            onOpenChange={setCreateVenueOpen}
+            onCreated={(v) => setDayVenueMutation.mutate(v.id)}
+          />
         </div>
       )}
 
