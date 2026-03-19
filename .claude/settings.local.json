@@ -36,7 +36,27 @@
       "Bash(set -a)",
       "Bash(source .env.local)",
       "Bash(set +a)",
-      "Bash(grep -r useQuery.*settings /c/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/client/src --include=*.tsx --include=*.ts)"
+      "Bash(grep -r useQuery.*settings /c/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/client/src --include=*.tsx --include=*.ts)",
+      "Bash(DATABASE_URL=\"postgresql://dailysheet_db_user:nqtqyl394Fsn6XeeRkfQzNXUxxJ6ACFB@dpg-d6l2e0dm5p6s739591dg-a/dailysheet_db\" npx drizzle-kit push)",
+      "Bash(DATABASE_URL=\"postgresql://dailysheet_db_user:nqtqyl394Fsn6XeeRkfQzNXUxxJ6ACFB@dpg-d6l2e0dm5p6s739591dg-a.oregon-postgres.render.com/dailysheet_db\" npx drizzle-kit push)",
+      "Bash(DATABASE_URL=\"postgresql://dailysheet_db_user:nqtqyl394Fsn6XeeRkfQzNXUxxJ6ACFB@dpg-d6l2e0dm5p6s739591dg-a.oregon-postgres.render.com/dailysheet_db?sslmode=require\" npx drizzle-kit push)",
+      "Bash(DATABASE_URL=\"postgresql://dailysheet_db_user:nqtqyl394Fsn6XeeRkfQzNXUxxJ6ACFB@dpg-d6l2e0dm5p6s739591dg-a.oregon-postgres.render.com/dailysheet_db?sslmode=require\" npx drizzle-kit push --force)",
+      "Bash(node -e \":*)",
+      "Bash(find /c/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main -type f -name *.sql)",
+      "Bash(find /c/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main -type f -path */drizzle/* -name *.ts)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(find C:UsersdrewtDownloadsDAILY-SHEET-V4-Local-mainDAILY-SHEET-V4-Local-main -name *.sql -o -name *migration* -o -name *schema*)",
+      "Bash(find C:UsersdrewtDownloadsDAILY-SHEET-V4-Local-mainDAILY-SHEET-V4-Local-main -path */node_modules -prune -o -name *migration* -type f)",
+      "Bash(grep -r projectAssignments C:UsersdrewtDownloadsDAILY-SHEET-V4-Local-mainDAILY-SHEET-V4-Local-mainserver --include=*.ts)",
+      "Bash(find /c/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/client/src/components/dashboard/crew -type f -name *.tsx -o -name *.ts)",
+      "Bash(grep -n \"project-assignments\\\\|projectAssignments\\\\|getProjectAssignments\" /c/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/server/routes/*.ts)",
+      "Bash(npm uninstall:*)",
+      "Bash(find C:UsersdrewtDownloadsDAILY-SHEET-V4-Local-mainDAILY-SHEET-V4-Local-mainclientsrc -name Dashboard.tsx -o -name *selector* -o -name *picker*)",
+      "Bash(grep -rn \"ArrowUp\\\\|ArrowDown\\\\|ArrowLeft\\\\|ArrowRight\" C:/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/client/src/components --include=*.tsx)",
+      "Bash(grep -rn \"KeyboardEvent\\\\|keydown\\\\|keyup\" C:/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/client/src/components --include=*.tsx)",
+      "Bash(find C:/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/node_modules/react-day-picker -name *.d.ts -o -name index.d.ts)"
     ]
   }
 }

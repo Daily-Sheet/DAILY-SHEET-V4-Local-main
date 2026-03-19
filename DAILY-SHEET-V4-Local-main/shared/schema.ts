@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, timestamp, boolean, varchar, json } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, timestamp, boolean, varchar, json, doublePrecision } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -441,4 +441,42 @@ export const accessLinks = pgTable("access_links", {
 
 export const insertAccessLinkSchema = createInsertSchema(accessLinks).omit({ id: true, createdAt: true });
 export type AccessLink = typeof accessLinks.$inferSelect;
+
+// Community Map
+export const mapPins = pgTable("map_pins", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull(),
+  userName: text("user_name").notNull(),
+  lat: doublePrecision("lat").notNull(),
+  lng: doublePrecision("lng").notNull(),
+  title: text("title").notNull(),
+  category: text("category").notNull().default("other"),
+  description: text("description"),
+  address: text("address"),
+  website: text("website"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertMapPinSchema = createInsertSchema(mapPins).omit({ id: true, createdAt: true });
+export type MapPin = typeof mapPins.$inferSelect;
+export type InsertMapPin = z.infer<typeof insertMapPinSchema>;
+
+export const mapPinLikes = pgTable("map_pin_likes", {
+  id: serial("id").primaryKey(),
+  pinId: integer("pin_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export type MapPinLike = typeof mapPinLikes.$inferSelect;
+
+export const mapPinComments = pgTable("map_pin_comments", {
+  id: serial("id").primaryKey(),
+  pinId: integer("pin_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  userName: text("user_name").notNull(),
+  content: text("content").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+export const insertMapPinCommentSchema = createInsertSchema(mapPinComments).omit({ id: true, createdAt: true });
+export type MapPinComment = typeof mapPinComments.$inferSelect;
+export type InsertMapPinComment = z.infer<typeof insertMapPinCommentSchema>;
 export type InsertAccessLink = z.infer<typeof insertAccessLinkSchema>;

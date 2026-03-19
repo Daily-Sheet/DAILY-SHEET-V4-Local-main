@@ -2,6 +2,7 @@ import { db } from "./db";
 import {
   schedules, contacts, files, venues, venueTechPackets, comments, users, eventAssignments, events, sessions, fileFolders, settings,
   workspaces, workspaceMembers, workspaceInvites, taskTypes, scheduleTemplates, eventDayVenues, zones, projects, sections, departments, crewPositions, timesheetEntries, notifications, activityLog, travelDays, gearRequests, projectAssignments, crewTravel, dailyCheckins, accessLinks,
+  mapPins, mapPinLikes, mapPinComments,
   type InsertSchedule, type InsertContact, type InsertFile, type InsertVenue, type InsertVenueTechPacket, type VenueTechPacket, type InsertComment,
   type InsertEventAssignment, type InsertEvent, type InsertFileFolder,
   type InsertWorkspace, type InsertWorkspaceMember, type InsertWorkspaceInvite,
@@ -16,6 +17,7 @@ import {
   type InsertCrewTravel, type CrewTravel,
   type InsertDailyCheckin, type DailyCheckin,
   type InsertAccessLink, type AccessLink,
+  type MapPin, type InsertMapPin, type MapPinLike, type MapPinComment, type InsertMapPinComment,
   type Schedule, type Contact, type Venue, type Comment, type User, type EventAssignment, type Event, type FileFolder, type Setting,
   type Workspace, type WorkspaceMember, type WorkspaceInvite, type TaskType, type ScheduleTemplate, type EventDayVenue,
   type Zone, type Project, type Section, type Department, type CrewPosition
@@ -253,6 +255,17 @@ export interface IStorage {
   getAccessLinksByWorkspace(workspaceId: number): Promise<AccessLink[]>;
   revokeAccessLink(id: number, workspaceId: number): Promise<AccessLink | undefined>;
   deleteAccessLink(id: number): Promise<void>;
+
+  // Community Map
+  getMapPins(): Promise<MapPin[]>;
+  createMapPin(pin: InsertMapPin): Promise<MapPin>;
+  updateMapPin(id: number, data: Partial<InsertMapPin>): Promise<MapPin>;
+  deleteMapPin(id: number): Promise<void>;
+  getMapPinLikes(pinId: number): Promise<MapPinLike[]>;
+  toggleMapPinLike(pinId: number, userId: string): Promise<{ liked: boolean; count: number }>;
+  getMapPinComments(pinId: number): Promise<MapPinComment[]>;
+  createMapPinComment(comment: InsertMapPinComment): Promise<MapPinComment>;
+  deleteMapPinComment(id: number): Promise<void>;
 
 }
 
@@ -1368,6 +1381,58 @@ export class DatabaseStorage implements IStorage {
 
   async deleteAccessLink(id: number): Promise<void> {
     await db.delete(accessLinks).where(eq(accessLinks.id, id));
+  }
+
+  // Community Map
+  async getMapPins(): Promise<MapPin[]> {
+    return await db.select().from(mapPins).orderBy(desc(mapPins.createdAt));
+  }
+
+  async createMapPin(pin: InsertMapPin): Promise<MapPin> {
+    const [created] = await db.insert(mapPins).values(pin).returning();
+    return created;
+  }
+
+  async updateMapPin(id: number, data: Partial<InsertMapPin>): Promise<MapPin> {
+    const [updated] = await db.update(mapPins).set(data).where(eq(mapPins.id, id)).returning();
+    return updated;
+  }
+
+  async deleteMapPin(id: number): Promise<void> {
+    await db.delete(mapPinComments).where(eq(mapPinComments.pinId, id));
+    await db.delete(mapPinLikes).where(eq(mapPinLikes.pinId, id));
+    await db.delete(mapPins).where(eq(mapPins.id, id));
+  }
+
+  async getMapPinLikes(pinId: number): Promise<MapPinLike[]> {
+    return await db.select().from(mapPinLikes).where(eq(mapPinLikes.pinId, pinId));
+  }
+
+  async toggleMapPinLike(pinId: number, userId: string): Promise<{ liked: boolean; count: number }> {
+    const [existing] = await db.select().from(mapPinLikes)
+      .where(and(eq(mapPinLikes.pinId, pinId), eq(mapPinLikes.userId, userId)));
+    if (existing) {
+      await db.delete(mapPinLikes).where(eq(mapPinLikes.id, existing.id));
+    } else {
+      await db.insert(mapPinLikes).values({ pinId, userId });
+    }
+    const likes = await db.select().from(mapPinLikes).where(eq(mapPinLikes.pinId, pinId));
+    return { liked: !existing, count: likes.length };
+  }
+
+  async getMapPinComments(pinId: number): Promise<MapPinComment[]> {
+    return await db.select().from(mapPinComments)
+      .where(eq(mapPinComments.pinId, pinId))
+      .orderBy(mapPinComments.createdAt);
+  }
+
+  async createMapPinComment(comment: InsertMapPinComment): Promise<MapPinComment> {
+    const [created] = await db.insert(mapPinComments).values(comment).returning();
+    return created;
+  }
+
+  async deleteMapPinComment(id: number): Promise<void> {
+    await db.delete(mapPinComments).where(eq(mapPinComments.id, id));
   }
 
 }

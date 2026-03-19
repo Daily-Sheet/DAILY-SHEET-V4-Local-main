@@ -17,8 +17,9 @@ import ResetPassword from "@/pages/ResetPassword";
 import CalendarPage from "@/pages/CalendarPage";
 import ProjectPage from "@/pages/ProjectPage";
 import AccessPage from "@/pages/AccessPage";
+import MapPage from "@/pages/MapPage";
 import NotFound from "@/pages/not-found";
-import { Loader2, LayoutDashboard, CalendarDays, Settings2 } from "lucide-react";
+import { Loader2, LayoutDashboard, CalendarDays, Settings2, Map } from "lucide-react";
 import { OfflineIndicator } from "@/components/OfflineIndicator";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +34,7 @@ function MobileNav() {
   const navItems = [
     { to: "/", label: "Dashboard", icon: LayoutDashboard },
     { to: "/calendar", label: "Calendar", icon: CalendarDays },
+    { to: "/map", label: "Map", icon: Map },
     ...(isAdmin ? [{ to: "/admin", label: "Admin", icon: Settings2 }] : []),
   ];
 
@@ -96,6 +98,7 @@ function AuthenticatedRouter() {
       <Route path="/select-org" component={OrgSelectorPage} />
       <Route path="/" component={Dashboard} />
       <Route path="/calendar" component={CalendarPage} />
+      <Route path="/map" component={MapPage} />
       <Route path="/project/:id" component={ProjectPage} />
       <Route path="/admin" component={AdminRoute} />
       <Route component={NotFound} />
