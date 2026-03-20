@@ -151,7 +151,7 @@ export function registerProjectRoutes(app: Express, upload: multer.Multer) {
   app.post("/api/projects/:id/travel-days", isAuthenticated, requireRole("owner", "manager", "admin"), async (req: any, res) => {
     const projectId = parseInt(req.params.id);
     const workspaceId = req.user.workspaceId;
-    const { date, notes, flightNumber, airline, departureAirport, arrivalAirport, departureTime, arrivalTime } = req.body;
+    const { date, notes, flightNumber, airline, departureAirport, arrivalAirport, departureTime, arrivalTime, legId } = req.body;
     if (!date) return res.status(400).json({ message: "Date is required" });
     const project = await storage.getProject(projectId);
     if (!project || project.workspaceId !== workspaceId) return res.status(403).json({ message: "Forbidden" });
@@ -165,6 +165,7 @@ export function registerProjectRoutes(app: Express, upload: multer.Multer) {
       arrivalAirport: arrivalAirport || null,
       departureTime: departureTime || null,
       arrivalTime: arrivalTime || null,
+      legId: legId ?? null,
     });
     res.status(201).json(day);
   });

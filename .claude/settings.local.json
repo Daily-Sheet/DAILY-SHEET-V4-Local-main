@@ -60,7 +60,9 @@
       "Bash(ls tsconfig* client/tsconfig*)",
       "Bash(ls client/vite.config.*)",
       "Bash(git add:)",
-      "Bash(grep -n \"ProjectCrewManager\\\\|project-assignments\\\\|assignProjectCrew\" /c/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/server/routes/*.ts)"
+      "Bash(grep -n \"ProjectCrewManager\\\\|project-assignments\\\\|assignProjectCrew\" /c/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/server/routes/*.ts)",
+      "Bash(grep -r \"localhost\\\\|127\\\\.0\\\\.0\\\\.1\" /c/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/server/index.ts /c/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/.env.production /c/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/client/src --include=*.ts --include=*.tsx)",
+      "Bash(grep -n \"VITE_API_URL\\\\|import.meta.env\" /c/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/client/src/pages/*.tsx)"
     ]
   }
 }

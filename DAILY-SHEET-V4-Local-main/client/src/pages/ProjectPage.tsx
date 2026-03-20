@@ -2734,19 +2734,13 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
   const [showDates, setShowDates] = useState<Record<number, string>>({});
   const [showTabs, setShowTabs] = useState<Record<number, string>>({});
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [addLegDialogOpen, setAddLegDialogOpen] = useState(false);
-  const [editLegId, setEditLegId] = useState<number | null>(null);
-  const [addShowsToLegId, setAddShowsToLegId] = useState<number | null>(null);
-  const [selectedShowIds, setSelectedShowIds] = useState<Set<number>>(new Set());
-  const [newLeg, setNewLeg] = useState({ name: "", notes: "", showCount: 0, startDate: "" });
-  const [editLegData, setEditLegData] = useState({ name: "", notes: "" });
   const [newTravel, setNewTravel] = useState({
-    date: "", notes: "", flightNumber: "", airline: "",
+    date: "", legId: null as number | null, notes: "", flightNumber: "", airline: "",
     departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: ""
   });
 
   const resetForm = () => setNewTravel({
-    date: "", notes: "", flightNumber: "", airline: "",
+    date: "", legId: null, notes: "", flightNumber: "", airline: "",
     departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: ""
   });
 
@@ -2756,55 +2750,6 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
 
   const { data: legs = [] } = useQuery<Leg[]>({
     queryKey: ["/api/projects", project.id, "legs"],
-  });
-
-  const createLegMutation = useMutation({
-    mutationFn: async (data: { name: string; notes?: string; showCount?: number; startDate?: string }) => {
-      const res = await apiRequest("POST", `/api/projects/${project.id}/legs`, data);
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "legs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
-      setAddLegDialogOpen(false);
-      setNewLeg({ name: "", notes: "", showCount: 0, startDate: "" });
-      toast({ title: "Leg/Run created" });
-    },
-  });
-
-  const updateLegMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: { name?: string; notes?: string } }) => {
-      const res = await apiRequest("PATCH", `/api/legs/${id}`, data);
-      return res.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "legs"] });
-      setEditLegId(null);
-      toast({ title: "Leg/Run updated" });
-    },
-  });
-
-  const deleteLegMutation = useMutation({
-    mutationFn: async (id: number) => {
-      await apiRequest("DELETE", `/api/legs/${id}`);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", project.id, "legs"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
-      toast({ title: "Leg/Run deleted, shows moved to Unassigned" });
-    },
-  });
-
-  const moveToLegMutation = useMutation({
-    mutationFn: async ({ eventIds, legId }: { eventIds: number[]; legId: number | null }) => {
-      await Promise.all(eventIds.map(id => apiRequest("PATCH", `/api/events/${id}`, { legId })));
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
-      setAddShowsToLegId(null);
-      setSelectedShowIds(new Set());
-      toast({ title: "Shows moved" });
-    },
   });
 
   const tourAssignedUserIds = useMemo(() => {
@@ -2922,56 +2867,7 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
   return (
     <div className="space-y-3" data-testid="tour-itinerary">
       {isAdmin && (
-        <div className="flex justify-end gap-2 mb-2">
-          <Dialog open={addLegDialogOpen} onOpenChange={(o) => { setAddLegDialogOpen(o); if (!o) setNewLeg({ name: "", notes: "", showCount: 0, startDate: "" }); }}>
-            <DialogTrigger asChild>
-              <Button size="sm" variant="outline" data-testid="button-add-leg">
-                <Plus className="w-3 h-3 mr-1" /> Add Leg/Run
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[420px] font-body">
-              <DialogHeader>
-                <DialogTitle className="font-display text-xl uppercase tracking-wide text-primary">New Leg / Run</DialogTitle>
-                <DialogDescription className="sr-only">Create a new leg or run for this tour</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label>Name</Label>
-                  <Input placeholder="e.g. US West Coast Run" value={newLeg.name} onChange={e => setNewLeg(p => ({ ...p, name: e.target.value }))} className="mt-1" data-testid="input-leg-name" />
-                </div>
-                <div>
-                  <Label>Notes (optional)</Label>
-                  <Textarea placeholder="Additional notes..." value={newLeg.notes} onChange={e => setNewLeg(p => ({ ...p, notes: e.target.value }))} className="mt-1 resize-none" rows={2} data-testid="input-leg-notes" />
-                </div>
-                <Separator />
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Auto-Generate Shows</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Number of Shows</Label>
-                    <Input type="number" min={0} max={100} value={newLeg.showCount || ""} onChange={e => setNewLeg(p => ({ ...p, showCount: parseInt(e.target.value) || 0 }))} className="mt-1" placeholder="0" data-testid="input-leg-show-count" />
-                  </div>
-                  <div>
-                    <Label>Start Date</Label>
-                    <DatePicker value={newLeg.startDate} onChange={(v) => setNewLeg(p => ({ ...p, startDate: v }))} data-testid="input-leg-start-date" />
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">Leave at 0 to create an empty leg. Shows will be numbered sequentially from the last existing show.</p>
-              </div>
-              <Button
-                className="w-full mt-3"
-                onClick={() => newLeg.name.trim() && createLegMutation.mutate({
-                  name: newLeg.name.trim(),
-                  notes: newLeg.notes || undefined,
-                  showCount: newLeg.showCount || undefined,
-                  startDate: newLeg.startDate || undefined,
-                })}
-                disabled={!newLeg.name.trim() || createLegMutation.isPending}
-                data-testid="button-save-leg"
-              >
-                {createLegMutation.isPending ? "Creating..." : "Create Leg/Run"}
-              </Button>
-            </DialogContent>
-          </Dialog>
+        <div className="flex justify-end mb-2">
           <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" variant="outline" data-testid="button-add-travel-day">
@@ -2984,9 +2880,27 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
                 <DialogDescription className="sr-only">Add a travel day with flight details</DialogDescription>
               </DialogHeader>
               <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1" style={{ WebkitOverflowScrolling: "touch" }}>
-                <div>
-                  <Label>Date</Label>
-                  <DatePicker value={newTravel.date} onChange={(v) => setNewTravel(p => ({ ...p, date: v }))} data-testid="input-travel-day-date" />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Date</Label>
+                    <DatePicker value={newTravel.date} onChange={(v) => setNewTravel(p => ({ ...p, date: v }))} data-testid="input-travel-day-date" />
+                  </div>
+                  {legs.length > 0 && (
+                    <div>
+                      <Label>Leg / Run</Label>
+                      <Select value={newTravel.legId?.toString() || "none"} onValueChange={(v) => setNewTravel(p => ({ ...p, legId: v === "none" ? null : parseInt(v) }))}>
+                        <SelectTrigger className="mt-1" data-testid="select-travel-leg">
+                          <SelectValue placeholder="Select leg..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">Unassigned</SelectItem>
+                          {legs.map(l => (
+                            <SelectItem key={l.id} value={l.id.toString()}>{l.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                 </div>
                 <Separator />
                 <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Flight Details (Optional)</p>
@@ -3038,84 +2952,6 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
         </div>
       )}
 
-      {/* Edit Leg Dialog */}
-      <Dialog open={editLegId !== null} onOpenChange={(o) => { if (!o) setEditLegId(null); }}>
-        <DialogContent className="sm:max-w-[420px] font-body">
-          <DialogHeader>
-            <DialogTitle className="font-display text-xl uppercase tracking-wide text-primary">Edit Leg / Run</DialogTitle>
-            <DialogDescription className="sr-only">Edit leg details</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Name</Label>
-              <Input value={editLegData.name} onChange={e => setEditLegData(p => ({ ...p, name: e.target.value }))} className="mt-1" data-testid="input-edit-leg-name" />
-            </div>
-            <div>
-              <Label>Notes</Label>
-              <Textarea value={editLegData.notes} onChange={e => setEditLegData(p => ({ ...p, notes: e.target.value }))} className="mt-1 resize-none" rows={2} data-testid="input-edit-leg-notes" />
-            </div>
-          </div>
-          <Button
-            className="w-full mt-3"
-            onClick={() => editLegId && editLegData.name.trim() && updateLegMutation.mutate({ id: editLegId, data: { name: editLegData.name.trim(), notes: editLegData.notes } })}
-            disabled={!editLegData.name.trim() || updateLegMutation.isPending}
-            data-testid="button-update-leg"
-          >
-            {updateLegMutation.isPending ? "Saving..." : "Save Changes"}
-          </Button>
-        </DialogContent>
-      </Dialog>
-
-      {/* Add Shows to Leg Dialog */}
-      <Dialog open={addShowsToLegId !== null} onOpenChange={(o) => { if (!o) { setAddShowsToLegId(null); setSelectedShowIds(new Set()); } }}>
-        <DialogContent className="sm:max-w-[420px] font-body max-h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle className="font-display text-xl uppercase tracking-wide text-primary">
-              Add Shows to {legs.find(l => l.id === addShowsToLegId)?.name}
-            </DialogTitle>
-            <DialogDescription className="sr-only">Select unassigned shows to add to this leg</DialogDescription>
-          </DialogHeader>
-          {(() => {
-            const unassignedShows = events.filter((e: any) => !e.legId).sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
-            if (unassignedShows.length === 0) {
-              return <p className="text-sm text-muted-foreground py-4 text-center">No unassigned shows available.</p>;
-            }
-            return (
-              <>
-                <div className="overflow-y-auto flex-1 min-h-0 space-y-1 pr-1" style={{ WebkitOverflowScrolling: "touch" }}>
-                  {unassignedShows.map(event => (
-                    <label key={event.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer">
-                      <Checkbox
-                        checked={selectedShowIds.has(event.id)}
-                        onCheckedChange={(checked) => {
-                          setSelectedShowIds(prev => {
-                            const next = new Set(prev);
-                            if (checked) next.add(event.id);
-                            else next.delete(event.id);
-                            return next;
-                          });
-                        }}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{event.name}</p>
-                        {event.startDate && <p className="text-xs text-muted-foreground">{format(parseISO(event.startDate), "MMM d, yyyy")}</p>}
-                      </div>
-                    </label>
-                  ))}
-                </div>
-                <Button
-                  className="w-full flex-shrink-0 mt-3"
-                  onClick={() => addShowsToLegId && selectedShowIds.size > 0 && moveToLegMutation.mutate({ eventIds: Array.from(selectedShowIds), legId: addShowsToLegId })}
-                  disabled={selectedShowIds.size === 0 || moveToLegMutation.isPending}
-                >
-                  {moveToLegMutation.isPending ? "Moving..." : `Add ${selectedShowIds.size} show${selectedShowIds.size !== 1 ? "s" : ""} to leg`}
-                </Button>
-              </>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
-
       {legGroups.every(g => g.items.length === 0) && (
         <p className="text-center text-sm text-muted-foreground py-4">No stops or travel days yet.</p>
       )}
@@ -3137,24 +2973,6 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
                     {group.leg?.notes && <span>· {group.leg.notes}</span>}
                   </div>
                 </div>
-                {isAdmin && group.leg && (
-                  <div className="flex items-center gap-1 flex-shrink-0">
-                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { setAddShowsToLegId(group.leg!.id); setSelectedShowIds(new Set()); }} data-testid={`button-add-shows-leg-${group.leg.id}`}>
-                      <Plus className="w-3 h-3 mr-1" /> Add Shows
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditLegId(group.leg!.id); setEditLegData({ name: group.leg!.name, notes: group.leg!.notes || "" }); }} data-testid={`button-edit-leg-${group.leg.id}`}>
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                    <ConfirmDelete
-                      onConfirm={() => deleteLegMutation.mutate(group.leg!.id)}
-                      title="Delete Leg/Run?"
-                      description="Shows in this leg will be moved to Unassigned. This cannot be undone."
-                      triggerClassName="text-muted-foreground h-7 w-7"
-                      triggerLabel={<Trash2 className="w-3.5 h-3.5" />}
-                      data-testid={`button-delete-leg-${group.leg.id}`}
-                    />
-                  </div>
-                )}
               </div>
             )}
             {showLegHeader && <Separator />}
@@ -3335,18 +3153,6 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
                   </button>
                   {isAdmin && (
                     <div className="flex items-center flex-shrink-0">
-                      {legs.length > 0 && (show.event as any).legId && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="m-1 flex-shrink-0"
-                          title="Remove from leg"
-                          onClick={(e) => { e.stopPropagation(); moveToLegMutation.mutate({ eventIds: [show.event.id], legId: null }); }}
-                          data-testid={`button-remove-from-leg-${show.event.id}`}
-                        >
-                          <X className="w-4 h-4" />
-                        </Button>
-                      )}
                       <Button
                         variant="ghost"
                         size="icon"
