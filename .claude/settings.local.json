@@ -56,7 +56,10 @@
       "Bash(find C:UsersdrewtDownloadsDAILY-SHEET-V4-Local-mainDAILY-SHEET-V4-Local-mainclientsrc -name Dashboard.tsx -o -name *selector* -o -name *picker*)",
       "Bash(grep -rn \"ArrowUp\\\\|ArrowDown\\\\|ArrowLeft\\\\|ArrowRight\" C:/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/client/src/components --include=*.tsx)",
       "Bash(grep -rn \"KeyboardEvent\\\\|keydown\\\\|keyup\" C:/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/client/src/components --include=*.tsx)",
-      "Bash(find C:/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/node_modules/react-day-picker -name *.d.ts -o -name index.d.ts)"
+      "Bash(find C:/Users/drewt/Downloads/DAILY-SHEET-V4-Local-main/DAILY-SHEET-V4-Local-main/node_modules/react-day-picker -name *.d.ts -o -name index.d.ts)",
+      "Bash(ls tsconfig* client/tsconfig*)",
+      "Bash(ls client/vite.config.*)",
+      "Bash(git add:)"
     ]
   }
 }

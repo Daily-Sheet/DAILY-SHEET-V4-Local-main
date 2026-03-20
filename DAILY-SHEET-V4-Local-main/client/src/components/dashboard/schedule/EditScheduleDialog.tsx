@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { format } from "date-fns";
 import {
-  Calendar as CalendarIcon, ChevronDown, X, Check, Users, Search,
+  ChevronDown, X, Check, Users, Search,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -10,10 +10,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Calendar } from "@/components/ui/calendar";
+import { DatePicker } from "@/components/ui/date-picker";
 import { TimePicker } from "@/components/ui/time-picker";
 import { useForm } from "react-hook-form";
 import { cn } from "@/lib/utils";
@@ -195,36 +194,13 @@ export function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose:
             <FormField control={form.control} name="eventDate" render={({ field }) => (
               <FormItem className="flex flex-col">
                 <FormLabel>Date</FormLabel>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !field.value && "text-muted-foreground"
-                        )}
-                        data-testid="input-edit-schedule-date"
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {field.value
-                          ? format(new Date(field.value + "T12:00:00"), "MMM d, yyyy")
-                          : "Pick a date"}
-                      </Button>
-                    </FormControl>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={field.value ? new Date(field.value + "T12:00:00") : undefined}
-                      onSelect={(date) => {
-                        if (date) field.onChange(format(date, "yyyy-MM-dd"));
-                      }}
-                      initialFocus
-                      defaultMonth={field.value ? new Date(field.value + "T12:00:00") : (item.eventDate ? new Date(item.eventDate + "T12:00:00") : undefined)}
-                    />
-                  </PopoverContent>
-                </Popover>
+                <FormControl>
+                  <DatePicker
+                    value={field.value || ""}
+                    onChange={(v) => field.onChange(v)}
+                    data-testid="input-edit-schedule-date"
+                  />
+                </FormControl>
                 <FormMessage />
               </FormItem>
             )} />

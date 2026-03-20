@@ -598,7 +598,7 @@ function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose: () => 
                 <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
               {crewDropdownOpen && (
-                <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-md max-h-48 overflow-y-auto p-1">
+                <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-md max-h-56 overflow-y-auto p-1">
                   {crewList.length === 0 ? (
                     <p className="text-sm text-muted-foreground p-2">No crew available</p>
                   ) : (
@@ -1342,7 +1342,7 @@ function CrewTab({
                   className="mb-2"
                   data-testid="input-search-assign-crew"
                 />
-                <div className="max-h-48 overflow-y-auto space-y-0.5">
+                <div className="max-h-56 overflow-y-auto space-y-0.5">
                   {unassignedContacts.length === 0 ? (
                     <p className="text-xs text-muted-foreground p-2 text-center">No contacts available</p>
                   ) : (
@@ -1490,7 +1490,7 @@ function CrewTab({
                               {displayPosition && (
                                 <>
                                   <span className="text-xs text-muted-foreground">&middot;</span>
-                                  {displayPosition.split(" / ").filter(Boolean).map((pos, i) => (
+                                  {displayPosition.split(" / ").filter(Boolean).map((pos: string, i: number) => (
                                     <Badge key={i} variant="outline" className="text-[10px] uppercase tracking-wide">{pos}</Badge>
                                   ))}
                                 </>
@@ -3583,7 +3583,6 @@ export default function ProjectPage() {
                         open={true}
                         onClose={() => setEditShowDialogId(null)}
                         show={event}
-                        venuesList={venues}
                       />
                     )}
 

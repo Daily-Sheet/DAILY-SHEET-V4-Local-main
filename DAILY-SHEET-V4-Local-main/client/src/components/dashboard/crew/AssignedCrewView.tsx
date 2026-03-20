@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { DatePicker } from "@/components/ui/date-picker";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -114,11 +115,10 @@ function AssignContactToEventDialog({ eventName, contacts, allEventAssignments, 
             <span>Specific day only</span>
           </label>
           {dayOnly && (
-            <Input
-              type="date"
+            <DatePicker
               value={assignDate}
-              onChange={e => setAssignDate(e.target.value)}
-              className="h-7 text-xs w-auto flex-1"
+              onChange={(v) => setAssignDate(v)}
+              compact
               data-testid="input-assign-date"
             />
           )}

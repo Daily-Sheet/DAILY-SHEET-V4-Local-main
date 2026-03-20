@@ -316,7 +316,7 @@ function InlineRoleEditor({ contactId, currentRole, allRoles, onUpdate }: {
           <ChevronDown className="w-3 h-3 opacity-50 shrink-0" />
         </div>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()}>
+      <DropdownMenuContent align="start" className="max-h-56 overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()}>
         {options.map(dept => (
           <DropdownMenuItem
             key={dept}
@@ -360,7 +360,7 @@ function MultiDepartmentSelect({ value, onChange }: { value: string; onChange: (
           <ChevronDown className="w-4 h-4 opacity-50 shrink-0 ml-2" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-64 overflow-y-auto w-56">
+      <DropdownMenuContent align="start" className="max-h-56 overflow-y-auto w-56">
         {deptOptions.map(dept => (
           <DropdownMenuItem
             key={dept}
@@ -1068,7 +1068,7 @@ function PeopleAdmin() {
                     </SelectContent>
                   </Select>
                   {accessLinkExpiry === "custom" && (
-                    <Input type="date" value={accessLinkCustomDate} onChange={(e) => setAccessLinkCustomDate(e.target.value)} className="mt-2" data-testid="input-access-link-custom-date" />
+                    <DatePicker value={accessLinkCustomDate} onChange={(v) => setAccessLinkCustomDate(v)} data-testid="input-access-link-custom-date" />
                   )}
                 </div>
                 <Button onClick={handleCreateAccessLink} disabled={(accessLinkScopeType === "event" ? !accessLinkEventName : !accessLinkProjectId) || createAccessLinkMutation.isPending} className="w-full" data-testid="button-create-access-link">
@@ -1854,7 +1854,7 @@ function SearchableContactSelect({ contacts, onSelect, testId }: { contacts: Con
             data-testid={testId ? `${testId}-search` : undefined}
           />
         </div>
-        <div className="max-h-48 overflow-y-auto">
+        <div className="max-h-56 overflow-y-auto">
           {filtered.length === 0 ? (
             <div className="p-3 text-sm text-muted-foreground text-center">No contacts found</div>
           ) : (

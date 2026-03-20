@@ -145,7 +145,7 @@ export function CategorySelect({
       </Button>
       {popoverOpen && (
         <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-md">
-          <div className="max-h-48 overflow-y-auto p-1">
+          <div className="max-h-56 overflow-y-auto p-1">
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -424,36 +424,13 @@ export function CreateScheduleDialog({ defaultEventName, defaultDate, trigger }:
                 render={({ field }) => (
                   <FormItem className="flex flex-col">
                     <FormLabel>Date</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <FormControl>
-                          <Button
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal",
-                              !field.value && "text-muted-foreground"
-                            )}
-                            data-testid="input-create-schedule-date"
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {field.value
-                              ? format(new Date(field.value + "T12:00:00"), "MMM d, yyyy")
-                              : "Pick a date"}
-                          </Button>
-                        </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={field.value ? new Date(field.value + "T12:00:00") : undefined}
-                          onSelect={(date) => {
-                            if (date) field.onChange(format(date, "yyyy-MM-dd"));
-                          }}
-                          initialFocus
-                          defaultMonth={field.value ? new Date(field.value + "T12:00:00") : new Date()}
-                        />
-                      </PopoverContent>
-                    </Popover>
+                    <FormControl>
+                      <DatePicker
+                        value={field.value || ""}
+                        onChange={(v) => field.onChange(v)}
+                        data-testid="input-create-schedule-date"
+                      />
+                    </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
