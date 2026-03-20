@@ -2736,6 +2736,8 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [addLegDialogOpen, setAddLegDialogOpen] = useState(false);
   const [editLegId, setEditLegId] = useState<number | null>(null);
+  const [addShowsToLegId, setAddShowsToLegId] = useState<number | null>(null);
+  const [selectedShowIds, setSelectedShowIds] = useState<Set<number>>(new Set());
   const [newLeg, setNewLeg] = useState({ name: "", notes: "", showCount: 0, startDate: "" });
   const [editLegData, setEditLegData] = useState({ name: "", notes: "" });
   const [newTravel, setNewTravel] = useState({
@@ -2794,11 +2796,14 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
   });
 
   const moveToLegMutation = useMutation({
-    mutationFn: async ({ eventId, legId }: { eventId: number; legId: number | null }) => {
-      await apiRequest("PATCH", `/api/events/${eventId}`, { legId });
+    mutationFn: async ({ eventIds, legId }: { eventIds: number[]; legId: number | null }) => {
+      await Promise.all(eventIds.map(id => apiRequest("PATCH", `/api/events/${id}`, { legId })));
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      setAddShowsToLegId(null);
+      setSelectedShowIds(new Set());
+      toast({ title: "Shows moved" });
     },
   });
 
@@ -3061,6 +3066,56 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
         </DialogContent>
       </Dialog>
 
+      {/* Add Shows to Leg Dialog */}
+      <Dialog open={addShowsToLegId !== null} onOpenChange={(o) => { if (!o) { setAddShowsToLegId(null); setSelectedShowIds(new Set()); } }}>
+        <DialogContent className="sm:max-w-[420px] font-body max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl uppercase tracking-wide text-primary">
+              Add Shows to {legs.find(l => l.id === addShowsToLegId)?.name}
+            </DialogTitle>
+            <DialogDescription className="sr-only">Select unassigned shows to add to this leg</DialogDescription>
+          </DialogHeader>
+          {(() => {
+            const unassignedShows = events.filter((e: any) => !e.legId).sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
+            if (unassignedShows.length === 0) {
+              return <p className="text-sm text-muted-foreground py-4 text-center">No unassigned shows available.</p>;
+            }
+            return (
+              <>
+                <div className="overflow-y-auto flex-1 min-h-0 space-y-1 pr-1" style={{ WebkitOverflowScrolling: "touch" }}>
+                  {unassignedShows.map(event => (
+                    <label key={event.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer">
+                      <Checkbox
+                        checked={selectedShowIds.has(event.id)}
+                        onCheckedChange={(checked) => {
+                          setSelectedShowIds(prev => {
+                            const next = new Set(prev);
+                            if (checked) next.add(event.id);
+                            else next.delete(event.id);
+                            return next;
+                          });
+                        }}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{event.name}</p>
+                        {event.startDate && <p className="text-xs text-muted-foreground">{format(parseISO(event.startDate), "MMM d, yyyy")}</p>}
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <Button
+                  className="w-full flex-shrink-0 mt-3"
+                  onClick={() => addShowsToLegId && selectedShowIds.size > 0 && moveToLegMutation.mutate({ eventIds: Array.from(selectedShowIds), legId: addShowsToLegId })}
+                  disabled={selectedShowIds.size === 0 || moveToLegMutation.isPending}
+                >
+                  {moveToLegMutation.isPending ? "Moving..." : `Add ${selectedShowIds.size} show${selectedShowIds.size !== 1 ? "s" : ""} to leg`}
+                </Button>
+              </>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
       {legGroups.every(g => g.items.length === 0) && (
         <p className="text-center text-sm text-muted-foreground py-4">No stops or travel days yet.</p>
       )}
@@ -3084,6 +3139,9 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
                 </div>
                 {isAdmin && group.leg && (
                   <div className="flex items-center gap-1 flex-shrink-0">
+                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { setAddShowsToLegId(group.leg!.id); setSelectedShowIds(new Set()); }} data-testid={`button-add-shows-leg-${group.leg.id}`}>
+                      <Plus className="w-3 h-3 mr-1" /> Add Shows
+                    </Button>
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => { setEditLegId(group.leg!.id); setEditLegData({ name: group.leg!.name, notes: group.leg!.notes || "" }); }} data-testid={`button-edit-leg-${group.leg.id}`}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
@@ -3277,26 +3335,17 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
                   </button>
                   {isAdmin && (
                     <div className="flex items-center flex-shrink-0">
-                      {legs.length > 0 && (
-                        <Select
-                          value={(show.event as any).legId?.toString() || "unassigned"}
-                          onValueChange={(v) => {
-                            const newLegId = v === "unassigned" ? null : parseInt(v);
-                            if (newLegId !== ((show.event as any).legId ?? null)) {
-                              moveToLegMutation.mutate({ eventId: show.event.id, legId: newLegId });
-                            }
-                          }}
+                      {legs.length > 0 && (show.event as any).legId && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="m-1 flex-shrink-0"
+                          title="Remove from leg"
+                          onClick={(e) => { e.stopPropagation(); moveToLegMutation.mutate({ eventIds: [show.event.id], legId: null }); }}
+                          data-testid={`button-remove-from-leg-${show.event.id}`}
                         >
-                          <SelectTrigger className="h-7 w-auto min-w-[100px] text-xs m-1" data-testid={`select-move-leg-${show.event.id}`}>
-                            <SelectValue placeholder="Move..." />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {legs.map(l => (
-                              <SelectItem key={l.id} value={l.id.toString()}>{l.name}</SelectItem>
-                            ))}
-                            <SelectItem value="unassigned">Unassigned</SelectItem>
-                          </SelectContent>
-                        </Select>
+                          <X className="w-4 h-4" />
+                        </Button>
                       )}
                       <Button
                         variant="ghost"
