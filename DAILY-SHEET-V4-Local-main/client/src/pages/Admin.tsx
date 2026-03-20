@@ -3213,9 +3213,10 @@ function StandaloneShowsSection({ venues }: { venues: Venue[] }) {
   );
 }
 
-function ProjectShowsSection({ projectId, isFestival, venues, projectName }: {
+function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectName }: {
   projectId: number;
   isFestival: boolean;
+  isTour?: boolean;
   venues: Venue[];
   projectName: string;
 }) {
@@ -3232,9 +3233,9 @@ function ProjectShowsSection({ projectId, isFestival, venues, projectName }: {
 
   const shows = useMemo(() =>
     (eventsList as Event[])
-      .filter((e: Event) => e.projectId === projectId)
+      .filter((e: any) => e.projectId === projectId && (!isTour || !e.legId))
       .sort((a, b) => (a.startDate || "9999").localeCompare(b.startDate || "9999")),
-    [eventsList, projectId]
+    [eventsList, projectId, isTour]
   );
 
   const updateMutation = useMutation({
@@ -3272,7 +3273,7 @@ function ProjectShowsSection({ projectId, isFestival, venues, projectName }: {
     <div className="mt-3 pt-3 border-t border-border/20">
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          {entityLabel}s {shows.length > 0 ? `(${shows.length})` : ""}
+          {isTour ? "Unassigned " : ""}{entityLabel}s {shows.length > 0 ? `(${shows.length})` : ""}
         </span>
         <CreateShowForProjectDialog projectId={projectId} projectName={projectName} venues={venues} isFestival={isFestival} />
       </div>
@@ -3355,13 +3356,14 @@ function ProjectShowsSection({ projectId, isFestival, venues, projectName }: {
   );
 }
 
-function ProjectLegsSection({ projectId, projectName }: { projectId: number; projectName: string }) {
+function ProjectLegsSection({ projectId, projectName, venues }: { projectId: number; projectName: string; venues: Venue[] }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [addOpen, setAddOpen] = useState(false);
   const [editLegId, setEditLegId] = useState<number | null>(null);
   const [addShowsToLegId, setAddShowsToLegId] = useState<number | null>(null);
   const [selectedShowIds, setSelectedShowIds] = useState<Set<number>>(new Set());
+  const [expandedLegs, setExpandedLegs] = useState<Record<number, boolean>>({});
   const [newLeg, setNewLeg] = useState({ name: "", notes: "", showCount: 0, startDate: "" });
   const [editLegData, setEditLegData] = useState({ name: "", notes: "" });
 
@@ -3421,6 +3423,14 @@ function ProjectLegsSection({ projectId, projectName }: { projectId: number; pro
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => { await apiRequest("DELETE", `/api/events/${id}`); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ title: "Show deleted" });
+    },
+  });
+
   return (
     <div className="mt-3 border-t border-blue-500/10 pt-3">
       <div className="flex items-center justify-between mb-2">
@@ -3436,14 +3446,18 @@ function ProjectLegsSection({ projectId, projectName }: { projectId: number; pro
 
       <div className="space-y-2">
         {legs.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map(leg => {
-          const legShows = projectEvents.filter((e: any) => e.legId === leg.id);
+          const legShows = projectEvents.filter((e: any) => e.legId === leg.id).sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
+          const isExpanded = expandedLegs[leg.id] ?? false;
           return (
-            <div key={leg.id} className="rounded-lg border border-blue-500/20 bg-blue-500/5 p-2.5">
-              <div className="flex items-center gap-2">
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium truncate">{leg.name}</p>
-                  <p className="text-xs text-muted-foreground">{legShows.length} show{legShows.length !== 1 ? "s" : ""}{leg.notes ? ` · ${leg.notes}` : ""}</p>
-                </div>
+            <div key={leg.id} className="rounded-lg border border-blue-500/20 bg-blue-500/5">
+              <div className="flex items-center gap-2 p-2.5">
+                <button className="flex-1 min-w-0 text-left flex items-center gap-2" onClick={() => setExpandedLegs(prev => ({ ...prev, [leg.id]: !prev[leg.id] }))}>
+                  {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">{leg.name}</p>
+                    <p className="text-xs text-muted-foreground">{legShows.length} show{legShows.length !== 1 ? "s" : ""}{leg.notes ? ` · ${leg.notes}` : ""}</p>
+                  </div>
+                </button>
                 <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => { setAddShowsToLegId(leg.id); setSelectedShowIds(new Set()); }} disabled={unassignedShows.length === 0} data-testid={`button-add-shows-leg-${leg.id}`}>
                   <Plus className="w-3 h-3 mr-1" /> Shows
                 </Button>
@@ -3459,16 +3473,42 @@ function ProjectLegsSection({ projectId, projectName }: { projectId: number; pro
                   data-testid={`button-delete-leg-${leg.id}`}
                 />
               </div>
-              {legShows.length > 0 && (
-                <div className="mt-1.5 flex flex-wrap gap-1">
-                  {legShows.sort((a, b) => (a.startDate || "").localeCompare(b.startDate || "")).map(ev => (
-                    <Badge key={ev.id} variant="secondary" className="text-[10px] gap-1 pr-1">
-                      {ev.name.replace(`${projectName} - `, "")}
-                      <button onClick={() => moveToLegMutation.mutate({ eventIds: [ev.id], legId: null })} className="hover:text-destructive" title="Remove from leg">
-                        <X className="w-2.5 h-2.5" />
-                      </button>
-                    </Badge>
+              {isExpanded && legShows.length > 0 && (
+                <div className="border-t border-blue-500/10 px-2.5 pb-2 pt-1 space-y-0.5">
+                  {legShows.map(show => (
+                    <div key={show.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 group" data-testid={`row-leg-show-${show.id}`}>
+                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: show.color || "hsl(var(--primary))" }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{show.name}</p>
+                        {(show.startDate || show.endDate) && (
+                          <p className="text-xs text-muted-foreground truncate">
+                            {show.startDate === show.endDate ? show.startDate : `${show.startDate ?? "?"} → ${show.endDate ?? "?"}`}
+                            {show.venueId && venues.find(v => v.id === show.venueId) && ` · ${venues.find(v => v.id === show.venueId)!.name}`}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button variant="ghost" size="icon" className="h-6 w-6" title="Remove from leg" onClick={() => moveToLegMutation.mutate({ eventIds: [show.id], legId: null })}>
+                          <X className="w-3 h-3" />
+                        </Button>
+                        <ConfirmDelete
+                          onConfirm={() => deleteMutation.mutate(show.id)}
+                          title="Delete show?"
+                          description={`Delete "${show.name}"? This cannot be undone.`}
+                          triggerVariant="ghost"
+                          triggerSize="icon"
+                          triggerClassName="h-6 w-6 text-destructive hover:text-destructive"
+                          triggerLabel={<Trash2 className="w-3 h-3" />}
+                          data-testid={`button-delete-leg-show-${show.id}`}
+                        />
+                      </div>
+                    </div>
                   ))}
+                </div>
+              )}
+              {isExpanded && legShows.length === 0 && (
+                <div className="border-t border-blue-500/10 px-4 py-2">
+                  <p className="text-xs text-muted-foreground italic">No shows in this leg yet.</p>
                 </div>
               )}
             </div>
@@ -4073,16 +4113,17 @@ function ProjectsAdmin() {
                         </div>
                       </div>
 
+                      {project.isTour && (
+                        <ProjectLegsSection projectId={project.id} projectName={project.name} venues={venuesList} />
+                      )}
+
                       <ProjectShowsSection
                         projectId={project.id}
                         isFestival={project.isFestival ?? false}
+                        isTour={project.isTour ?? false}
                         venues={venuesList}
                         projectName={project.name}
                       />
-
-                      {project.isTour && (
-                        <ProjectLegsSection projectId={project.id} projectName={project.name} />
-                      )}
 
                       {genShowsProjectId === project.id && (
                         <div className="mt-3 border-t border-amber-500/20 pt-3 space-y-3">
