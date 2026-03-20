@@ -3324,7 +3324,7 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
             <div key={show.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 group" data-testid={`row-show-${show.id}`}>
               <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: show.color || "hsl(var(--primary))" }} />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate" data-testid={`text-show-name-${show.id}`}>{show.name}</p>
+                <Link href={`/?event=${encodeURIComponent(show.name)}${show.startDate ? `&date=${show.startDate}` : ""}`} className="text-sm font-medium truncate hover:underline hover:text-primary block" data-testid={`text-show-name-${show.id}`}>{show.name}</Link>
                 {(show.startDate || show.endDate) && (
                   <p className="text-xs text-muted-foreground truncate" data-testid={`text-show-dates-${show.id}`}>
                     {show.startDate === show.endDate
