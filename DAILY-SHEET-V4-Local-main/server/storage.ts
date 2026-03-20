@@ -1034,7 +1034,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProject(id: number): Promise<void> {
-    await db.update(events).set({ projectId: null as any }).where(eq(events.projectId, id));
+    // Get all events for this project to cascade delete related records
+    const projectEvents = await db.select().from(events).where(eq(events.projectId, id));
+    const eventNames = projectEvents.map(e => e.name);
+
+    // Delete files associated with project events
+    if (eventNames.length > 0) {
+      await db.delete(files).where(inArray(files.eventName, eventNames));
+      await db.delete(eventAssignments).where(inArray(eventAssignments.eventName, eventNames));
+    }
+
+    // Delete crew travel for travel days in this project
+    const projectTravelDays = await db.select().from(travelDays).where(eq(travelDays.projectId, id));
+    if (projectTravelDays.length > 0) {
+      const travelDayIds = projectTravelDays.map(td => td.id);
+      await db.delete(crewTravel).where(inArray(crewTravel.travelDayId, travelDayIds));
+    }
+
+    // Delete travel days, legs, project assignments, events
+    await db.delete(travelDays).where(eq(travelDays.projectId, id));
+    await db.delete(legs).where(eq(legs.projectId, id));
+    await db.delete(projectAssignments).where(eq(projectAssignments.projectId, id));
+    await db.delete(events).where(eq(events.projectId, id));
     await db.delete(projects).where(eq(projects.id, id));
   }
 

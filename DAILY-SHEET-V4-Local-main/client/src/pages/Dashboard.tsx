@@ -1465,19 +1465,6 @@ export default function Dashboard() {
                       </Card>
                     </motion.div>
                   )}
-                  {!travelDayForSelectedDate && activeTourProjects.length > 0 && isAdmin && (
-                    <div className="flex justify-start">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 text-xs"
-                        onClick={() => openTravelDayDialog(activeTourProjects[0].id)}
-                        data-testid="button-add-travel-day"
-                      >
-                        <Plane className="w-3.5 h-3.5" /> Add Travel Day
-                      </Button>
-                    </div>
-                  )}
                   {showsForSelectedDate.length === 0 && !travelDayForSelectedDate && (
                     <div className="flex flex-col items-center justify-center py-24 text-center" data-testid="overview-empty">
                       <Clock className="w-12 h-12 text-muted-foreground/40 mb-4" />

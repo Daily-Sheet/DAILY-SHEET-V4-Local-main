@@ -3540,8 +3540,8 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
                   {legShows.length === 0 && <p className="text-xs text-muted-foreground italic mb-1">No shows in this leg yet.</p>}
                   <div className="flex gap-2 flex-wrap">
                     <CreateShowForProjectDialog projectId={projectId} projectName={projectName} venues={venues} legId={leg.id} buttonLabel="Add Show" />
-                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { setAddTravelLegId(leg.id); resetTravelForm(); }}>
-                      <Plane className="w-3 h-3 mr-1" /> Add Travel Day
+                    <Button variant="ghost" size="sm" onClick={() => { setAddTravelLegId(leg.id); resetTravelForm(); }}>
+                      <Plane className="w-4 h-4" /><span className="ml-1">Add Travel Day</span>
                     </Button>
                   </div>
                 </div>
@@ -3638,6 +3638,19 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
             <p className="text-sm text-muted-foreground py-4 text-center">No unassigned shows available.</p>
           ) : (
             <>
+              <label className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer border-b border-border mb-1">
+                <Checkbox
+                  checked={selectedShowIds.size === unassignedShows.length && unassignedShows.length > 0}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      setSelectedShowIds(new Set(unassignedShows.map(e => e.id)));
+                    } else {
+                      setSelectedShowIds(new Set());
+                    }
+                  }}
+                />
+                <p className="text-sm font-medium">Select All ({unassignedShows.length})</p>
+              </label>
               <div className="overflow-y-auto flex-1 min-h-0 space-y-1 pr-1" style={{ WebkitOverflowScrolling: "touch" }}>
                 {unassignedShows.map(event => (
                   <label key={event.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer">
@@ -4228,8 +4241,8 @@ function ProjectsAdmin() {
                           </Button>
                           <ConfirmDelete
                             onConfirm={() => deleteProject.mutate(project.id)}
-                            title="Delete project?"
-                            description={`Delete "${project.name}"? Shows assigned to this project will become unassigned.`}
+                            title="ARE YOU SURE YOU WANT TO DELETE EVERYTHING?"
+                            description={`This will permanently delete "${project.name}" and ALL associated shows, legs, travel days, crew travel, assignments, and files. This cannot be undone.`}
                             triggerVariant="ghost"
                             triggerSize="sm"
                             triggerClassName="text-destructive hover:text-destructive"
