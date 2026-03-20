@@ -2572,7 +2572,7 @@ function ActiveDotAdmin({ userId, activityMap }: { userId: string; activityMap: 
   );
 }
 
-function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival }: { projectId: number; projectName: string; venues: Venue[]; isFestival?: boolean }) {
+function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival, legId, buttonLabel }: { projectId: number; projectName: string; venues: Venue[]; isFestival?: boolean; legId?: number | null; buttonLabel?: string }) {
   const entityLabel = isFestival ? "Stage" : "Show";
   const [open, setOpen] = useState(false);
   const [showName, setShowName] = useState("");
@@ -2684,14 +2684,15 @@ function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival
       venueForAllDays,
       notes: notes.trim() || undefined,
       projectId,
+      legId: legId ?? undefined,
     });
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="ghost" size="sm" title={`Add ${entityLabel.toLowerCase()} to this project`} data-testid={`button-add-show-project-${projectId}`}>
-          <Plus className="w-4 h-4" />
+        <Button variant="ghost" size="sm" title={`Add ${entityLabel.toLowerCase()} to this project`} data-testid={`button-add-show-project-${projectId}${legId ? `-leg-${legId}` : ""}`}>
+          <Plus className="w-4 h-4" />{buttonLabel && <span className="ml-1">{buttonLabel}</span>}
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
@@ -3506,9 +3507,10 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
                   ))}
                 </div>
               )}
-              {isExpanded && legShows.length === 0 && (
-                <div className="border-t border-blue-500/10 px-4 py-2">
-                  <p className="text-xs text-muted-foreground italic">No shows in this leg yet.</p>
+              {isExpanded && (
+                <div className={`border-t border-blue-500/10 px-2.5 ${legShows.length === 0 ? "py-2" : "pb-2 pt-0"}`}>
+                  {legShows.length === 0 && <p className="text-xs text-muted-foreground italic mb-1">No shows in this leg yet.</p>}
+                  <CreateShowForProjectDialog projectId={projectId} projectName={projectName} venues={venues} legId={leg.id} buttonLabel="Add Show" />
                 </div>
               )}
             </div>
