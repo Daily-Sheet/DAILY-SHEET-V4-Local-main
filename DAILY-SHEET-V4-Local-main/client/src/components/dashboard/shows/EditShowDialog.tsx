@@ -1,42 +1,36 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Checkbox } from "@/components/ui/checkbox";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { Event, Venue } from "@shared/schema";
+import type { Event } from "@shared/schema";
 
 export function EditShowDialog({
   open,
   onClose,
   show,
-  venuesList,
   canDelete = false,
 }: {
   open: boolean;
   onClose: () => void;
   show: Event;
-  venuesList: Venue[];
   canDelete?: boolean;
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const [venueForAllDays, setVenueForAllDays] = useState(false);
   const form = useForm({
     defaultValues: {
       name: show.name,
       startDate: show.startDate || "",
       endDate: show.endDate || "",
-      venueId: show.venueId ? String(show.venueId) : "none",
       notes: show.notes || "",
     },
   });
@@ -46,10 +40,8 @@ export function EditShowDialog({
       name: show.name,
       startDate: show.startDate || "",
       endDate: show.endDate || "",
-      venueId: show.venueId ? String(show.venueId) : "none",
       notes: show.notes || "",
     });
-    setVenueForAllDays(false);
   }, [show, form]);
 
   const updateMutation = useMutation({
@@ -84,20 +76,12 @@ export function EditShowDialog({
     },
   });
 
-  const watchedVenueId = form.watch("venueId");
-  const watchedStartDate = form.watch("startDate");
-  const watchedEndDate = form.watch("endDate");
-  const isMultiDay = !!watchedStartDate && !!watchedEndDate && watchedStartDate !== watchedEndDate;
-  const showAllDaysOption = watchedVenueId !== "none" && isMultiDay;
-
   const onSubmit = (values: any) => {
     const payload: any = {
       name: values.name.trim(),
       startDate: values.startDate || null,
       endDate: values.endDate || null,
-      venueId: values.venueId === "none" ? null : Number(values.venueId),
       notes: values.notes || null,
-      ...(venueForAllDays && { venueForAllDays: true }),
     };
     updateMutation.mutate(payload);
   };
@@ -156,38 +140,6 @@ export function EditShowDialog({
                 </FormItem>
               )} />
             </div>
-            <FormField control={form.control} name="venueId" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Venue</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl>
-                    <SelectTrigger data-testid="select-edit-show-venue">
-                      <SelectValue placeholder="Select a venue" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="none">No venue</SelectItem>
-                    {venuesList.map(v => (
-                      <SelectItem key={v.id} value={String(v.id)}>{v.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-            {showAllDaysOption && (
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="venueForAllDays"
-                  checked={venueForAllDays}
-                  onCheckedChange={(v) => setVenueForAllDays(!!v)}
-                  data-testid="checkbox-venue-for-all-days"
-                />
-                <label htmlFor="venueForAllDays" className="text-sm cursor-pointer select-none">
-                  Apply this venue to all days
-                </label>
-              </div>
-            )}
             <FormField control={form.control} name="notes" render={({ field }) => (
               <FormItem>
                 <FormLabel>Notes</FormLabel>

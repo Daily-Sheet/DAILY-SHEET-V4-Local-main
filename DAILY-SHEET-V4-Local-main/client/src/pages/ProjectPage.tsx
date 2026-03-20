@@ -36,6 +36,7 @@ import { useSchedules, useDeleteSchedule, useUpdateSchedule } from "@/hooks/use-
 import { useVenues } from "@/hooks/use-venue";
 import { TechPacketHistory } from "@/components/dashboard/venue/VenueView";
 import { CreateVenueDialog } from "@/components/dashboard/venue/VenueForm";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { useZones } from "@/hooks/use-zones";
 import { useSections } from "@/hooks/use-sections";
 import { useComments, useCreateComment, useDeleteComment, useToggleCommentPin } from "@/hooks/use-comments";
@@ -864,12 +865,10 @@ function EditShowDialog({
   open,
   onClose,
   show,
-  venuesList,
 }: {
   open: boolean;
   onClose: () => void;
   show: Event;
-  venuesList: Venue[];
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -878,7 +877,6 @@ function EditShowDialog({
       name: show.name,
       startDate: show.startDate || "",
       endDate: show.endDate || "",
-      venueId: show.venueId ? String(show.venueId) : "none",
       notes: show.notes || "",
     },
   });
@@ -888,7 +886,6 @@ function EditShowDialog({
       name: show.name,
       startDate: show.startDate || "",
       endDate: show.endDate || "",
-      venueId: show.venueId ? String(show.venueId) : "none",
       notes: show.notes || "",
     });
   }, [show, form]);
@@ -913,7 +910,6 @@ function EditShowDialog({
       name: values.name.trim(),
       startDate: values.startDate || null,
       endDate: values.endDate || null,
-      venueId: values.venueId === "none" ? null : Number(values.venueId),
       notes: values.notes || null,
     };
     updateMutation.mutate(payload);
@@ -973,25 +969,6 @@ function EditShowDialog({
                 </FormItem>
               )} />
             </div>
-            <FormField control={form.control} name="venueId" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Venue</FormLabel>
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <FormControl>
-                    <SelectTrigger data-testid="select-edit-show-venue">
-                      <SelectValue placeholder="Select a venue" />
-                    </SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    <SelectItem value="none">No venue</SelectItem>
-                    {venuesList.map(v => (
-                      <SelectItem key={v.id} value={String(v.id)}>{v.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
             <FormField control={form.control} name="notes" render={({ field }) => (
               <FormItem>
                 <FormLabel>Notes</FormLabel>
@@ -1648,27 +1625,33 @@ function VenueTab({
             </Button>
           ) : (
             <div className="flex items-center gap-2 flex-wrap">
-              <Select
-                value={resolvedVenueId ? String(resolvedVenueId) : "none"}
-                onValueChange={(val) => {
-                  if (val === "create-new") {
-                    setCreateVenueOpen(true);
-                  } else {
-                    setDayVenueMutation.mutate(val === "none" ? null : Number(val));
-                  }
-                }}
-              >
-                <SelectTrigger className="w-48" data-testid={`select-venue-${event.id}`}>
-                  <SelectValue placeholder="Select venue..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No venue</SelectItem>
-                  {venues.map(v => (
-                    <SelectItem key={v.id} value={String(v.id)}>{v.name}</SelectItem>
-                  ))}
-                  <SelectItem value="create-new">+ Create New Venue</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="w-56">
+                <SearchableSelect
+                  options={[
+                    { value: "none", label: "No venue" },
+                    ...venues.map(v => ({ value: String(v.id), label: v.name, sublabel: v.address || undefined })),
+                  ]}
+                  value={resolvedVenueId ? String(resolvedVenueId) : "none"}
+                  onValueChange={(val) => {
+                    if (val === "create-new") {
+                      setCreateVenueOpen(true);
+                    } else {
+                      setDayVenueMutation.mutate(val === "none" ? null : Number(val));
+                    }
+                  }}
+                  placeholder="Select venue..."
+                  searchPlaceholder="Search venues..."
+                  data-testid={`select-venue-${event.id}`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setCreateVenueOpen(true)}
+                    className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent cursor-pointer border-t mt-1 pt-2"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Create New Venue
+                  </button>
+                </SearchableSelect>
+              </div>
               <Button
                 variant="ghost"
                 size="icon"
@@ -3483,7 +3466,6 @@ export default function ProjectPage() {
                 open={true}
                 onClose={() => setEditShowDialogId(null)}
                 show={projectEvents.find(e => e.id === editShowDialogId)!}
-                venuesList={venues}
               />
             )}
           </motion.div>

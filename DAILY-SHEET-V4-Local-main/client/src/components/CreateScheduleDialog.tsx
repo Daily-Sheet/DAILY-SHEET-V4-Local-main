@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useState, useRef, useEffect, useMemo, useCallback, type ReactNode } from "react";
-import { Plus, X, ChevronDown, Check, Calendar as CalendarIcon, Tent, Briefcase, FileText, Copy, Save, Trash2, Users } from "lucide-react";
+import { Plus, X, ChevronDown, Check, Calendar as CalendarIcon, Tent, Briefcase, FileText, Copy, Save, Trash2, Users, Search } from "lucide-react";
 import { format } from "date-fns";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -224,6 +224,7 @@ export function CategorySelect({
 export function CreateScheduleDialog({ defaultEventName, defaultDate, trigger }: { defaultEventName?: string; defaultDate?: string; trigger?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [crewDropdownOpen, setCrewDropdownOpen] = useState(false);
+  const [crewSearch, setCrewSearch] = useState("");
   const [noEndTime, setNoEndTime] = useState(false);
   const { mutate, isPending } = useCreateSchedule();
   const { toast } = useToast();
@@ -595,7 +596,7 @@ export function CreateScheduleDialog({ defaultEventName, defaultDate, trigger }:
                     type="button"
                     variant="outline"
                     className="w-full justify-between font-normal"
-                    onClick={() => setCrewDropdownOpen(!crewDropdownOpen)}
+                    onClick={() => { setCrewDropdownOpen(!crewDropdownOpen); if (crewDropdownOpen) setCrewSearch(""); }}
                     data-testid="button-crew-dropdown-create"
                   >
                     <span className="text-muted-foreground truncate flex items-center gap-1.5">
@@ -608,33 +609,54 @@ export function CreateScheduleDialog({ defaultEventName, defaultDate, trigger }:
                     <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
                   </Button>
                   {crewDropdownOpen && (
-                    <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-md max-h-48 overflow-y-auto">
-                      {crewList.length === 0 ? (
-                        <div className="p-3 text-sm text-muted-foreground">No crew contacts found</div>
-                      ) : (
-                        crewList.map(opt => {
-                          const selected = ((form.watch as any)("crew") as CrewMember[] | null) || [];
-                          const isSelected = selected.some((m: CrewMember) => m.name === opt.name);
-                          return (
-                            <button
-                              key={opt.name}
-                              type="button"
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 flex items-center gap-2"
-                              onClick={() => toggleCrew(opt)}
-                              data-testid={`crew-option-${opt.name.replace(/\s+/g, '-')}`}
-                            >
-                              <div className={`w-4 h-4 border rounded flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground'}`}>
-                                {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <span className="font-medium">{opt.name}</span>
-                                {opt.defaultPosition && <span className="text-muted-foreground ml-1.5 text-xs">· {opt.defaultPosition}</span>}
-                                {opt.departments.length > 0 && <span className="text-muted-foreground ml-1.5 text-xs">[{opt.departments.join(", ")}]</span>}
-                              </div>
-                            </button>
+                    <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-md">
+                      <div className="p-1.5">
+                        <div className="relative">
+                          <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                          <input
+                            autoFocus
+                            value={crewSearch}
+                            onChange={(e) => setCrewSearch(e.target.value)}
+                            placeholder="Search crew..."
+                            className="w-full h-7 pl-7 pr-2 text-sm rounded-md border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
+                          />
+                        </div>
+                      </div>
+                      <div className="max-h-56 overflow-y-auto">
+                        {(() => {
+                          const q = crewSearch.toLowerCase().trim();
+                          const filtered = q ? crewList.filter(opt =>
+                            opt.name.toLowerCase().includes(q) ||
+                            (opt.defaultPosition ?? "").toLowerCase().includes(q) ||
+                            opt.departments.some(d => d.toLowerCase().includes(q))
+                          ) : crewList;
+                          if (filtered.length === 0) return (
+                            <div className="p-3 text-sm text-muted-foreground text-center">{crewList.length === 0 ? "No crew contacts found" : "No matches"}</div>
                           );
-                        })
-                      )}
+                          return filtered.map(opt => {
+                            const selected = ((form.watch as any)("crew") as CrewMember[] | null) || [];
+                            const isSelected = selected.some((m: CrewMember) => m.name === opt.name);
+                            return (
+                              <button
+                                key={opt.name}
+                                type="button"
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 flex items-center gap-2"
+                                onClick={() => toggleCrew(opt)}
+                                data-testid={`crew-option-${opt.name.replace(/\s+/g, '-')}`}
+                              >
+                                <div className={`w-4 h-4 border rounded flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground'}`}>
+                                  {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <span className="font-medium">{opt.name}</span>
+                                  {opt.defaultPosition && <span className="text-muted-foreground ml-1.5 text-xs">· {opt.defaultPosition}</span>}
+                                  {opt.departments.length > 0 && <span className="text-muted-foreground ml-1.5 text-xs">[{opt.departments.join(", ")}]</span>}
+                                </div>
+                              </button>
+                            );
+                          });
+                        })()}
+                      </div>
                     </div>
                   )}
                 </div>

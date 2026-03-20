@@ -1,7 +1,7 @@
 import { useState, useCallback, useMemo } from "react";
 import { format } from "date-fns";
 import {
-  Calendar as CalendarIcon, ChevronDown, X, Check, Users,
+  Calendar as CalendarIcon, ChevronDown, X, Check, Users, Search,
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -17,6 +17,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { TimePicker } from "@/components/ui/time-picker";
 import { useForm } from "react-hook-form";
 import { cn } from "@/lib/utils";
+import { SearchableSelect } from "@/components/ui/searchable-select";
 import { toTimeInputValue } from "@/lib/timeUtils";
 import { useUpdateSchedule } from "@/hooks/use-schedules";
 import { useContacts } from "@/hooks/use-contacts";
@@ -54,6 +55,7 @@ export function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose:
   const { data: allEventAssignments = [] } = useQuery<any[]>({ queryKey: ["/api/event-assignments"] });
   const { data: allDayVenues = [] } = useQuery<EventDayVenue[]>({ queryKey: ["/api/event-day-venues"] });
   const [crewDropdownOpen, setCrewDropdownOpen] = useState(false);
+  const [crewSearch, setCrewSearch] = useState("");
   const [noEndTime, setNoEndTime] = useState(!item.endTime);
   const categories = useCombinedCategories();
   const { data: crewPositions = [] } = useQuery<any[]>({ queryKey: ["/api/crew-positions"] });
@@ -275,22 +277,17 @@ export function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose:
               <FormItem>
                 <FormLabel>Show</FormLabel>
                 {eventsList.length > 0 ? (
-                  <Select
+                  <SearchableSelect
+                    options={[
+                      { value: "__none__", label: "No Show" },
+                      ...eventsList.map((ev) => ({ value: ev.name, label: ev.name })),
+                    ]}
                     value={field.value || "__none__"}
                     onValueChange={(val) => field.onChange(val === "__none__" ? "" : val)}
-                  >
-                    <FormControl>
-                      <SelectTrigger data-testid="select-edit-schedule-event-name">
-                        <SelectValue placeholder="Select a show..." />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="__none__">No Show</SelectItem>
-                      {eventsList.map((ev) => (
-                        <SelectItem key={ev.id} value={ev.name}>{ev.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    placeholder="Select a show..."
+                    searchPlaceholder="Search shows..."
+                    data-testid="select-edit-schedule-event-name"
+                  />
                 ) : (
                   <FormControl><Input placeholder="e.g. Main Concert" {...field} value={field.value || ""} data-testid="input-edit-schedule-event-name" /></FormControl>
                 )}
@@ -364,7 +361,7 @@ export function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose:
                 type="button"
                 variant="outline"
                 className="w-full justify-between font-normal"
-                onClick={() => setCrewDropdownOpen(!crewDropdownOpen)}
+                onClick={() => { setCrewDropdownOpen(!crewDropdownOpen); if (crewDropdownOpen) setCrewSearch(""); }}
                 data-testid="button-crew-dropdown-edit"
               >
                 <span className="text-muted-foreground truncate flex items-center gap-1.5">
@@ -377,35 +374,56 @@ export function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose:
                 <ChevronDown className="w-4 h-4 ml-2 flex-shrink-0" />
               </Button>
               {crewDropdownOpen && (
-                <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-md max-h-40 overflow-y-auto">
-                  {crewList.length === 0 ? (
-                    <div className="p-3 text-sm text-muted-foreground">No crew contacts found</div>
-                  ) : (
-                    crewList.map(opt => {
-                      const selected = ((form.watch as any)("crew") as CrewMember[] | null) || [];
-                      const isSelected = selected.some((m: CrewMember) => m.name === opt.name);
-                      return (
-                        <button
-                          key={opt.name}
-                          type="button"
-                          className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 flex items-center gap-2"
-                          onClick={() => toggleCrew(opt)}
-                          data-testid={`crew-edit-option-${opt.name.replace(/\s+/g, '-')}`}
-                        >
-                          <div className={`w-4 h-4 border rounded flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground'}`}>
-                            {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <span className="font-medium">{opt.name}</span>
-                            {opt.defaultPosition && <span className="text-muted-foreground ml-1.5 text-xs">· {opt.defaultPosition}</span>}
-                            {opt.departments.length > 0 && (
-                              <span className="text-muted-foreground ml-1.5 text-xs">[{opt.departments.join(", ")}]</span>
-                            )}
-                          </div>
-                        </button>
+                <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-md">
+                  <div className="p-1.5">
+                    <div className="relative">
+                      <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                      <input
+                        autoFocus
+                        value={crewSearch}
+                        onChange={(e) => setCrewSearch(e.target.value)}
+                        placeholder="Search crew..."
+                        className="w-full h-7 pl-7 pr-2 text-sm rounded-md border border-border bg-background outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  </div>
+                  <div className="max-h-56 overflow-y-auto">
+                    {(() => {
+                      const q = crewSearch.toLowerCase().trim();
+                      const filtered = q ? crewList.filter(opt =>
+                        opt.name.toLowerCase().includes(q) ||
+                        (opt.defaultPosition ?? "").toLowerCase().includes(q) ||
+                        opt.departments.some(d => d.toLowerCase().includes(q))
+                      ) : crewList;
+                      if (filtered.length === 0) return (
+                        <div className="p-3 text-sm text-muted-foreground text-center">{crewList.length === 0 ? "No crew contacts found" : "No matches"}</div>
                       );
-                    })
-                  )}
+                      return filtered.map(opt => {
+                        const selected = ((form.watch as any)("crew") as CrewMember[] | null) || [];
+                        const isSelected = selected.some((m: CrewMember) => m.name === opt.name);
+                        return (
+                          <button
+                            key={opt.name}
+                            type="button"
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 flex items-center gap-2"
+                            onClick={() => toggleCrew(opt)}
+                            data-testid={`crew-edit-option-${opt.name.replace(/\s+/g, '-')}`}
+                          >
+                            <div className={`w-4 h-4 border rounded flex items-center justify-center flex-shrink-0 ${isSelected ? 'bg-primary border-primary' : 'border-muted-foreground'}`}>
+                              {isSelected && <Check className="w-3 h-3 text-primary-foreground" />}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="font-medium">{opt.name}</span>
+                              {opt.defaultPosition && <span className="text-muted-foreground ml-1.5 text-xs">· {opt.defaultPosition}</span>}
+                              {opt.departments.length > 0 && (
+                                <span className="text-muted-foreground ml-1.5 text-xs">[{opt.departments.join(", ")}]</span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      });
+                    })()}
+                  </div>
                 </div>
               )}
             </div>

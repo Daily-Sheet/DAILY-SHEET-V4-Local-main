@@ -2493,7 +2493,6 @@ export default function Dashboard() {
           open={!!editingShow}
           onClose={() => setEditingShow(null)}
           show={editingShow}
-          venuesList={venuesList}
           canDelete={isAdmin}
         />
       )}
