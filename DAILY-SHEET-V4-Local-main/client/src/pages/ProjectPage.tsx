@@ -2872,91 +2872,6 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
 
   return (
     <div className="space-y-3" data-testid="tour-itinerary">
-      {isAdmin && (
-        <div className="flex justify-end mb-2">
-          <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" variant="outline" data-testid="button-add-travel-day">
-                <Plane className="w-3 h-3 mr-1" /> Add Travel Day
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[480px] font-body max-h-[85vh] flex flex-col">
-              <DialogHeader>
-                <DialogTitle className="font-display text-xl uppercase tracking-wide text-primary">Add Travel Day</DialogTitle>
-                <DialogDescription className="sr-only">Add a travel day with flight details</DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1" style={{ WebkitOverflowScrolling: "touch" }}>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Date</Label>
-                    <DatePicker value={newTravel.date} onChange={(v) => setNewTravel(p => ({ ...p, date: v }))} data-testid="input-travel-day-date" />
-                  </div>
-                  {legs.length > 0 && (
-                    <div>
-                      <Label>Leg / Run</Label>
-                      <Select value={newTravel.legId?.toString() || "none"} onValueChange={(v) => setNewTravel(p => ({ ...p, legId: v === "none" ? null : parseInt(v) }))}>
-                        <SelectTrigger className="mt-1" data-testid="select-travel-leg">
-                          <SelectValue placeholder="Select leg..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">Unassigned</SelectItem>
-                          {legs.map(l => (
-                            <SelectItem key={l.id} value={l.id.toString()}>{l.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  )}
-                </div>
-                <Separator />
-                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Flight Details (Optional)</p>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Airline</Label>
-                    <Input placeholder="e.g. United" value={newTravel.airline} onChange={e => setNewTravel(p => ({ ...p, airline: e.target.value }))} className="mt-1" data-testid="input-travel-airline" />
-                  </div>
-                  <div>
-                    <Label>Flight Number</Label>
-                    <Input placeholder="e.g. UA1234" value={newTravel.flightNumber} onChange={e => setNewTravel(p => ({ ...p, flightNumber: e.target.value }))} className="mt-1" data-testid="input-travel-flight-number" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Departure Airport</Label>
-                    <Input placeholder="e.g. SFO" value={newTravel.departureAirport} onChange={e => setNewTravel(p => ({ ...p, departureAirport: e.target.value.toUpperCase() }))} className="mt-1" maxLength={4} data-testid="input-travel-dep-airport" />
-                  </div>
-                  <div>
-                    <Label>Arrival Airport</Label>
-                    <Input placeholder="e.g. LAX" value={newTravel.arrivalAirport} onChange={e => setNewTravel(p => ({ ...p, arrivalAirport: e.target.value.toUpperCase() }))} className="mt-1" maxLength={4} data-testid="input-travel-arr-airport" />
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Departure Time</Label>
-                    <TimePicker value={newTravel.departureTime} onChange={(v) => setNewTravel(p => ({ ...p, departureTime: v }))} data-testid="input-travel-dep-time" />
-                  </div>
-                  <div>
-                    <Label>Arrival Time</Label>
-                    <TimePicker value={newTravel.arrivalTime} onChange={(v) => setNewTravel(p => ({ ...p, arrivalTime: v }))} data-testid="input-travel-arr-time" />
-                  </div>
-                </div>
-                <div>
-                  <Label>Notes</Label>
-                  <Textarea placeholder="Additional travel notes..." value={newTravel.notes} onChange={e => setNewTravel(p => ({ ...p, notes: e.target.value }))} className="mt-1 resize-none" rows={2} data-testid="input-travel-day-notes" />
-                </div>
-              </div>
-              <Button
-                className="w-full flex-shrink-0 mt-3"
-                onClick={() => newTravel.date && createTravelDay.mutate(newTravel)}
-                disabled={!newTravel.date || createTravelDay.isPending}
-                data-testid="button-save-travel-day"
-              >
-                {createTravelDay.isPending ? "Adding..." : "Add Travel Day"}
-              </Button>
-            </DialogContent>
-          </Dialog>
-        </div>
-      )}
 
       {legGroups.every(g => g.items.length === 0) && (
         <p className="text-center text-sm text-muted-foreground py-4">No stops or travel days yet.</p>
@@ -2971,9 +2886,15 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
             {showLegHeader && (
               <div className="flex items-center gap-2 pt-3 pb-1">
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-display font-bold text-sm uppercase tracking-wider text-primary truncate">
-                    {group.leg ? group.leg.name : "Unassigned"}
-                  </h3>
+                  {group.leg ? (
+                    <Link href={`/admin?project=${project.id}`} className="font-display font-bold text-sm uppercase tracking-wider text-primary truncate hover:underline cursor-pointer">
+                      {group.leg.name}
+                    </Link>
+                  ) : (
+                    <h3 className="font-display font-bold text-sm uppercase tracking-wider text-primary truncate">
+                      Unassigned
+                    </h3>
+                  )}
                   <div className="flex items-center gap-2 text-xs text-muted-foreground">
                     <span>{showCount} {showCount === 1 ? "show" : "shows"}</span>
                     {group.leg?.notes && <span>· {group.leg.notes}</span>}
@@ -3109,9 +3030,9 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <h3 className="font-display font-bold text-base uppercase tracking-wide text-foreground truncate">
+                        <Link href={`/?event=${encodeURIComponent(show.event.name)}${show.event.startDate ? `&date=${show.event.startDate}` : ""}`} className="font-display font-bold text-base uppercase tracking-wide text-foreground truncate hover:underline hover:text-primary cursor-pointer block" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                           {show.event.name}
-                        </h3>
+                        </Link>
                         {(show.event.startDate || show.event.endDate) && (
                           <div className="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">
                             <CalendarIcon className="w-3.5 h-3.5 flex-shrink-0" />

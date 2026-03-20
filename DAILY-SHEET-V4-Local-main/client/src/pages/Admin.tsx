@@ -20,7 +20,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Calendar as CalendarIcon, Users, Speaker, MapPin, Upload, Search, Briefcase,
   Plus, Pencil, Trash2, Save, X, Clock, Shield, KeyRound, CalendarPlus, Eye, Sparkles, Loader2, FileText,
-  ChevronDown, ChevronRight, Check, UserPlus, Mail, Send, RotateCw, UserCheck, Sun, Moon, Palette, Filter, Layers, Settings, Archive, ArchiveRestore, Headphones, ExternalLink, LogOut, Download, MessageSquare, BarChart3, Map as MapIcon, List, Link2, Copy, MoreHorizontal, Building2
+  ChevronDown, ChevronRight, Check, UserPlus, Mail, Send, RotateCw, UserCheck, Sun, Moon, Palette, Filter, Layers, Settings, Archive, ArchiveRestore, Headphones, ExternalLink, LogOut, Download, MessageSquare, BarChart3, Map as MapIcon, List, Link2, Copy, MoreHorizontal, Building2, Plane
 } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
@@ -3367,6 +3367,15 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
   const [expandedLegs, setExpandedLegs] = useState<Record<number, boolean>>({});
   const [newLeg, setNewLeg] = useState({ name: "", notes: "", showCount: 0, startDate: "" });
   const [editLegData, setEditLegData] = useState({ name: "", notes: "" });
+  const [addTravelLegId, setAddTravelLegId] = useState<number | null>(null);
+  const [newTravel, setNewTravel] = useState({
+    date: "", notes: "", flightNumber: "", airline: "",
+    departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: ""
+  });
+  const resetTravelForm = () => setNewTravel({
+    date: "", notes: "", flightNumber: "", airline: "",
+    departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: ""
+  });
 
   const { data: legs = [] } = useQuery<Leg[]>({
     queryKey: ["/api/projects", projectId, "legs"],
@@ -3432,6 +3441,19 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
     },
   });
 
+  const createTravelDayMutation = useMutation({
+    mutationFn: async (data: { date: string; legId: number | null; notes?: string; flightNumber?: string; airline?: string; departureAirport?: string; arrivalAirport?: string; departureTime?: string; arrivalTime?: string }) => {
+      const res = await apiRequest("POST", `/api/projects/${projectId}/travel-days`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "travel-days"] });
+      setAddTravelLegId(null);
+      resetTravelForm();
+      toast({ title: "Travel day added" });
+    },
+  });
+
   return (
     <div className="mt-3 border-t border-blue-500/10 pt-3">
       <div className="flex items-center justify-between mb-2">
@@ -3461,7 +3483,7 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
                 <button className="flex-1 min-w-0 text-left flex items-center gap-2" onClick={() => setExpandedLegs(prev => ({ ...prev, [leg.id]: !prev[leg.id] }))}>
                   {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
                   <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{leg.name}</p>
+                    <Link href={`/project/${projectId}?from=admin`} className="text-sm font-medium truncate hover:underline hover:text-primary block" onClick={(e: React.MouseEvent) => e.stopPropagation()}>{leg.name}</Link>
                     <p className="text-xs text-muted-foreground">{legShows.length} show{legShows.length !== 1 ? "s" : ""}{leg.notes ? ` · ${leg.notes}` : ""}</p>
                   </div>
                 </button>
@@ -3486,7 +3508,7 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
                     <div key={show.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 group" data-testid={`row-leg-show-${show.id}`}>
                       <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: show.color || "hsl(var(--primary))" }} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{show.name}</p>
+                        <Link href={`/?event=${encodeURIComponent(show.name)}${show.startDate ? `&date=${show.startDate}` : ""}`} className="text-sm font-medium truncate hover:underline hover:text-primary block">{show.name}</Link>
                         {(show.startDate || show.endDate) && (
                           <p className="text-xs text-muted-foreground truncate">
                             {show.startDate === show.endDate ? show.startDate : `${show.startDate ?? "?"} → ${show.endDate ?? "?"}`}
@@ -3514,9 +3536,14 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
                 </div>
               )}
               {isExpanded && (
-                <div className={`border-t border-blue-500/10 px-2.5 ${legShows.length === 0 ? "py-2" : "pb-2 pt-0"}`}>
+                <div className={`border-t border-blue-500/10 px-2.5 ${legShows.length === 0 ? "py-2" : "pb-2 pt-1"}`}>
                   {legShows.length === 0 && <p className="text-xs text-muted-foreground italic mb-1">No shows in this leg yet.</p>}
-                  <CreateShowForProjectDialog projectId={projectId} projectName={projectName} venues={venues} legId={leg.id} buttonLabel="Add Show" />
+                  <div className="flex gap-2 flex-wrap">
+                    <CreateShowForProjectDialog projectId={projectId} projectName={projectName} venues={venues} legId={leg.id} buttonLabel="Add Show" />
+                    <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => { setAddTravelLegId(leg.id); resetTravelForm(); }}>
+                      <Plane className="w-3 h-3 mr-1" /> Add Travel Day
+                    </Button>
+                  </div>
                 </div>
               )}
             </div>
@@ -3643,6 +3670,77 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Add Travel Day Dialog */}
+      <Dialog open={addTravelLegId !== null} onOpenChange={(o) => { if (!o) { setAddTravelLegId(null); resetTravelForm(); } }}>
+        <DialogContent className="sm:max-w-[480px] font-body max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl uppercase tracking-wide text-primary">
+              Add Travel Day to {legs.find(l => l.id === addTravelLegId)?.name}
+            </DialogTitle>
+            <DialogDescription className="sr-only">Add a travel day with flight details</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1" style={{ WebkitOverflowScrolling: "touch" }}>
+            <div>
+              <Label>Date</Label>
+              <DatePicker value={newTravel.date} onChange={(v) => setNewTravel(p => ({ ...p, date: v }))} />
+            </div>
+            <Separator />
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Flight Details (Optional)</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Airline</Label>
+                <Input placeholder="e.g. United" value={newTravel.airline} onChange={e => setNewTravel(p => ({ ...p, airline: e.target.value }))} className="mt-1" />
+              </div>
+              <div>
+                <Label>Flight Number</Label>
+                <Input placeholder="e.g. UA1234" value={newTravel.flightNumber} onChange={e => setNewTravel(p => ({ ...p, flightNumber: e.target.value }))} className="mt-1" />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Departure Airport</Label>
+                <Input placeholder="e.g. SFO" value={newTravel.departureAirport} onChange={e => setNewTravel(p => ({ ...p, departureAirport: e.target.value.toUpperCase() }))} className="mt-1" maxLength={4} />
+              </div>
+              <div>
+                <Label>Arrival Airport</Label>
+                <Input placeholder="e.g. LAX" value={newTravel.arrivalAirport} onChange={e => setNewTravel(p => ({ ...p, arrivalAirport: e.target.value.toUpperCase() }))} className="mt-1" maxLength={4} />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label>Departure Time</Label>
+                <TimePicker value={newTravel.departureTime} onChange={(v) => setNewTravel(p => ({ ...p, departureTime: v }))} />
+              </div>
+              <div>
+                <Label>Arrival Time</Label>
+                <TimePicker value={newTravel.arrivalTime} onChange={(v) => setNewTravel(p => ({ ...p, arrivalTime: v }))} />
+              </div>
+            </div>
+            <div>
+              <Label>Notes</Label>
+              <Textarea placeholder="Additional travel notes..." value={newTravel.notes} onChange={e => setNewTravel(p => ({ ...p, notes: e.target.value }))} className="mt-1 resize-none" rows={2} />
+            </div>
+          </div>
+          <Button
+            className="w-full flex-shrink-0 mt-3"
+            onClick={() => newTravel.date && createTravelDayMutation.mutate({
+              date: newTravel.date,
+              legId: addTravelLegId,
+              notes: newTravel.notes || undefined,
+              flightNumber: newTravel.flightNumber || undefined,
+              airline: newTravel.airline || undefined,
+              departureAirport: newTravel.departureAirport || undefined,
+              arrivalAirport: newTravel.arrivalAirport || undefined,
+              departureTime: newTravel.departureTime || undefined,
+              arrivalTime: newTravel.arrivalTime || undefined,
+            })}
+            disabled={!newTravel.date || createTravelDayMutation.isPending}
+          >
+            {createTravelDayMutation.isPending ? "Adding..." : "Add Travel Day"}
+          </Button>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -3684,6 +3782,13 @@ function ProjectsAdmin() {
   const [editIsTour, setEditIsTour] = useState(false);
 
   const [showArchived, setShowArchived] = useState(false);
+  const [expandedCards, setExpandedCards] = useState<Set<number>>(new Set());
+  const toggleCardExpanded = (projectId: number) =>
+    setExpandedCards(prev => {
+      const next = new Set(prev);
+      next.has(projectId) ? next.delete(projectId) : next.add(projectId);
+      return next;
+    });
   const [collapsedShows, setCollapsedShows] = useState<Set<number>>(new Set());
   const toggleShowsCollapsed = (projectId: number) =>
     setCollapsedShows(prev => {
@@ -4043,29 +4148,42 @@ function ProjectsAdmin() {
                     </div>
                   ) : (
                     <div>
-                      <div className="space-y-2">
-                        <div>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <Link href={`/project/${project.id}?from=admin`} className="font-display text-base font-semibold uppercase tracking-wide text-accent" data-testid={`link-project-${project.id}`}>{project.name}</Link>
-                            {project.projectNumber && (
-                              <Badge variant="outline" className="text-[10px] uppercase tracking-wide" data-testid={`badge-project-number-${project.id}`}>#{project.projectNumber}</Badge>
-                            )}
-                            {project.isFestival && (
-                              <Badge variant="secondary" className="text-[10px] uppercase tracking-wide" data-testid={`badge-project-festival-${project.id}`}>Festival</Badge>
-                            )}
-                            {project.isTour && (
-                              <Badge variant="secondary" className="text-[10px] uppercase tracking-wide bg-blue-500/10 text-blue-600 dark:text-blue-400" data-testid={`badge-project-tour-${project.id}`}>Tour</Badge>
-                            )}
-                          </div>
-                          {project.description && (
-                            <p className="text-sm text-muted-foreground mt-1">{project.description}</p>
+                      {/* Collapsible header */}
+                      <button
+                        className="w-full text-left flex items-center gap-2"
+                        onClick={() => toggleCardExpanded(project.id)}
+                        data-testid={`button-toggle-project-${project.id}`}
+                      >
+                        {expandedCards.has(project.id) ? <ChevronDown className="w-4 h-4 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />}
+                        <div className="flex items-center gap-2 flex-wrap flex-1 min-w-0">
+                          <span className="font-display text-base font-semibold uppercase tracking-wide text-foreground truncate">{project.name}</span>
+                          {project.projectNumber && (
+                            <Badge variant="outline" className="text-[10px] uppercase tracking-wide">#{project.projectNumber}</Badge>
+                          )}
+                          {project.isFestival && (
+                            <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">Festival</Badge>
+                          )}
+                          {project.isTour && (
+                            <Badge variant="secondary" className="text-[10px] uppercase tracking-wide bg-blue-500/10 text-blue-600 dark:text-blue-400">Tour</Badge>
                           )}
                           {(project.startDate || project.endDate) && (
-                            <p className="text-xs text-muted-foreground mt-1">
+                            <span className="text-xs text-muted-foreground">
                               {project.startDate && format(new Date(project.startDate + "T00:00:00"), "MMM d, yyyy")}
                               {project.startDate && project.endDate && " – "}
                               {project.endDate && format(new Date(project.endDate + "T00:00:00"), "MMM d, yyyy")}
-                            </p>
+                            </span>
+                          )}
+                        </div>
+                      </button>
+
+                      {expandedCards.has(project.id) && (
+                      <div className="mt-3 space-y-2">
+                        <div>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <Link href={`/project/${project.id}?from=admin`} className="font-display text-sm font-semibold uppercase tracking-wide text-primary hover:underline flex items-center gap-1.5" data-testid={`link-project-${project.id}`}>View Project Page <ExternalLink className="w-3.5 h-3.5 inline-flex opacity-60" /></Link>
+                          </div>
+                          {project.description && (
+                            <p className="text-sm text-muted-foreground mt-1">{project.description}</p>
                           )}
                           {project.driveUrl && (
                             <a
@@ -4120,11 +4238,13 @@ function ProjectsAdmin() {
                           />
                         </div>
                       </div>
+                      )}
 
-                      {project.isTour && (
+                      {expandedCards.has(project.id) && project.isTour && (
                         <ProjectLegsSection projectId={project.id} projectName={project.name} venues={venuesList} />
                       )}
 
+                      {expandedCards.has(project.id) && (
                       <ProjectShowsSection
                         projectId={project.id}
                         isFestival={project.isFestival ?? false}
@@ -4132,8 +4252,9 @@ function ProjectsAdmin() {
                         venues={venuesList}
                         projectName={project.name}
                       />
+                      )}
 
-                      {genShowsProjectId === project.id && (
+                      {expandedCards.has(project.id) && genShowsProjectId === project.id && (
                         <div className="mt-3 border-t border-amber-500/20 pt-3 space-y-3">
                           <p className="text-xs text-muted-foreground">Generate numbered shows for this tour. Each show gets consecutive dates. You can rename and adjust dates afterward.</p>
                           <div className="flex items-center gap-3">
@@ -4190,7 +4311,7 @@ function ProjectsAdmin() {
                         </div>
                       )}
 
-                      {(project.isFestival || project.isTour) && !isEditing && (
+                      {expandedCards.has(project.id) && (project.isFestival || project.isTour) && !isEditing && (
                         <div className="mt-3 border-t border-purple-500/10 pt-3">
                           <ProjectCrewManager projectId={project.id} projectName={project.name} label={project.isTour ? "Tour Crew" : "Festival Crew"} isTour={project.isTour ?? false} />
                         </div>
