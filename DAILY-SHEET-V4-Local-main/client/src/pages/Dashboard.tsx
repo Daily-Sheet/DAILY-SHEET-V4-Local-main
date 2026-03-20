@@ -253,6 +253,9 @@ export default function Dashboard() {
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
         handleDateSelectRef.current?.(format(addDays(parseISO(selectedDateRef.current), 1), "yyyy-MM-dd"));
+      } else if (e.key >= "1" && e.key <= "9") {
+        const idx = parseInt(e.key) - 1;
+        if (idx < visibleTabs.length) setActiveTab(visibleTabs[idx]);
       }
     };
     document.addEventListener("keydown", handleKeyDown);
