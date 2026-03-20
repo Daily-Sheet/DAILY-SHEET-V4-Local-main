@@ -4,7 +4,7 @@ import { getLocalTimeMinutes, formatTime, getUrgencyStatus } from "@/lib/timeUti
 import type { Schedule } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { X, MapPin, Clock, CheckCircle2, Circle, Pencil, Trash2, Copy, Timer, Users } from "lucide-react";
+import { X, MapPin, Clock, CheckCircle2, Circle, Pencil, Trash2, Copy, Users } from "lucide-react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
@@ -556,16 +556,6 @@ function HorizontalGantt({
               style={{ height: HEADER_HEIGHT }}
             >
               <span className="text-[10px] font-display uppercase tracking-wide text-muted-foreground">Shows</span>
-              {nowMinutes >= startHour * 60 && nowMinutes <= endHour * 60 && (
-                <button
-                  onClick={() => nowRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })}
-                  className="flex items-center gap-0.5 text-[9px] font-mono font-bold text-red-500 hover:text-red-400 transition-colors"
-                  title="Jump to now"
-                >
-                  <Timer className="w-2.5 h-2.5" />
-                  Now
-                </button>
-              )}
             </div>
             {groupOffsets.map(({ name, height }, idx) => {
               const color = showColorMap.get(name);
