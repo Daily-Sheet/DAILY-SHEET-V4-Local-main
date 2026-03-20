@@ -239,9 +239,10 @@ export default function Dashboard() {
         setCommandPaletteOpen(prev => !prev);
         return;
       }
-      // Ignore when typing in a field
+      // Ignore when typing in a field or when a button/tab trigger has focus
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (e.target as HTMLElement)?.isContentEditable) return;
+      if (tag === "BUTTON" || (e.target as HTMLElement)?.getAttribute("role") === "tab") return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       if (e.key === "t" || e.key === "T") {
@@ -252,9 +253,6 @@ export default function Dashboard() {
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
         handleDateSelectRef.current?.(format(addDays(parseISO(selectedDateRef.current), 1), "yyyy-MM-dd"));
-      } else if (e.key >= "1" && e.key <= "9") {
-        const idx = parseInt(e.key) - 1;
-        if (idx < visibleTabs.length) setActiveTab(visibleTabs[idx]);
       }
     };
     document.addEventListener("keydown", handleKeyDown);
