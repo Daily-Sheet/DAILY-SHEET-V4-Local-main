@@ -120,6 +120,26 @@ app.use((req, res, next) => {
     console.error("Map table migration error (non-fatal):", err);
   }
 
+  // Legs migration
+  try {
+    const { pool } = await import("./db");
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS legs (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL,
+        project_id INTEGER NOT NULL,
+        workspace_id INTEGER,
+        sort_order INTEGER DEFAULT 0,
+        notes TEXT
+      );
+      ALTER TABLE events ADD COLUMN IF NOT EXISTS leg_id INTEGER;
+      ALTER TABLE travel_days ADD COLUMN IF NOT EXISTS leg_id INTEGER;
+    `);
+    log("Legs migration ready");
+  } catch (err) {
+    console.error("Legs migration error (non-fatal):", err);
+  }
+
   await registerRoutes(httpServer, app);
 
   storage.deduplicateContacts().then(count => {
