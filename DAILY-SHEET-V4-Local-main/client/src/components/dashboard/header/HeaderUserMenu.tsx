@@ -15,7 +15,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import type { Contact } from "@shared/schema";
 
-export function HeaderUserMenu({ contacts, canEdit, allEventAssignments }: { contacts: Contact[]; canEdit: boolean; allEventAssignments: any[] }) {
+export function HeaderUserMenu({ contacts = [], canEdit = false, allEventAssignments = [] }: { contacts?: Contact[]; canEdit?: boolean; allEventAssignments?: any[] }) {
   const { user, logout } = useAuth();
   const { palette, setPalette, colors } = useColorScheme();
   const { theme, toggleTheme } = useTheme();

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Loader2, Building2, CheckCircle2, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { AppHeader } from "@/components/AppHeader";
 
 interface Workspace {
   id: number;
@@ -76,7 +77,9 @@ export default function OrgSelectorPage() {
 
   if (workspaces.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+      <div className="min-h-screen bg-background">
+        <AppHeader />
+        <div className="flex items-center justify-center p-4" style={{ minHeight: "calc(100vh - 4rem)" }}>
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <Building2 className="mx-auto h-12 w-12 text-primary mb-3" />
@@ -117,12 +120,15 @@ export default function OrgSelectorPage() {
             )}
           </CardContent>
         </Card>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-screen bg-background">
+      <AppHeader />
+      <div className="flex items-center justify-center p-4" style={{ minHeight: "calc(100vh - 4rem)" }}>
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
           <Building2 className="mx-auto h-12 w-12 text-primary mb-3" />
@@ -162,6 +168,7 @@ export default function OrgSelectorPage() {
             </Button>
           </div>
         )}
+      </div>
       </div>
     </div>
   );

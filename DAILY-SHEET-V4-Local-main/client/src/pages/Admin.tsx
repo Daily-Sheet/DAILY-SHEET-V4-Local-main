@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useCallback, useEffect, lazy, Suspense } from "react";
 import { cn } from "@/lib/utils";
+import { AppHeader } from "@/components/AppHeader";
 import { motion, AnimatePresence } from "framer-motion";
 const PdfPreview = lazy(() => import("@/components/PdfPreview"));
 import { Link, useLocation } from "wouter";
@@ -17,7 +18,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
-  Calendar as CalendarIcon, Users, Speaker, MapPin, ArrowLeft, Upload, Search, Briefcase,
+  Calendar as CalendarIcon, Users, Speaker, MapPin, Upload, Search, Briefcase,
   Plus, Pencil, Trash2, Save, X, Clock, Shield, KeyRound, CalendarPlus, Eye, Sparkles, Loader2, FileText,
   ChevronDown, ChevronRight, Check, UserPlus, Mail, Send, RotateCw, UserCheck, Sun, Moon, Palette, Filter, Layers, Settings, Archive, ArchiveRestore, Headphones, ExternalLink, LogOut, Download, MessageSquare, BarChart3, Map as MapIcon, List, Link2, Copy, MoreHorizontal, Building2
 } from "lucide-react";
@@ -174,35 +175,7 @@ export default function Admin() {
 
   return (
     <div className="min-h-screen bg-background font-body overflow-x-clip pb-20 sm:pb-0">
-      <header className="bg-card/80 backdrop-blur-md border-b border-border/30 sticky top-0 z-10 shadow-sm">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3">
-            <Link href="/calendar">
-              <button
-                className="h-10 w-10 bg-primary rounded-lg flex items-center justify-center shadow-lg shadow-primary/25 transition-transform cursor-pointer hover-elevate active-elevate-2"
-                data-testid="button-admin-calendar"
-              >
-                <CalendarIcon className="text-primary-foreground h-5 w-5" />
-              </button>
-            </Link>
-            <div>
-              <h1 className="text-xl font-display uppercase tracking-wide text-foreground">Daily Sheet</h1>
-              <p className="text-xs text-muted-foreground hidden sm:block">Admin Panel</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 sm:gap-2">
-            <AdminSettingsPopover />
-            <Link href="/">
-              <Button variant="outline" size="icon" className="sm:hidden" data-testid="link-back-dashboard-mobile">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" className="hidden sm:inline-flex" data-testid="link-back-dashboard">
-                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </header>
+      <AppHeader showBack actions={<AdminSettingsPopover />} />
 
       <main className="container mx-auto px-4 py-4">
         {/* Mobile: dropdown selector */}

@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { Link, useLocation } from "wouter";
-import { NotificationBell } from "@/components/NotificationBell";
+import { AppHeader } from "@/components/AppHeader";
+import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -10,7 +10,7 @@ import {
   differenceInDays,
 } from "date-fns";
 import {
-  ChevronLeft, ChevronRight, ArrowLeft, Users, CalendarDays,
+  ChevronLeft, ChevronRight, Users, CalendarDays,
   ExternalLink, Clock, X, Plane, LayoutGrid, List,
 } from "lucide-react";
 import { useQuery, useQueries } from "@tanstack/react-query";
@@ -492,19 +492,7 @@ export default function CalendarPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24 sm:pb-0">
-      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border/40 px-4 py-3">
-        <div className="max-w-6xl mx-auto flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" asChild data-testid="button-back-dashboard">
-              <Link href="/"><ArrowLeft className="h-4 w-4" /></Link>
-            </Button>
-            <h1 className="font-display text-lg uppercase tracking-wide">Calendar</h1>
-          </div>
-          <div className="flex items-center gap-1">
-            <NotificationBell />
-          </div>
-        </div>
-      </header>
+      <AppHeader showBack />
 
       <PullToRefresh>
         <main className="max-w-6xl mx-auto px-4 py-4">

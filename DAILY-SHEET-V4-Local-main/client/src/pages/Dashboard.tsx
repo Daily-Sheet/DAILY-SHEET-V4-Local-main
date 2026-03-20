@@ -1,6 +1,7 @@
 import { useState, useRef, useMemo, useEffect, useCallback, useSyncExternalStore, lazy, Suspense } from "react";
 import { DEPARTMENTS } from "@shared/constants";
 import { cn } from "@/lib/utils";
+import { AppHeader } from "@/components/AppHeader";
 const PdfPreview = lazy(() => import("@/components/PdfPreview"));
 import { Link, useSearch, useLocation } from "wouter";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -28,7 +29,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { TimePicker } from "@/components/ui/time-picker";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useTheme } from "@/components/ThemeProvider";
-import { NotificationBell } from "@/components/NotificationBell";
 import { Calendar } from "@/components/ui/calendar";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -89,7 +89,6 @@ import { GearRequestDialog, GearRequestHistory } from "@/components/dashboard/ov
 import { getWeatherIcon, getWeatherLabel, WeatherWidget } from "@/components/dashboard/overview/WeatherWidget";
 import { ActivityFeed, OverviewActivitySquare } from "@/components/dashboard/overview/ActivityFeed";
 import { ProfileDialog } from "@/components/dashboard/header/ProfileDialog";
-import { HeaderUserMenu } from "@/components/dashboard/header/HeaderUserMenu";
 import { DayNavigator } from "@/components/dashboard/header/DayNavigator";
 import { ShowSwitcher } from "@/components/dashboard/header/ShowSwitcher";
 import { EditShowDialog } from "@/components/dashboard/shows/EditShowDialog";
@@ -929,14 +928,7 @@ export default function Dashboard() {
   if (!user?.workspaceId && userWorkspaces.length === 0) {
     return (
       <div className="min-h-screen bg-background font-body flex flex-col">
-        <header className="bg-card border-b border-border sticky top-0 z-50 shadow-sm">
-          <div className="container mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h1 className="text-base sm:text-xl font-display uppercase tracking-wide text-foreground">Daily Sheet</h1>
-            </div>
-            <HeaderUserMenu contacts={[]} canEdit={false} allEventAssignments={[]} />
-          </div>
-        </header>
+        <AppHeader />
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center max-w-md space-y-4" data-testid="empty-state-no-org">
             <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center">
@@ -958,15 +950,7 @@ export default function Dashboard() {
   if (hasNoAssignment) {
     return (
       <div className="min-h-screen bg-background font-body flex flex-col">
-        <header className="bg-card border-b border-border sticky top-0 z-50 shadow-sm">
-          <div className="container mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <h1 className="text-base sm:text-xl font-display uppercase tracking-wide text-foreground">Daily Sheet</h1>
-              {currentWorkspace && <p className="text-xs text-muted-foreground">{currentWorkspace.name}</p>}
-            </div>
-            <HeaderUserMenu contacts={[]} canEdit={false} allEventAssignments={[]} />
-          </div>
-        </header>
+        <AppHeader />
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center max-w-md space-y-4" data-testid="empty-state-no-assignments">
             <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center">
@@ -1001,23 +985,7 @@ export default function Dashboard() {
     if (assignedEvents.length > 0) {
       return (
         <div className="min-h-screen bg-background font-body flex flex-col">
-          <header className="bg-card border-b border-border sticky top-0 z-50 shadow-sm">
-            <div className="container mx-auto px-4 h-14 sm:h-16 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <h1 className="text-base sm:text-xl font-display uppercase tracking-wide text-foreground">Daily Sheet</h1>
-                {currentWorkspace && <p className="text-xs text-muted-foreground">{currentWorkspace.name}</p>}
-              </div>
-              <div className="flex items-center gap-2">
-                <NotificationBell />
-                <button onClick={toggleTheme} className="h-9 w-9 rounded-lg flex items-center justify-center hover-elevate" data-testid="button-toggle-theme-landing">
-                  {theme === "dark" ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
-                </button>
-                <button onClick={() => logout()} className="h-9 w-9 rounded-lg flex items-center justify-center hover-elevate" data-testid="button-logout-landing">
-                  <LogOut className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-          </header>
+          <AppHeader />
           <div className="flex-1 p-4 sm:p-6 max-w-2xl mx-auto w-full">
             <h2 className="text-lg font-display uppercase tracking-wide text-foreground mb-4" data-testid="text-your-shows">Your Shows</h2>
             <div className="space-y-3">
@@ -1097,80 +1065,31 @@ export default function Dashboard() {
   return (
     <PullToRefresh>
     <div className="min-h-screen bg-background pb-24 sm:pb-0 font-body print:pb-0 print:min-h-0 overflow-x-clip">
-      <header className="bg-card border-b border-border sticky top-0 z-50 shadow-sm print:static print:border-none print:hidden">
-        <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-0 sm:h-16 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 sm:gap-2">
-          <div className="flex items-center justify-between gap-1 sm:gap-2">
-            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-              <Link href={`/calendar?date=${selectedDate}`}>
-                <button
-                  className="h-9 w-9 sm:h-10 sm:w-10 rounded-lg flex items-center justify-center shadow-lg transition-transform cursor-pointer hover-elevate active-elevate-2 bg-primary shadow-primary/25 flex-shrink-0"
-                  data-testid="button-header-calendar"
-                >
-                  <CalendarIcon className="h-5 w-5 text-primary-foreground" />
-                </button>
-              </Link>
-              <div className="min-w-0">
-                <h1 className="text-sm sm:text-xl font-display uppercase tracking-wide text-foreground truncate">Daily Sheet</h1>
-              </div>
-            </div>
-            <div className="flex items-center gap-1 sm:gap-2 print:hidden flex-shrink-0">
-              {(isManager || isAdmin) && (
-                <>
-                  <div className="hidden sm:flex sm:items-center sm:gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setShowSendDialog(true)} data-testid="button-send-daily">
-                      <Send className="mr-2 h-4 w-4" /> Send Daily
-                    </Button>
-                    <Link href="/admin">
-                      <Button data-testid="link-admin-panel">
-                        <Settings className="mr-2 h-4 w-4" /> Admin
-                      </Button>
-                    </Link>
-                  </div>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button variant="outline" size="icon" className="sm:hidden bg-card/50 backdrop-blur-sm border-border/30" onClick={() => setShowSendDialog(true)} data-testid="button-send-daily-mobile">
-                        <Send className="h-4 w-4" />
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>Send Daily</TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Link href="/admin">
-                        <Button variant="outline" size="icon" className="sm:hidden bg-card/50 backdrop-blur-sm border-border/30" data-testid="button-admin-mobile">
-                          <Settings className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                    </TooltipTrigger>
-                    <TooltipContent>Admin</TooltipContent>
-                  </Tooltip>
-                </>
-              )}
-
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Link href="/map">
-                    <Button variant="outline" size="icon" className="hidden sm:flex bg-card/50 backdrop-blur-sm border-border/30">
-                      <MapPin className="h-4 w-4" />
-                    </Button>
-                  </Link>
-                </TooltipTrigger>
-                <TooltipContent>Community Map</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button variant="outline" size="icon" className="bg-card/50 backdrop-blur-sm border-border/30" onClick={() => setCommandPaletteOpen(true)} data-testid="button-command-palette">
-                    <Search className="h-4 w-4" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Search (⌘K)</TooltipContent>
-              </Tooltip>
-              <NotificationBell />
-              <HeaderUserMenu contacts={contacts} canEdit={canEdit} allEventAssignments={allEventAssignments} />
-            </div>
-          </div>
-        </div>
-      </header>
+      <AppHeader actions={<>
+        {(isManager || isAdmin) && (
+          <>
+            <Button variant="outline" size="sm" className="hidden sm:flex" onClick={() => setShowSendDialog(true)} data-testid="button-send-daily">
+              <Send className="mr-2 h-4 w-4" /> Send Daily
+            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button variant="outline" size="icon" className="sm:hidden bg-card/50 backdrop-blur-sm border-border/30" onClick={() => setShowSendDialog(true)} data-testid="button-send-daily-mobile">
+                  <Send className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Send Daily</TooltipContent>
+            </Tooltip>
+          </>
+        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="outline" size="icon" className="bg-card/50 backdrop-blur-sm border-border/30" onClick={() => setCommandPaletteOpen(true)} data-testid="button-command-palette">
+              <Search className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Search (⌘K)</TooltipContent>
+        </Tooltip>
+      </>} />
 
       <main className="container mx-auto px-4 py-4 print:px-0 print:py-1">
         <AnimatePresence>

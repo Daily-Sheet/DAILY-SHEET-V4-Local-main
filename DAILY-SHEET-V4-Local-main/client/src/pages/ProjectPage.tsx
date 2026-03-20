@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRoute, Link, useSearch } from "wouter";
-import { NotificationBell } from "@/components/NotificationBell";
+import { AppHeader } from "@/components/AppHeader";
 import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -3394,33 +3394,25 @@ export default function ProjectPage() {
 
   return (
     <div className="min-h-screen bg-background pb-24 sm:pb-0">
-      <div className="sticky top-0 z-50 bg-background/95 backdrop-blur border-b border-border">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center gap-3">
-          <Link href={backHref}>
-            <Button variant="ghost" size="icon" className="flex-shrink-0" data-testid="btn-back-dashboard">
-              <ArrowLeft className="w-5 h-5" />
-            </Button>
-          </Link>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-lg font-display font-bold text-accent truncate" data-testid="text-project-name">
-                {project.name}
-              </h1>
-              {project.driveUrl && (
-                <a href={project.driveUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent/80 flex-shrink-0" data-testid="link-project-drive" title="Open Google Drive">
-                  <ExternalLink className="w-4 h-4" />
-                </a>
-              )}
-            </div>
-            <div className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
-              <span>{projectEvents.length} {project.isFestival ? "stage" : "show"}{projectEvents.length !== 1 ? "s" : ""}</span>
-              {project.isFestival && <Badge variant="secondary" className="text-[10px]">Festival</Badge>}
-              {project.isTour && <Badge variant="secondary" className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400">Tour</Badge>}
-            </div>
+      <AppHeader showBack>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm sm:text-base font-display font-bold text-accent truncate" data-testid="text-project-name">
+              {project.name}
+            </span>
+            {project.driveUrl && (
+              <a href={project.driveUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent/80 flex-shrink-0" data-testid="link-project-drive" title="Open Google Drive">
+                <ExternalLink className="w-4 h-4" />
+              </a>
+            )}
           </div>
-          <NotificationBell />
+          <div className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
+            <span>{projectEvents.length} {project.isFestival ? "stage" : "show"}{projectEvents.length !== 1 ? "s" : ""}</span>
+            {project.isFestival && <Badge variant="secondary" className="text-[10px]">Festival</Badge>}
+            {project.isTour && <Badge variant="secondary" className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400">Tour</Badge>}
+          </div>
         </div>
-      </div>
+      </AppHeader>
 
       <div className="max-w-3xl mx-auto px-4 py-4 space-y-3">
         {isAdmin && (

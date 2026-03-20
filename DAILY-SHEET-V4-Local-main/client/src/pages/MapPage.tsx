@@ -8,6 +8,7 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import "leaflet.markercluster";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
+import { AppHeader } from "@/components/AppHeader";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,11 +18,10 @@ import { Badge } from "@/components/ui/badge";
 import { formatDistanceToNow } from "date-fns";
 import {
   Heart, MessageCircle, Globe, Navigation, X, Plus, Trash2,
-  ExternalLink, MapPin, ArrowLeft, SlidersHorizontal, Check,
+  ExternalLink, MapPin, SlidersHorizontal, Check,
   LocateFixed, LocateOff,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Link } from "wouter";
 
 // Fix Leaflet default icon paths
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -329,20 +329,7 @@ export default function MapPage() {
       <div className="flex flex-col bg-background pb-16 sm:pb-0" style={{ height: "100dvh" }}>
 
         {/* Header */}
-        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border/40 bg-card/80 backdrop-blur-xl shrink-0">
-          <Link to="/">
-            <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-sm font-semibold leading-tight">Community Map</h1>
-            <p className="text-[10px] text-muted-foreground">
-              {pins.length} pin{pins.length !== 1 ? "s" : ""}
-              {onlineCount > 0 && ` · ${onlineCount} crew nearby`}
-            </p>
-          </div>
-          {/* Location sharing toggle */}
+        <AppHeader showBack actions={<>
           <Button
             variant="outline"
             size="sm"
@@ -354,7 +341,6 @@ export default function MapPage() {
               : <><LocateOff className="h-3 w-3" /> Location</>
             }
           </Button>
-          {/* Filter */}
           <Button
             variant="outline"
             size="sm"
@@ -364,7 +350,7 @@ export default function MapPage() {
             <SlidersHorizontal className="h-3 w-3" />
             {categoryFilter === "all" ? "Filter" : activeCategory?.label}
           </Button>
-        </div>
+        </>} />
 
         {/* Map */}
         <div className="flex-1 relative overflow-hidden">
