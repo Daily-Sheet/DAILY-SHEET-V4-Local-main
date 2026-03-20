@@ -3446,7 +3446,13 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
       )}
 
       <div className="space-y-2">
-        {legs.sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map(leg => {
+        {[...legs].sort((a, b) => {
+          const aShows = projectEvents.filter((e: any) => e.legId === a.id);
+          const bShows = projectEvents.filter((e: any) => e.legId === b.id);
+          const aDate = aShows.reduce((min, e) => e.startDate && e.startDate < min ? e.startDate : min, "9999");
+          const bDate = bShows.reduce((min, e) => e.startDate && e.startDate < min ? e.startDate : min, "9999");
+          return aDate.localeCompare(bDate);
+        }).map(leg => {
           const legShows = projectEvents.filter((e: any) => e.legId === leg.id).sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
           const isExpanded = expandedLegs[leg.id] ?? false;
           return (

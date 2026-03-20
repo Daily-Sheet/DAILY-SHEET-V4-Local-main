@@ -2844,7 +2844,13 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
     });
 
     // Build groups: sorted legs first, then unassigned
-    const sortedLegs = [...legs].sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+    const sortedLegs = [...legs].sort((a, b) => {
+      const aItems = legMap.get(a.id) || [];
+      const bItems = legMap.get(b.id) || [];
+      const aDate = aItems.reduce((min, i) => i.date && i.date < min ? i.date : min, "9999");
+      const bDate = bItems.reduce((min, i) => i.date && i.date < min ? i.date : min, "9999");
+      return aDate.localeCompare(bDate);
+    });
     const groups: LegGroup[] = [];
     for (const leg of sortedLegs) {
       groups.push({ legId: leg.id, leg, items: legMap.get(leg.id) || [] });
