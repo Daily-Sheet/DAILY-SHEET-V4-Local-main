@@ -140,6 +140,7 @@ export const events = pgTable("events", {
   projectId: integer("project_id").notNull(),
   workspaceId: integer("workspace_id"),
   archived: boolean("archived").default(false),
+  legId: integer("leg_id"),
 });
 
 export const insertEventSchema = createInsertSchema(events).omit({ id: true });
@@ -350,11 +351,25 @@ export const travelDays = pgTable("travel_days", {
   departureTime: text("departure_time"),
   arrivalTime: text("arrival_time"),
   workspaceId: integer("workspace_id"),
+  legId: integer("leg_id"),
 });
 
 export const insertTravelDaySchema = createInsertSchema(travelDays).omit({ id: true });
 export type TravelDay = typeof travelDays.$inferSelect;
 export type InsertTravelDay = z.infer<typeof insertTravelDaySchema>;
+
+export const legs = pgTable("legs", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  projectId: integer("project_id").notNull(),
+  workspaceId: integer("workspace_id"),
+  sortOrder: integer("sort_order").default(0),
+  notes: text("notes"),
+});
+
+export const insertLegSchema = createInsertSchema(legs).omit({ id: true });
+export type Leg = typeof legs.$inferSelect;
+export type InsertLeg = z.infer<typeof insertLegSchema>;
 
 export const gearRequests = pgTable("gear_requests", {
   id: serial("id").primaryKey(),

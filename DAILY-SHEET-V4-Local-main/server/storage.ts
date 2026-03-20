@@ -2,7 +2,7 @@ import { db } from "./db";
 import {
   schedules, contacts, files, venues, venueTechPackets, comments, users, eventAssignments, events, sessions, fileFolders, settings,
   workspaces, workspaceMembers, workspaceInvites, taskTypes, scheduleTemplates, eventDayVenues, zones, projects, sections, departments, crewPositions, timesheetEntries, notifications, activityLog, travelDays, gearRequests, projectAssignments, crewTravel, dailyCheckins, accessLinks,
-  mapPins, mapPinLikes, mapPinComments,
+  mapPins, mapPinLikes, mapPinComments, legs,
   type InsertSchedule, type InsertContact, type InsertFile, type InsertVenue, type InsertVenueTechPacket, type VenueTechPacket, type InsertComment,
   type InsertEventAssignment, type InsertEvent, type InsertFileFolder,
   type InsertWorkspace, type InsertWorkspaceMember, type InsertWorkspaceInvite,
@@ -12,6 +12,7 @@ import {
   type InsertNotification, type Notification,
   type InsertActivityLogEntry, type ActivityLogEntry,
   type InsertTravelDay, type TravelDay,
+  type InsertLeg, type Leg,
   type InsertGearRequest, type GearRequest,
   type InsertProjectAssignment, type ProjectAssignment,
   type InsertCrewTravel, type CrewTravel,
@@ -227,6 +228,12 @@ export interface IStorage {
   bulkCreateCrewTravel(records: InsertCrewTravel[]): Promise<CrewTravel[]>;
   updateCrewTravel(id: number, data: Partial<InsertCrewTravel>): Promise<CrewTravel>;
   deleteCrewTravel(id: number): Promise<void>;
+
+  // Legs
+  getLegs(projectId: number): Promise<Leg[]>;
+  createLeg(leg: InsertLeg): Promise<Leg>;
+  updateLeg(id: number, data: Partial<InsertLeg>): Promise<Leg>;
+  deleteLeg(id: number): Promise<void>;
 
   // Daily Checkins
   getDailyCheckins(eventName: string, date: string, workspaceId: number): Promise<DailyCheckin[]>;
@@ -1210,6 +1217,29 @@ export class DatabaseStorage implements IStorage {
 
   async deleteTravelDay(id: number): Promise<void> {
     await db.delete(travelDays).where(eq(travelDays.id, id));
+  }
+
+  // Legs
+  async getLegs(projectId: number): Promise<Leg[]> {
+    return await db.select().from(legs)
+      .where(eq(legs.projectId, projectId))
+      .orderBy(legs.sortOrder);
+  }
+
+  async createLeg(leg: InsertLeg): Promise<Leg> {
+    const [created] = await db.insert(legs).values(leg).returning();
+    return created;
+  }
+
+  async updateLeg(id: number, data: Partial<InsertLeg>): Promise<Leg> {
+    const [updated] = await db.update(legs).set(data).where(eq(legs.id, id)).returning();
+    return updated;
+  }
+
+  async deleteLeg(id: number): Promise<void> {
+    await db.update(events).set({ legId: null }).where(eq(events.legId, id));
+    await db.update(travelDays).set({ legId: null }).where(eq(travelDays.legId, id));
+    await db.delete(legs).where(eq(legs.id, id));
   }
 
   async getGearRequests(eventId: number, workspaceId: number): Promise<GearRequest[]> {
