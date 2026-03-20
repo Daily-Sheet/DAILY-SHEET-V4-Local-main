@@ -22,28 +22,61 @@ body.capacitor textarea {
   user-select: text;
 }
 
+/* ── Global touch-scroll fix ──────────────────────────────────────────── */
+/* Ensure every scrollable container works on mobile (swipe) & trackpad  */
 .overflow-y-auto,
+.overflow-y-scroll,
 .overflow-x-auto,
+.overflow-x-scroll,
 .overflow-auto,
-[style*="overflow"] {
+.overflow-scroll,
+[style*="overflow: auto"],
+[style*="overflow: scroll"],
+[style*="overflow-y: auto"],
+[style*="overflow-y: scroll"],
+[style*="overflow-x: auto"],
+[style*="overflow-x: scroll"] {
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   touch-action: pan-y pan-x;
 }
 
-.overflow-x-auto {
+.overflow-x-auto,
+.overflow-x-scroll {
   touch-action: pan-x;
 }
 
+/* Radix ScrollArea viewport (uses inline overflow styles) */
+[data-radix-scroll-area-viewport] {
+  -webkit-overflow-scrolling: touch !important;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+/* Popovers & dialogs: constrain touch to vertical panning */
 [data-radix-popper-content-wrapper] .overflow-y-auto,
 [data-radix-popper-content-wrapper] .overflow-auto,
+[data-radix-popper-content-wrapper] .overflow-y-scroll,
 [role="dialog"] .overflow-y-auto,
-[role="dialog"] .overflow-auto {
+[role="dialog"] .overflow-auto,
+[role="dialog"] .overflow-y-scroll,
+[role="listbox"],
+[role="menu"] {
   touch-action: pan-y;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
 }
 
+/* Radix select/dropdown content rendered in portal */
+[data-radix-menu-content],
+[data-radix-select-content],
+[data-radix-dropdown-menu-content] {
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+/* TimePicker / DatePicker columns need unrestricted touch */
 [data-timepicker-column] {
   touch-action: auto !important;
   -webkit-overflow-scrolling: touch !important;

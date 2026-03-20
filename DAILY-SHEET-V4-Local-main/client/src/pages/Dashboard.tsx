@@ -2503,7 +2503,7 @@ export default function Dashboard() {
             <DialogTitle className="font-display uppercase tracking-wide">Add Travel Day</DialogTitle>
             <DialogDescription>{format(parseISO(selectedDate + "T12:00:00"), "MMMM d, yyyy")}</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1">
+          <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1" style={{ WebkitOverflowScrolling: "touch" }}>
             {activeTourProjects.length > 1 && (
               <div>
                 <Label className="text-xs">Tour</Label>

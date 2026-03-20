@@ -203,7 +203,7 @@ export function SendDailyDialog({
         </DialogHeader>
 
         {step === "select" && (
-          <div className="space-y-3">
+          <div className="space-y-3 overflow-y-auto flex-1 min-h-0">
             <div className="space-y-2">
               {allShowNames.map(name => {
                 const isSelected = selectedShowNames.has(name);
