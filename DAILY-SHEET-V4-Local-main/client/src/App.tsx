@@ -35,7 +35,6 @@ function MobileNav() {
   const isAdmin = ADMIN_ROLES.includes(user?.role || "");
   const navItems = [
     { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { to: "/shows", label: "Shows", icon: CalendarDays },
     { to: "/calendar", label: "Calendar", icon: CalendarDays },
     { to: "/map", label: "Map", icon: Map },
     ...(isAdmin ? [{ to: "/admin", label: "Admin", icon: Settings2 }] : []),

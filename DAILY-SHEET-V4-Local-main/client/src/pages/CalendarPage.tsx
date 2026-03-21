@@ -670,123 +670,119 @@ export default function CalendarPage() {
                     ))}
                   </div>
 
-                  {weeks.map((week, wi) => (
-                    <div key={wi}>
-                      <div className="grid grid-cols-7">
-                        {week.map((day) => {
-                          const dateStr = format(day, "yyyy-MM-dd");
-                          const inMonth = isSameMonth(day, currentMonth);
-                          const todayDay = isToday(day);
-                          const selected = dateStr === selectedDate && panelOpen;
-                          const dotsOnDay = calendarDotInfo.get(dateStr) || [];
-                          const dayIsOverlap = dotsOnDay.length > 1;
-
-                          const filteredDotsOnDay = calendarFilter === "all"
-                            ? dotsOnDay
-                            : dotsOnDay.filter(ciId => ciId === calendarFilter);
-
-                          const eventsOnDay = overlapInfo.get(dateStr) || [];
-                          const filteredEvents = calendarFilter === "all"
-                            ? eventsOnDay
-                            : eventsOnDay.filter(en => {
-                                const ci = calendarItems.find(c => c.id === calendarFilter);
-                                return ci?.eventNames.includes(en);
-                              });
-
-                          const travelDaysOnDay = allTravelDays.filter(td => td.date === dateStr);
-                          const hasShows = eventsOnDay.length > 0;
-                          const hasTravelDays = travelDaysOnDay.length > 0;
-
-                          return (
-                            <button
-                              key={dateStr}
-                              onClick={() => handleDayClick(dateStr)}
-                              className={cn(
-                                "relative flex flex-col items-start p-1 sm:p-1.5 transition-all border-b border-r border-border/20 group",
-                                isMobile ? "min-h-[56px]" : "min-h-[72px]",
-                                !inMonth && "opacity-30",
-                                selected && "bg-primary/10 dark:bg-primary/15",
-                                !selected && (hasShows || hasTravelDays) && "hover:bg-muted/40",
-                                !selected && !hasShows && !hasTravelDays && "hover:bg-muted/20",
-                              )}
-                              data-testid={`cal-day-${dateStr}`}
-                            >
-                              <div className="flex items-center justify-between w-full mb-0.5">
-                                <span className={cn(
-                                  "text-xs sm:text-sm leading-none",
-                                  todayDay && "bg-primary text-primary-foreground rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-[10px] sm:text-xs font-bold",
-                                  !todayDay && selected && "font-semibold text-primary",
-                                  !todayDay && !selected && "text-foreground/80",
-                                )}>
-                                  {format(day, "d")}
-                                </span>
-                                {dayIsOverlap && calendarFilter === "all" && inMonth && (
-                                  <div className="w-1.5 h-1.5 rounded-full bg-destructive/70" title="Overlapping shows" />
+                  {weeks.map((week, wi) => {
+                    // For each week, render a grid row and absolutely positioned event bars
+                    // 1. Render the day cells as before
+                    // 2. Render event bars as overlays
+                    const weekStart = week[0];
+                    const weekEnd = week[6];
+                    // Find events that overlap this week
+                    const weekEvents = monthCalendarItems.filter(ev => {
+                      if (!ev.startDate || !ev.endDate) return false;
+                      return (
+                        ev.endDate >= format(weekStart, "yyyy-MM-dd") &&
+                        ev.startDate <= format(weekEnd, "yyyy-MM-dd")
+                      );
+                    });
+                    return (
+                      <div key={wi} className="relative" style={{ minHeight: isMobile ? 56 : 72 }}>
+                        <div className="grid grid-cols-7">
+                          {week.map((day) => {
+                            const dateStr = format(day, "yyyy-MM-dd");
+                            const inMonth = isSameMonth(day, currentMonth);
+                            const todayDay = isToday(day);
+                            const selected = dateStr === selectedDate && panelOpen;
+                            const dayIsOverlap = (calendarDotInfo.get(dateStr) || []).length > 1;
+                            return (
+                              <button
+                                key={dateStr}
+                                onClick={() => handleDayClick(dateStr)}
+                                className={cn(
+                                  "relative flex flex-col items-start p-1 sm:p-1.5 transition-all border-b border-r border-border/20 group",
+                                  isMobile ? "min-h-[56px]" : "min-h-[72px]",
+                                  !inMonth && "opacity-30",
+                                  selected && "bg-primary/10 dark:bg-primary/15",
+                                  !selected && dayIsOverlap && "hover:bg-muted/40",
                                 )}
-                              </div>
-
-                              {!isMobile && (filteredEvents.length > 0 || hasTravelDays) && (
-                                <div className="flex flex-col gap-px w-full mt-auto overflow-hidden">
-                                  {filteredEvents.slice(0, 2).map((en, idx) => {
-                                    const c = colorMap.get(en);
-                                    return (
-                                      <div
-                                        key={`${en}-${idx}`}
-                                        className={cn(
-                                          "text-[8px] sm:text-[9px] leading-tight truncate rounded px-0.5 py-px font-medium",
-                                          c?.bg || "bg-primary/10",
-                                          c?.text || "text-primary",
-                                        )}
-                                        title={en}
-                                      >
-                                        {en}
-                                      </div>
-                                    );
-                                  })}
-                                  {filteredEvents.length > 2 && (
-                                    <span className="text-[8px] text-muted-foreground/60 pl-0.5">+{filteredEvents.length - 2}</span>
-                                  )}
-                                  {travelDaysOnDay.slice(0, 1).map(td => (
-                                    <div
-                                      key={`travel-${td.id}`}
-                                      className="text-[8px] sm:text-[9px] leading-tight truncate rounded px-0.5 py-px font-medium bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center gap-0.5"
-                                      title={`Travel: ${td.departureAirport ?? ""} → ${td.arrivalAirport ?? ""}`}
-                                    >
-                                      <Plane className="w-2 h-2 flex-shrink-0" />
-                                      {td.departureAirport && td.arrivalAirport
-                                        ? `${td.departureAirport}→${td.arrivalAirport}`
-                                        : "Travel"}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-
-                              {isMobile && (filteredDotsOnDay.length > 0 || hasTravelDays) && (
-                                <div className="flex gap-0.5 mt-auto">
-                                  {filteredDotsOnDay.slice(0, 3).map((ciId, idx) => {
-                                    const c = calendarColorMap.get(ciId);
-                                    return (
-                                      <div
-                                        key={`${ciId}-${idx}`}
-                                        className={cn("w-1 h-1 rounded-full", c?.dot || "bg-primary")}
-                                      />
-                                    );
-                                  })}
-                                  {hasTravelDays && (
-                                    <div className="w-1 h-1 rounded-full bg-sky-500" title="Travel day" />
-                                  )}
-                                  {filteredDotsOnDay.length > 3 && (
-                                    <span className="text-[7px] text-muted-foreground">+{filteredDotsOnDay.length - 3}</span>
+                                data-testid={`cal-day-${dateStr}`}
+                              >
+                                <div className="flex items-center justify-between w-full mb-0.5">
+                                  <span className={cn(
+                                    "text-xs sm:text-sm leading-none",
+                                    todayDay && "bg-primary text-primary-foreground rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-[10px] sm:text-xs font-bold",
+                                    !todayDay && selected && "font-semibold text-primary",
+                                    !todayDay && !selected && "text-foreground/80",
+                                  )}>
+                                    {format(day, "d")}
+                                  </span>
+                                  {dayIsOverlap && calendarFilter === "all" && inMonth && (
+                                    <div className="w-1.5 h-1.5 rounded-full bg-destructive/70" title="Overlapping shows" />
                                   )}
                                 </div>
-                              )}
-                            </button>
-                          );
-                        })}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {/* Event bars overlay */}
+                        <div className="absolute left-0 top-6 w-full pointer-events-none" style={{ minHeight: `${Math.max(1, weekEvents.length) * 2}em` }}>
+                          {/* Interval graph coloring for event bars: assign rows so overlapping events are on different rows */}
+                          {(() => {
+                            // 1. For each event, determine which days in the week it occupies
+                            const weekDays = week.map(d => format(d, "yyyy-MM-dd"));
+                            const eventIntervals = weekEvents.map(ev => {
+                              const startIdx = Math.max(0, weekDays.findIndex(d => d >= ev.startDate!));
+                              const endIdx = Math.min(6, weekDays.findIndex(d => d > ev.endDate!) === -1 ? 6 : weekDays.findIndex(d => d > ev.endDate!) - 1);
+                              return { ev, startIdx, endIdx };
+                            });
+                            // 2. Sort by startIdx, then by endIdx
+                            eventIntervals.sort((a, b) => a.startIdx - b.startIdx || a.endIdx - b.endIdx);
+                            // 3. Assign rows using greedy coloring
+                            const rowAssignments: { [eventId: string]: number } = {};
+                            const activeRows: { endIdx: number, row: number }[] = [];
+                            let maxRow = 0;
+                            eventIntervals.forEach(({ ev, startIdx, endIdx }) => {
+                              // Remove finished events from activeRows
+                              for (let i = activeRows.length - 1; i >= 0; i--) {
+                                if (activeRows[i].endIdx < startIdx) activeRows.splice(i, 1);
+                              }
+                              // Find the lowest available row
+                              let row = 0;
+                              while (activeRows.some(r => r.row === row)) row++;
+                              rowAssignments[ev.id] = row;
+                              activeRows.push({ endIdx, row });
+                              if (row + 1 > maxRow) maxRow = row + 1;
+                            });
+                            // 4. Render event bars in their assigned row
+                            // To visually connect multi-day events, add rounded corners only at the start/end of the event bar
+                            return eventIntervals.map(({ ev, startIdx, endIdx }) => {
+                              const left = (startIdx / 7) * 100;
+                              const width = ((endIdx - startIdx + 1) / 7) * 100;
+                              const c = calendarColorMap.get(ev.id);
+                              const rowIdx = rowAssignments[ev.id] ?? 0;
+                              // Only round left if at week start, only round right if at week end
+                              const isStart = startIdx === 0 || weekDays[startIdx] === ev.startDate;
+                              const isEnd = endIdx === 6 || weekDays[endIdx] === ev.endDate;
+                              return (
+                                <div
+                                  key={ev.id + '-' + startIdx + '-' + endIdx}
+                                  className={cn(
+                                    "absolute h-5 flex items-center px-2 text-xs font-medium shadow-sm",
+                                    c?.bg || "bg-primary/20",
+                                    c?.text || "text-primary",
+                                    isStart && isEnd ? "rounded-md" : isStart ? "rounded-l-md" : isEnd ? "rounded-r-md" : ""
+                                  )}
+                                  style={{ left: `${left}%`, width: `${width}%`, top: `${rowIdx * 2}em`, zIndex: 2, border: `1.5px solid ${c?.bg?.replace('bg-', '#') || '#888'}` }}
+                                  title={ev.label}
+                                >
+                                  {ev.label}
+                                </div>
+                              );
+                            });
+                          })()}
+                        </div>
                       </div>
-
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
 
                 {/* Footer */}
@@ -882,14 +878,54 @@ export default function CalendarPage() {
                   transition={{ duration: 0.2, ease: "easeOut" }}
                   className="mt-4"
                 >
-                  <DayPanel
-                    date={selectedDate}
-                    shows={selectedDayShows}
-                    travelDays={selectedDayTravelDays}
-                    onNavigate={handleNavigateToDashboard}
-                    onNavigateTour={handleNavigateToTour}
-                    onClose={() => setPanelOpen(false)}
-                  />
+                  <div>
+                    {selectedDate && (
+                      <DayPanel
+                        date={selectedDate}
+                        shows={selectedDayShows}
+                        travelDays={selectedDayTravelDays}
+                        onNavigate={handleNavigateToDashboard}
+                        onNavigateTour={handleNavigateToTour}
+                        onClose={() => setPanelOpen(false)}
+                      />
+                    )}
+                    <div className="rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm overflow-hidden p-4 mt-4">
+                      <h3 className="font-semibold text-sm mb-2">Upcoming Shows</h3>
+                      {upcomingShows.length === 0 ? (
+                        <div className="text-muted-foreground text-xs">No upcoming shows.</div>
+                      ) : (
+                        <div className="space-y-2">
+                          {upcomingShows.slice(0, 5).map(event => (
+                            <button
+                              key={event.id}
+                              className="w-full text-left bg-card border border-border rounded-xl p-3 hover-elevate active-elevate-2 transition-all"
+                              onClick={() => {
+                                eventSelection.singleSelect(event.name);
+                                if (event.startDate) {
+                                  localStorage.setItem("activeDate", event.startDate);
+                                }
+                                navigate("/dashboard");
+                              }}
+                            >
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <h3 className="font-display text-base font-semibold uppercase tracking-wide text-foreground truncate">{event.name}</h3>
+                                  </div>
+                                  {event.startDate && event.endDate && (
+                                    <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
+                                      <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
+                                      <span>{format(parseISO(event.startDate), "MMM d")} – {format(parseISO(event.endDate), "MMM d, yyyy")}</span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

@@ -32,10 +32,11 @@ export function AppHeader({
             className="flex items-center gap-2 h-9 sm:h-10 px-3 rounded-lg shadow-lg transition-transform cursor-pointer hover-elevate active-elevate-2 bg-primary shadow-primary/25 flex-shrink-0 hover:bg-primary/80 focus:bg-primary/90 active:bg-primary/70"
             data-testid="button-header-home"
             onClick={() => {
-              if (location === "/shows") {
-                window.history.length > 1 ? window.history.back() : setLocation("/");
+              // Toggle between /dashboard and /calendar
+              if (location === "/dashboard") {
+                setLocation("/calendar");
               } else {
-                setLocation("/shows");
+                setLocation("/dashboard");
               }
             }}
           >
