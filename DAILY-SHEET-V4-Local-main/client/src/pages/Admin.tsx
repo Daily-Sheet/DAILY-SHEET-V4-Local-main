@@ -2572,12 +2572,12 @@ function ActiveDotAdmin({ userId, activityMap }: { userId: string; activityMap: 
   );
 }
 
-function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival, legId, buttonLabel, eventTypeOverride }: { projectId: number; projectName: string; venues: Venue[]; isFestival?: boolean; legId?: number | null; buttonLabel?: string; eventTypeOverride?: string }) {
+function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival, legId, buttonLabel, eventTypeOverride, defaultStartDate, defaultEndDate }: { projectId: number; projectName: string; venues: Venue[]; isFestival?: boolean; legId?: number | null; buttonLabel?: string; eventTypeOverride?: string; defaultStartDate?: string; defaultEndDate?: string }) {
   const entityLabel = eventTypeOverride === "area" ? "Area" : isFestival ? "Stage" : "Show";
   const [open, setOpen] = useState(false);
   const [showName, setShowName] = useState("");
-  const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [startDate, setStartDate] = useState(defaultStartDate || format(new Date(), "yyyy-MM-dd"));
+  const [endDate, setEndDate] = useState(defaultEndDate || defaultStartDate || format(new Date(), "yyyy-MM-dd"));
   const [venueId, setVenueId] = useState<number | null>(null);
   const [venueSearchOpen, setVenueSearchOpen] = useState(false);
   const [venueForAllDays, setVenueForAllDays] = useState(false);
@@ -3488,7 +3488,7 @@ function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { pr
                   {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
                   <div className="min-w-0">
                     <Link href={`/project/${projectId}?from=admin`} className="text-sm font-medium truncate hover:underline hover:text-primary block" onClick={(e: React.MouseEvent) => e.stopPropagation()}>{leg.name}</Link>
-                    <p className="text-xs text-muted-foreground">{legShows.length} {entityLabel.toLowerCase()}{legShows.length !== 1 ? "s" : ""}{leg.notes ? ` · ${leg.notes}` : ""}</p>
+                    <p className="text-xs text-muted-foreground">{legShows.length} {entityLabel.toLowerCase()}{legShows.length !== 1 ? "s" : ""}{leg.startDate ? ` · ${format(new Date(leg.startDate + "T00:00:00"), "MMM d")}${leg.endDate && leg.endDate !== leg.startDate ? ` – ${format(new Date(leg.endDate + "T00:00:00"), "MMM d")}` : ""}` : ""}{leg.notes ? ` · ${leg.notes}` : ""}</p>
                   </div>
                 </button>
                 <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => { setAddShowsToLegId(leg.id); setSelectedShowIds(new Set()); }} disabled={unassignedShows.length === 0} data-testid={`button-add-shows-leg-${leg.id}`}>
@@ -3543,11 +3543,11 @@ function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { pr
                 <div className={`border-t border-blue-500/10 px-2.5 ${legShows.length === 0 ? "py-2" : "pb-2 pt-1"}`}>
                   {legShows.length === 0 && <p className="text-xs text-muted-foreground italic mb-1">No {entityLabel.toLowerCase()}s in this {containerLabel.toLowerCase()} yet.</p>}
                   <div className="flex gap-2 flex-wrap">
-                    <CreateShowForProjectDialog projectId={projectId} projectName={projectName} venues={venues} isFestival={isFestival} legId={leg.id} buttonLabel={`Add ${entityLabel}`} />
+                    <CreateShowForProjectDialog projectId={projectId} projectName={projectName} venues={venues} isFestival={isFestival} legId={leg.id} buttonLabel={`Add ${entityLabel}`} defaultStartDate={leg.startDate || undefined} defaultEndDate={leg.endDate || undefined} />
                     {isFestival && (
-                      <CreateShowForProjectDialog projectId={projectId} projectName={projectName} venues={venues} isFestival={isFestival} legId={leg.id} buttonLabel="Add Area" eventTypeOverride="area" />
+                      <CreateShowForProjectDialog projectId={projectId} projectName={projectName} venues={venues} isFestival={isFestival} legId={leg.id} buttonLabel="Add Area" eventTypeOverride="area" defaultStartDate={leg.startDate || undefined} defaultEndDate={leg.endDate || undefined} />
                     )}
-                    <Button variant="ghost" size="sm" onClick={() => { setAddTravelLegId(leg.id); resetTravelForm(); }}>
+                    <Button variant="ghost" size="sm" onClick={() => { setAddTravelLegId(leg.id); resetTravelForm(); if (leg.startDate) setNewTravel(p => ({ ...p, date: leg.startDate! })); }}>
                       <Plane className="w-4 h-4" /><span className="ml-1">Add Travel Day</span>
                     </Button>
                   </div>

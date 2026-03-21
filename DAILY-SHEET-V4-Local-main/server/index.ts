@@ -135,6 +135,8 @@ app.use((req, res, next) => {
       ALTER TABLE events ADD COLUMN IF NOT EXISTS leg_id INTEGER;
       ALTER TABLE travel_days ADD COLUMN IF NOT EXISTS leg_id INTEGER;
       ALTER TABLE events ADD COLUMN IF NOT EXISTS event_type TEXT DEFAULT 'show';
+      ALTER TABLE legs ADD COLUMN IF NOT EXISTS start_date TEXT;
+      ALTER TABLE legs ADD COLUMN IF NOT EXISTS end_date TEXT;
     `);
     log("Legs migration ready");
   } catch (err) {

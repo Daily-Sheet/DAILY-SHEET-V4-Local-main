@@ -366,6 +366,8 @@ export const legs = pgTable("legs", {
   workspaceId: integer("workspace_id"),
   sortOrder: integer("sort_order").default(0),
   notes: text("notes"),
+  startDate: text("start_date"),
+  endDate: text("end_date"),
 });
 
 export const insertLegSchema = createInsertSchema(legs).omit({ id: true });

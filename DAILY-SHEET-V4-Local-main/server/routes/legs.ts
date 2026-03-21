@@ -31,7 +31,7 @@ export function registerLegRoutes(app: Express, upload: multer.Multer) {
       if (project.workspaceId !== workspaceId) return res.status(403).json({ message: "Forbidden" });
       if (!project.isTour && !project.isFestival) return res.status(400).json({ message: "Legs are only available for tour or festival projects" });
 
-      const { name, notes, sortOrder, showCount, startDate, stageCount, eventType } = req.body;
+      const { name, notes, sortOrder, showCount, startDate, endDate, stageCount, eventType } = req.body;
       if (!name || !name.trim()) return res.status(400).json({ message: "Name is required" });
 
       // Get next sortOrder if not provided
@@ -44,6 +44,8 @@ export function registerLegRoutes(app: Express, upload: multer.Multer) {
         workspaceId,
         sortOrder: nextSort,
         notes: notes || null,
+        startDate: startDate || null,
+        endDate: endDate || null,
       });
 
       // Optionally generate shows/stages within this leg
@@ -136,11 +138,13 @@ export function registerLegRoutes(app: Express, upload: multer.Multer) {
       }
       if (!foundLeg) return res.status(404).json({ message: "Leg not found" });
 
-      const { name, notes, sortOrder } = req.body;
+      const { name, notes, sortOrder, startDate, endDate } = req.body;
       const updated = await storage.updateLeg(legId, {
         ...(name !== undefined ? { name: name.trim() } : {}),
         ...(notes !== undefined ? { notes } : {}),
         ...(sortOrder !== undefined ? { sortOrder } : {}),
+        ...(startDate !== undefined ? { startDate } : {}),
+        ...(endDate !== undefined ? { endDate } : {}),
       });
       res.json(updated);
     } catch (err: any) {
