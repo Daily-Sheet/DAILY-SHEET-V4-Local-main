@@ -29,9 +29,9 @@ export function registerLegRoutes(app: Express, upload: multer.Multer) {
       const project = await storage.getProject(projectId);
       if (!project) return res.status(404).json({ message: "Project not found" });
       if (project.workspaceId !== workspaceId) return res.status(403).json({ message: "Forbidden" });
-      if (!project.isTour) return res.status(400).json({ message: "Legs are only available for tour projects" });
+      if (!project.isTour && !project.isFestival) return res.status(400).json({ message: "Legs are only available for tour or festival projects" });
 
-      const { name, notes, sortOrder, showCount, startDate } = req.body;
+      const { name, notes, sortOrder, showCount, startDate, stageCount, eventType } = req.body;
       if (!name || !name.trim()) return res.status(400).json({ message: "Name is required" });
 
       // Get next sortOrder if not provided
@@ -46,13 +46,16 @@ export function registerLegRoutes(app: Express, upload: multer.Multer) {
         notes: notes || null,
       });
 
-      // Optionally generate shows within this leg
+      // Optionally generate shows/stages within this leg
       const createdEvents = [];
-      if (showCount && showCount > 0 && showCount <= 100) {
+      const isFestival = project.isFestival ?? false;
+      const genCount = isFestival ? (stageCount || 0) : (showCount || 0);
+
+      if (genCount > 0 && genCount <= 100) {
         const existingEvents = await storage.getEvents(workspaceId);
         const existingForProject = existingEvents.filter((e: any) => e.projectId === projectId);
-        const entityLabel = "Show";
-        const prefix = `${project.name} - ${entityLabel}`;
+        const entityLabel = isFestival ? "Stage" : "Show";
+        const prefix = `${name.trim()} - ${entityLabel}`;
         let highestNum = 0;
         for (const ev of existingForProject) {
           const match = ev.name.match(new RegExp(`${entityLabel}\\s+(\\d+)$`));
@@ -61,28 +64,37 @@ export function registerLegRoutes(app: Express, upload: multer.Multer) {
 
         const projAssignments = await storage.getProjectAssignments(projectId, workspaceId);
         const start = startDate ? new Date(startDate + "T00:00:00") : null;
+        // For festivals: compute end date from start date + festival duration
+        const endDateStr = isFestival && startDate && req.body.endDate ? req.body.endDate : null;
 
-        for (let i = 0; i < showCount; i++) {
-          const showNum = highestNum + i + 1;
-          const showName = `${prefix} ${showNum}`;
+        for (let i = 0; i < genCount; i++) {
+          const num = highestNum + i + 1;
+          const eventName = `${prefix} ${num}`;
 
-          const existingShow = await storage.getEventByName(showName, workspaceId);
-          if (existingShow) continue;
+          const existing = await storage.getEventByName(eventName, workspaceId);
+          if (existing) continue;
 
           let dateStr: string | undefined;
-          if (start) {
+          let endStr: string | undefined;
+          if (isFestival && start) {
+            // Stages span the full festival date range
+            dateStr = startDate;
+            endStr = endDateStr || startDate;
+          } else if (start) {
             const showDate = new Date(start);
             showDate.setDate(start.getDate() + i);
             dateStr = showDate.toISOString().split("T")[0];
+            endStr = dateStr;
           }
 
           const event = await storage.createEvent({
-            name: showName,
+            name: eventName,
             startDate: dateStr || null,
-            endDate: dateStr || null,
+            endDate: endStr || null,
             projectId,
             workspaceId,
             legId: leg.id,
+            eventType: isFestival ? (eventType || "stage") : "show",
           });
 
           for (const pa of projAssignments) {

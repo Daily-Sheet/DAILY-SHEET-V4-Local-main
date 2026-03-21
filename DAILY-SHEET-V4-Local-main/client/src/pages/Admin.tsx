@@ -2685,6 +2685,7 @@ function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival
       notes: notes.trim() || undefined,
       projectId,
       legId: legId ?? undefined,
+      eventType: isFestival ? "stage" : "show",
     });
   }
 
@@ -3357,7 +3358,10 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
   );
 }
 
-function ProjectLegsSection({ projectId, projectName, venues }: { projectId: number; projectName: string; venues: Venue[] }) {
+function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { projectId: number; projectName: string; venues: Venue[]; isFestival?: boolean }) {
+  const containerLabel = isFestival ? "Festival" : "Leg / Run";
+  const containersLabel = isFestival ? "Festivals" : "Legs / Runs";
+  const entityLabel = isFestival ? "Stage" : "Show";
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [addOpen, setAddOpen] = useState(false);
@@ -3365,7 +3369,7 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
   const [addShowsToLegId, setAddShowsToLegId] = useState<number | null>(null);
   const [selectedShowIds, setSelectedShowIds] = useState<Set<number>>(new Set());
   const [expandedLegs, setExpandedLegs] = useState<Record<number, boolean>>({});
-  const [newLeg, setNewLeg] = useState({ name: "", notes: "", showCount: 0, startDate: "" });
+  const [newLeg, setNewLeg] = useState({ name: "", notes: "", showCount: 0, startDate: "", endDate: "", stageCount: 0 });
   const [editLegData, setEditLegData] = useState({ name: "", notes: "" });
   const [addTravelLegId, setAddTravelLegId] = useState<number | null>(null);
   const [newTravel, setNewTravel] = useState({
@@ -3385,7 +3389,7 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
   const unassignedShows = useMemo(() => projectEvents.filter((e: any) => !e.legId).sort((a, b) => (a.startDate || "").localeCompare(b.startDate || "")), [projectEvents]);
 
   const createLegMutation = useMutation({
-    mutationFn: async (data: { name: string; notes?: string; showCount?: number; startDate?: string }) => {
+    mutationFn: async (data: { name: string; notes?: string; showCount?: number; startDate?: string; stageCount?: number; endDate?: string }) => {
       const res = await apiRequest("POST", `/api/projects/${projectId}/legs`, data);
       return res.json();
     },
@@ -3393,8 +3397,8 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "legs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       setAddOpen(false);
-      setNewLeg({ name: "", notes: "", showCount: 0, startDate: "" });
-      toast({ title: "Leg/Run created" });
+      setNewLeg({ name: "", notes: "", showCount: 0, startDate: "", endDate: "", stageCount: 0 });
+      toast({ title: `${containerLabel} created` });
     },
   });
 
@@ -3406,7 +3410,7 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "legs"] });
       setEditLegId(null);
-      toast({ title: "Leg/Run updated" });
+      toast({ title: `${containerLabel} updated` });
     },
   });
 
@@ -3417,7 +3421,7 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "legs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
-      toast({ title: "Leg/Run deleted, shows moved to Unassigned" });
+      toast({ title: `${containerLabel} deleted, ${entityLabel.toLowerCase()}s moved to Unassigned` });
     },
   });
 
@@ -3429,7 +3433,7 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       setAddShowsToLegId(null);
       setSelectedShowIds(new Set());
-      toast({ title: "Shows moved" });
+      toast({ title: `${entityLabel}s moved` });
     },
   });
 
@@ -3457,14 +3461,14 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
   return (
     <div className="mt-3 border-t border-blue-500/10 pt-3">
       <div className="flex items-center justify-between mb-2">
-        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Legs / Runs</h4>
+        <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{containersLabel}</h4>
         <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => setAddOpen(true)} data-testid={`button-add-leg-${projectId}`}>
-          <Plus className="w-3 h-3 mr-1" /> Add Leg
+          <Plus className="w-3 h-3 mr-1" /> Add {containerLabel}
         </Button>
       </div>
 
       {legs.length === 0 && (
-        <p className="text-xs text-muted-foreground text-center py-2">No legs yet. Create a leg to organize shows into runs.</p>
+        <p className="text-xs text-muted-foreground text-center py-2">No {containersLabel.toLowerCase()} yet. Create one to organize {entityLabel.toLowerCase()}s.</p>
       )}
 
       <div className="space-y-2">
@@ -3484,19 +3488,19 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
                   {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
                   <div className="min-w-0">
                     <Link href={`/project/${projectId}?from=admin`} className="text-sm font-medium truncate hover:underline hover:text-primary block" onClick={(e: React.MouseEvent) => e.stopPropagation()}>{leg.name}</Link>
-                    <p className="text-xs text-muted-foreground">{legShows.length} show{legShows.length !== 1 ? "s" : ""}{leg.notes ? ` · ${leg.notes}` : ""}</p>
+                    <p className="text-xs text-muted-foreground">{legShows.length} {entityLabel.toLowerCase()}{legShows.length !== 1 ? "s" : ""}{leg.notes ? ` · ${leg.notes}` : ""}</p>
                   </div>
                 </button>
                 <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => { setAddShowsToLegId(leg.id); setSelectedShowIds(new Set()); }} disabled={unassignedShows.length === 0} data-testid={`button-add-shows-leg-${leg.id}`}>
-                  <Plus className="w-3 h-3 mr-1" /> Shows
+                  <Plus className="w-3 h-3 mr-1" /> {entityLabel}s
                 </Button>
                 <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditLegId(leg.id); setEditLegData({ name: leg.name, notes: leg.notes || "" }); }} data-testid={`button-edit-leg-${leg.id}`}>
                   <Pencil className="w-3 h-3" />
                 </Button>
                 <ConfirmDelete
                   onConfirm={() => deleteLegMutation.mutate(leg.id)}
-                  title="Delete Leg/Run?"
-                  description="Shows in this leg will be moved to Unassigned. This cannot be undone."
+                  title={`Delete ${containerLabel}?`}
+                  description={`${entityLabel}s in this ${containerLabel.toLowerCase()} will be moved to Unassigned. This cannot be undone.`}
                   triggerClassName="text-muted-foreground h-6 w-6"
                   triggerLabel={<Trash2 className="w-3 h-3" />}
                   data-testid={`button-delete-leg-${leg.id}`}
@@ -3537,9 +3541,9 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
               )}
               {isExpanded && (
                 <div className={`border-t border-blue-500/10 px-2.5 ${legShows.length === 0 ? "py-2" : "pb-2 pt-1"}`}>
-                  {legShows.length === 0 && <p className="text-xs text-muted-foreground italic mb-1">No shows in this leg yet.</p>}
+                  {legShows.length === 0 && <p className="text-xs text-muted-foreground italic mb-1">No {entityLabel.toLowerCase()}s in this {containerLabel.toLowerCase()} yet.</p>}
                   <div className="flex gap-2 flex-wrap">
-                    <CreateShowForProjectDialog projectId={projectId} projectName={projectName} venues={venues} legId={leg.id} buttonLabel="Add Show" />
+                    <CreateShowForProjectDialog projectId={projectId} projectName={projectName} venues={venues} isFestival={isFestival} legId={leg.id} buttonLabel={`Add ${entityLabel}`} />
                     <Button variant="ghost" size="sm" onClick={() => { setAddTravelLegId(leg.id); resetTravelForm(); }}>
                       <Plane className="w-4 h-4" /><span className="ml-1">Add Travel Day</span>
                     </Button>
@@ -3551,48 +3555,79 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
         })}
       </div>
 
-      {/* Create Leg Dialog */}
-      <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) setNewLeg({ name: "", notes: "", showCount: 0, startDate: "" }); }}>
+      {/* Create Leg/Festival Dialog */}
+      <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) setNewLeg({ name: "", notes: "", showCount: 0, startDate: "", endDate: "", stageCount: 0 }); }}>
         <DialogContent className="sm:max-w-[420px] font-body">
           <DialogHeader>
-            <DialogTitle className="font-display text-xl uppercase tracking-wide text-primary">New Leg / Run</DialogTitle>
-            <DialogDescription className="sr-only">Create a new leg or run</DialogDescription>
+            <DialogTitle className="font-display text-xl uppercase tracking-wide text-primary">New {containerLabel}</DialogTitle>
+            <DialogDescription className="sr-only">Create a new {containerLabel.toLowerCase()}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label>Name</Label>
-              <Input placeholder="e.g. US West Coast Run" value={newLeg.name} onChange={e => setNewLeg(p => ({ ...p, name: e.target.value }))} className="mt-1" data-testid="input-leg-name" />
+              <Input placeholder={isFestival ? "e.g. Aftershock" : "e.g. US West Coast Run"} value={newLeg.name} onChange={e => setNewLeg(p => ({ ...p, name: e.target.value }))} className="mt-1" data-testid="input-leg-name" />
             </div>
             <div>
               <Label>Notes (optional)</Label>
               <Textarea placeholder="Additional notes..." value={newLeg.notes} onChange={e => setNewLeg(p => ({ ...p, notes: e.target.value }))} className="mt-1 resize-none" rows={2} data-testid="input-leg-notes" />
             </div>
             <Separator />
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Auto-Generate Shows</p>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Number of Shows</Label>
-                <Input type="number" min={0} max={100} value={newLeg.showCount || ""} onChange={e => setNewLeg(p => ({ ...p, showCount: parseInt(e.target.value) || 0 }))} className="mt-1" placeholder="0" data-testid="input-leg-show-count" />
-              </div>
-              <div>
-                <Label>Start Date</Label>
-                <DatePicker value={newLeg.startDate} onChange={(v) => setNewLeg(p => ({ ...p, startDate: v }))} data-testid="input-leg-start-date" />
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">Leave at 0 to create an empty leg.</p>
+            {isFestival ? (
+              <>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Auto-Generate Stages</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Number of Stages</Label>
+                    <Input type="number" min={0} max={50} value={newLeg.stageCount || ""} onChange={e => setNewLeg(p => ({ ...p, stageCount: parseInt(e.target.value) || 0 }))} className="mt-1" placeholder="0" data-testid="input-leg-stage-count" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Start Date</Label>
+                    <DatePicker value={newLeg.startDate} onChange={(v) => setNewLeg(p => ({ ...p, startDate: v }))} data-testid="input-leg-start-date" />
+                  </div>
+                  <div>
+                    <Label>End Date</Label>
+                    <DatePicker value={newLeg.endDate} onChange={(v) => setNewLeg(p => ({ ...p, endDate: v }))} data-testid="input-leg-end-date" />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">Each stage spans the full festival date range. Leave at 0 to create an empty festival.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Auto-Generate Shows</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Number of Shows</Label>
+                    <Input type="number" min={0} max={100} value={newLeg.showCount || ""} onChange={e => setNewLeg(p => ({ ...p, showCount: parseInt(e.target.value) || 0 }))} className="mt-1" placeholder="0" data-testid="input-leg-show-count" />
+                  </div>
+                  <div>
+                    <Label>Start Date</Label>
+                    <DatePicker value={newLeg.startDate} onChange={(v) => setNewLeg(p => ({ ...p, startDate: v }))} data-testid="input-leg-start-date" />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">Leave at 0 to create an empty leg.</p>
+              </>
+            )}
           </div>
           <Button
             className="w-full mt-3"
             onClick={() => newLeg.name.trim() && createLegMutation.mutate({
               name: newLeg.name.trim(),
               notes: newLeg.notes || undefined,
-              showCount: newLeg.showCount || undefined,
-              startDate: newLeg.startDate || undefined,
+              ...(isFestival ? {
+                stageCount: newLeg.stageCount || undefined,
+                startDate: newLeg.startDate || undefined,
+                endDate: newLeg.endDate || undefined,
+              } : {
+                showCount: newLeg.showCount || undefined,
+                startDate: newLeg.startDate || undefined,
+              }),
             })}
             disabled={!newLeg.name.trim() || createLegMutation.isPending}
             data-testid="button-save-leg"
           >
-            {createLegMutation.isPending ? "Creating..." : "Create Leg/Run"}
+            {createLegMutation.isPending ? "Creating..." : `Create ${containerLabel}`}
           </Button>
         </DialogContent>
       </Dialog>
@@ -3601,8 +3636,8 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
       <Dialog open={editLegId !== null} onOpenChange={(o) => { if (!o) setEditLegId(null); }}>
         <DialogContent className="sm:max-w-[420px] font-body">
           <DialogHeader>
-            <DialogTitle className="font-display text-xl uppercase tracking-wide text-primary">Edit Leg / Run</DialogTitle>
-            <DialogDescription className="sr-only">Edit leg details</DialogDescription>
+            <DialogTitle className="font-display text-xl uppercase tracking-wide text-primary">Edit {containerLabel}</DialogTitle>
+            <DialogDescription className="sr-only">Edit {containerLabel.toLowerCase()} details</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
@@ -3630,12 +3665,12 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
         <DialogContent className="sm:max-w-[420px] font-body max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="font-display text-xl uppercase tracking-wide text-primary">
-              Add Shows to {legs.find(l => l.id === addShowsToLegId)?.name}
+              Add {entityLabel}s to {legs.find(l => l.id === addShowsToLegId)?.name}
             </DialogTitle>
-            <DialogDescription className="sr-only">Select unassigned shows to add</DialogDescription>
+            <DialogDescription className="sr-only">Select unassigned {entityLabel.toLowerCase()}s to add</DialogDescription>
           </DialogHeader>
           {unassignedShows.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">No unassigned shows available.</p>
+            <p className="text-sm text-muted-foreground py-4 text-center">No unassigned {entityLabel.toLowerCase()}s available.</p>
           ) : (
             <>
               <label className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer border-b border-border mb-1">
@@ -3677,7 +3712,7 @@ function ProjectLegsSection({ projectId, projectName, venues }: { projectId: num
                 onClick={() => addShowsToLegId && selectedShowIds.size > 0 && moveToLegMutation.mutate({ eventIds: Array.from(selectedShowIds), legId: addShowsToLegId })}
                 disabled={selectedShowIds.size === 0 || moveToLegMutation.isPending}
               >
-                {moveToLegMutation.isPending ? "Moving..." : `Add ${selectedShowIds.size} show${selectedShowIds.size !== 1 ? "s" : ""} to leg`}
+                {moveToLegMutation.isPending ? "Moving..." : `Add ${selectedShowIds.size} ${entityLabel.toLowerCase()}${selectedShowIds.size !== 1 ? "s" : ""} to ${containerLabel.toLowerCase()}`}
               </Button>
             </>
           )}
@@ -3812,6 +3847,10 @@ function ProjectsAdmin() {
 
   const activeProjects = useMemo(() => projectsList.filter((p: Project) => !p.archived), [projectsList]);
   const archivedProjects = useMemo(() => projectsList.filter((p: Project) => p.archived), [projectsList]);
+  const tourProjects = useMemo(() => activeProjects.filter((p: Project) => p.isTour), [activeProjects]);
+  const festivalProjects = useMemo(() => activeProjects.filter((p: Project) => p.isFestival), [activeProjects]);
+  const regularProjects = useMemo(() => activeProjects.filter((p: Project) => !p.isTour && !p.isFestival), [activeProjects]);
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
   const eventsForProject = (projectId: number) =>
     eventsList.filter((e: Event) => e.projectId === projectId);
@@ -4059,7 +4098,26 @@ function ProjectsAdmin() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {activeProjects.map((project: Project, projectIndex: number) => {
+          {[
+            { label: "Tours", projects: tourProjects, key: "tours" },
+            { label: "Festivals", projects: festivalProjects, key: "festivals" },
+            { label: "Projects", projects: regularProjects, key: "regular" },
+          ].filter(g => g.projects.length > 0).map(group => (
+            <div key={group.key}>
+              <button
+                className="flex items-center gap-2 w-full text-left py-1.5 mb-1"
+                onClick={() => setCollapsedSections(prev => {
+                  const next = new Set(prev);
+                  next.has(group.key) ? next.delete(group.key) : next.add(group.key);
+                  return next;
+                })}
+              >
+                {collapsedSections.has(group.key) ? <ChevronRight className="w-3.5 h-3.5 text-muted-foreground" /> : <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />}
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{group.label} ({group.projects.length})</span>
+              </button>
+              {!collapsedSections.has(group.key) && (
+              <div className="space-y-3">
+              {group.projects.map((project: Project, projectIndex: number) => {
             const isEditing = editingId === project.id;
 
             return (
@@ -4253,8 +4311,8 @@ function ProjectsAdmin() {
                       </div>
                       )}
 
-                      {expandedCards.has(project.id) && project.isTour && (
-                        <ProjectLegsSection projectId={project.id} projectName={project.name} venues={venuesList} />
+                      {expandedCards.has(project.id) && (project.isTour || project.isFestival) && (
+                        <ProjectLegsSection projectId={project.id} projectName={project.name} venues={venuesList} isFestival={project.isFestival ?? false} />
                       )}
 
                       {expandedCards.has(project.id) && (
@@ -4337,6 +4395,10 @@ function ProjectsAdmin() {
               </motion.div>
             );
           })}
+              </div>
+              )}
+            </div>
+          ))}
 
           {activeProjects.length === 0 && !showAdd && archivedProjects.length > 0 && (
             <p className="text-sm text-muted-foreground text-center py-4">No active projects. Check the archived section below.</p>

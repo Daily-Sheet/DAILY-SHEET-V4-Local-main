@@ -141,6 +141,7 @@ export const events = pgTable("events", {
   workspaceId: integer("workspace_id"),
   archived: boolean("archived").default(false),
   legId: integer("leg_id"),
+  eventType: text("event_type").default("show"),
 });
 
 export const insertEventSchema = createInsertSchema(events).omit({ id: true });

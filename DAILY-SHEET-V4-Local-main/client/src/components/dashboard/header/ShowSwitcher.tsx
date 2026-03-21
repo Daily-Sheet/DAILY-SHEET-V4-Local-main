@@ -45,6 +45,7 @@ export function ShowSwitcher({
   const [archivedOpen, setArchivedOpen] = useState(false);
   const [toggledProjects, setToggledProjects] = useState<Set<number | "other">>(new Set());
   const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"all" | "tour" | "festival" | "show">("all");
 
   const todayStr = format(new Date(), "yyyy-MM-dd");
 
@@ -66,16 +67,34 @@ export function ShowSwitcher({
     return availableEvents.filter(isOnSelectedDate);
   }, [availableEvents, isOnSelectedDate]);
 
+  const projectMap = useMemo(() => {
+    const map = new Map<number, Project>();
+    projects.forEach(p => map.set(p.id, p));
+    return map;
+  }, [projects]);
+
   const matchesSearchFilter = useCallback((name: string) => {
     if (!searchQuery.trim()) return true;
     return name.toLowerCase().includes(searchQuery.trim().toLowerCase());
   }, [searchQuery]);
+
+  const matchesTypeFilter = useCallback((name: string) => {
+    if (typeFilter === "all") return true;
+    const ev = eventsMap.get(name);
+    if (!ev?.projectId) return typeFilter === "show";
+    const proj = projectMap.get(ev.projectId);
+    if (!proj) return typeFilter === "show";
+    if (typeFilter === "tour") return !!proj.isTour;
+    if (typeFilter === "festival") return !!proj.isFestival;
+    return !proj.isTour && !proj.isFestival;
+  }, [typeFilter, eventsMap, projectMap]);
 
   const { currentEvents, archivedEvents } = useMemo(() => {
     const current: string[] = [];
     const archived: string[] = [];
     availableEvents.forEach(name => {
       if (!matchesSearchFilter(name)) return;
+      if (!matchesTypeFilter(name)) return;
       const ev = eventsMap.get(name);
       const endOrStart = ev?.endDate || ev?.startDate;
       if (endOrStart && endOrStart < todayStr) {
@@ -93,7 +112,7 @@ export function ShowSwitcher({
     current.sort(sortFn);
     archived.sort(sortFn);
     return { currentEvents: current, archivedEvents: archived };
-  }, [availableEvents, eventsMap, sortMode, todayStr, matchesSearchFilter]);
+  }, [availableEvents, eventsMap, sortMode, todayStr, matchesSearchFilter, matchesTypeFilter]);
 
   const hasProjects = projects.length > 0 && eventsList.some((e: Event) => e.projectId);
 
@@ -396,6 +415,29 @@ export function ShowSwitcher({
               data-testid="input-search-shows"
             />
           </div>
+          {projects.some(p => p.isTour || p.isFestival) && (
+            <div className="flex gap-1">
+              {(["all", "tour", "festival", "show"] as const).map(t => {
+                const label = t === "all" ? "All" : t === "tour" ? "Tours" : t === "festival" ? "Festivals" : "Shows";
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => setTypeFilter(t)}
+                    className={cn(
+                      "text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors",
+                      typeFilter === t
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    )}
+                    data-testid={`filter-type-${t}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
           {showsOnSelectedDate.length > 0 && selectedDate && /^\d{4}-\d{2}-\d{2}$/.test(selectedDate) && (
             <button
               type="button"
