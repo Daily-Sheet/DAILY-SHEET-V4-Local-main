@@ -42,8 +42,8 @@ export function AppHeader({
             <CalendarIcon className="h-5 w-5 text-primary-foreground" />
             <h1 className="text-sm sm:text-xl font-display uppercase tracking-wide text-foreground truncate cursor-pointer transition-colors hover:text-foreground/80 focus:text-foreground/70 active:text-foreground/60">Daily Sheet</h1>
           </button>
-          {/* Children go here */}
-          {children}
+          {/* Add margin between Home and ShowSwitcher */}
+          {children && <div className="ml-2">{children}</div>}
         </div>
         {/* Middle: Placeholder for now */}
         <div className="flex justify-center items-center w-1/3">

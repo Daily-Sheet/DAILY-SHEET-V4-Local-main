@@ -1,5 +1,5 @@
-
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { useLocation } from "wouter";
 import { format } from "date-fns";
 import { AppHeader } from "@/components/AppHeader";
 import { Button } from "@/components/ui/button";
@@ -13,15 +13,29 @@ import { useQuery } from "@tanstack/react-query";
 import type { Event, Venue, Project } from "@shared/schema";
 
 export default function Shows() {
+  const [, setLocation] = useLocation();
   const { user } = useAuth();
   const eventSelection = useEventSelection();
   const { data: venuesList = [] } = useVenues();
   const { data: allProjects = [] } = useProjects();
   const { data: eventsList = [] } = useQuery<Event[]>({ queryKey: ["/api/events"], refetchInterval: 15_000, refetchOnWindowFocus: true });
 
-  // Compute assigned events
-  const assignedEvents = useMemo((): Event[] => {
+
+  // Show archived toggle
+  const [showArchived, setShowArchived] = useState(false);
+
+  // Compute accessible events (commenter, moderator, admin, or assigned)
+  const accessibleEvents = useMemo((): Event[] => {
     if (!user) return [];
+    // Example: roles could be in user.roles or user.eventRoles[eventName] etc.
+    // For now, include all events if user is admin/moderator/commenter, else assigned
+    const isAdmin = user.role === 'admin' || user.role === 'owner' || user.role === 'manager';
+    const isModerator = user.role === 'moderator';
+    const isCommenter = user.role === 'commenter';
+    if (isAdmin || isModerator || isCommenter) {
+      return eventsList;
+    }
+    // fallback: assigned events
     const directAssigned = new Set(user.eventAssignments || []);
     const projAssignments = user.projectAssignments || [];
     if (projAssignments.length > 0) {
@@ -34,6 +48,12 @@ export default function Shows() {
     }
     return eventsList.filter((e: Event) => directAssigned.has(e.name));
   }, [user, eventsList]);
+
+  // Filter for archived
+  const filteredEvents = useMemo(() => {
+    if (showArchived) return accessibleEvents;
+    return accessibleEvents.filter(ev => !ev.archived);
+  }, [accessibleEvents, showArchived]);
 
   if (!user?.workspaceId) {
     return (
@@ -54,7 +74,7 @@ export default function Shows() {
     );
   }
 
-  if (assignedEvents.length === 0) {
+  if (filteredEvents.length === 0) {
     return (
       <div className="min-h-screen bg-background font-body flex flex-col">
         <AppHeader />
@@ -63,9 +83,9 @@ export default function Shows() {
             <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center">
               <CalendarIcon className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h2 className="text-xl font-display uppercase tracking-wide text-foreground">No Shows Assigned</h2>
+            <h2 className="text-xl font-display uppercase tracking-wide text-foreground">No Shows Available</h2>
             <p className="text-muted-foreground text-sm leading-relaxed">
-              You haven't been assigned to any shows yet. Contact your production manager to get added to a show.
+              There are no shows available for your account. If you believe this is an error, contact your production manager or admin.
             </p>
           </div>
         </div>
@@ -77,9 +97,19 @@ export default function Shows() {
     <div className="min-h-screen bg-background font-body flex flex-col">
       <AppHeader />
       <div className="flex-1 p-4 sm:p-6 max-w-2xl mx-auto w-full">
-        <h2 className="text-lg font-display uppercase tracking-wide text-foreground mb-4">Shows</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-display uppercase tracking-wide text-foreground">Shows</h2>
+          <Button
+            variant={showArchived ? "default" : "outline"}
+            size="sm"
+            onClick={() => setShowArchived(v => !v)}
+            className="ml-2"
+          >
+            {showArchived ? "Hide Archived Shows" : "Show Archived Shows"}
+          </Button>
+        </div>
         <div className="space-y-3">
-          {assignedEvents.map((event: Event) => {
+          {filteredEvents.map((event: Event) => {
             const eventVenue = event.venueId ? venuesList.find((v: Venue) => v.id === event.venueId) : null;
             const eventProject = event.projectId ? allProjects.find((p: Project) => p.id === event.projectId) : null;
             const isFestival = eventProject?.isFestival;
@@ -93,7 +123,13 @@ export default function Shows() {
               <button
                 key={event.id}
                 className="w-full text-left bg-card border border-border rounded-xl p-4 hover-elevate active-elevate-2 transition-all"
-                onClick={() => eventSelection.singleSelect(event.name)}
+                onClick={() => {
+                  eventSelection.singleSelect(event.name);
+                  if (event.startDate) {
+                    localStorage.setItem("activeDate", event.startDate);
+                  }
+                  setLocation("/dashboard");
+                }}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
