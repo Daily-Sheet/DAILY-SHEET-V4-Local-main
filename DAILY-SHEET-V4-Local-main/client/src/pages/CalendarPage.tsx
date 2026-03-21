@@ -69,14 +69,11 @@ function DayPanel({
 
   return (
     <div className="rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-border/30 flex items-center justify-between gap-2">
+      <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
         <div className="min-w-0">
           <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">Selected Day</p>
           <h3 className="font-semibold text-sm truncate">{formatted}</h3>
         </div>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1 flex-shrink-0 transition-colors">
-          <X className="w-4 h-4" />
-        </button>
       </div>
 
       {!hasContent ? (
@@ -689,7 +686,21 @@ export default function CalendarPage() {
                     ))}
                   </div>
 
-                  {weeks.map((week, wi) => {
+                  {(isMobile
+                    ? (() => {
+                        // Find the current week index
+                        const today = new Date();
+                        const currentWeekIdx = weeks.findIndex(week =>
+                          week.some(day => isToday(day))
+                        );
+                        // Show only current week and next week (if exists)
+                        return weeks.slice(
+                          currentWeekIdx === -1 ? 0 : currentWeekIdx,
+                          currentWeekIdx === -1 ? 2 : currentWeekIdx + 2
+                        );
+                      })()
+                    : weeks
+                  ).map((week, wi) => {
                     // For each week, render a grid row and absolutely positioned event bars
                     // 1. Render the day cells as before
                     // 2. Render event bars as overlays
@@ -727,7 +738,10 @@ export default function CalendarPage() {
                         if (row + 1 > maxRow) maxRow = row + 1;
                       });
                     }
-                    const weekRowHeight = 36 + maxRow * 40; // 36px for date number + 40px per event bar row
+                    // Use larger row height on mobile for better spacing
+                    const isMobileRow = isMobile;
+                    const eventBarRowHeight = isMobileRow ? 52 : 40;
+                    const weekRowHeight = 36 + maxRow * eventBarRowHeight; // 36px for date number + per event bar row
                     return (
                       <div key={wi} className="relative" style={{ minHeight: weekRowHeight }}>
                         <div className="grid grid-cols-7" style={{ minHeight: weekRowHeight }}>
@@ -831,7 +845,7 @@ export default function CalendarPage() {
                           });
                           // Render the overlay container with correct height
                           return (
-                            <div className="absolute left-0 w-full pointer-events-none px-1.5 sm:px-2" style={{ top: '32px', height: 'calc(100% - 36px)', borderRadius: '0.75rem', overflow: 'hidden' }}>
+                            <div className="absolute left-0 w-full pointer-events-none px-1.5 sm:px-2" style={{ top: '32px', height: `calc(100% - 36px)`, borderRadius: '0.75rem', overflow: 'hidden' }}>
                               {eventIntervals.map(({ ev, startIdx, endIdx }) => {
                                 const left = (startIdx / 7) * 100;
                                 const width = ((endIdx - startIdx + 1) / 7) * 100;
@@ -844,13 +858,24 @@ export default function CalendarPage() {
                                   <div
                                     key={ev.id + '-' + startIdx + '-' + endIdx}
                                     className={cn(
-                                      "absolute min-h-[2.3rem] flex items-center px-2 text-xs font-medium shadow-sm whitespace-normal break-words border border-border/40",
+                                      "absolute flex items-center pl-2 pr-3 py-2 text-xs font-medium shadow-sm whitespace-normal break-words border border-border/40",
+                                      // Responsive: smaller font and padding for xs screens
+                                      "xs:text-[11px] xs:py-1.5 xs:pl-1.5 xs:pr-2",
+                                      // More vertical margin between bars on small screens
+                                      "xs:mt-1.5",
                                       c?.bg || "bg-primary/20",
                                       c?.text || "text-primary",
                                       isStart && isEnd ? "rounded-md" : isStart ? "rounded-l-md" : isEnd ? "rounded-r-md" : "",
                                       "overflow-hidden"
                                     )}
-                                    style={{ left: `calc(${left}% + 2px)`, width: `calc(${width}% - 4px)`, top: `calc(${rowIdx} * 2.5rem)`, zIndex: 2 }}
+                                    style={{
+                                      left: `calc(${left}% + 2px)`,
+                                      width: `calc(${width}% - 4px)`,
+                                      top: `calc(${rowIdx} * ${eventBarRowHeight}px)`,
+                                      minHeight: isMobileRow ? 48 : 40,
+                                      height: isMobileRow ? 48 : 40,
+                                      zIndex: 2
+                                    }}
                                     title={ev.label}
                                   >
                                     {ev.label}
@@ -906,8 +931,10 @@ export default function CalendarPage() {
                         />
                       )}
                       <div className="rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm overflow-hidden mt-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-semibold text-sm">Upcoming Shows</h3>
+                        <div className="px-4 py-3 border-b border-border/30 flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <h3 className="font-semibold text-sm truncate">Upcoming Shows</h3>
+                          </div>
                           {upcomingShows.length > 3 && (
                             <button
                               className="text-xs text-primary underline hover:text-primary/80"
@@ -918,7 +945,7 @@ export default function CalendarPage() {
                           )}
                         </div>
                         {upcomingShows.length === 0 ? (
-                          <div className="text-muted-foreground text-xs">No upcoming shows.</div>
+                          <div className="p-6 text-center text-sm text-muted-foreground">No upcoming shows.</div>
                         ) : (
                           <div className="divide-y divide-border/20">
                             {upcomingShows.slice(0, 3).map(event => {
@@ -926,7 +953,6 @@ export default function CalendarPage() {
                               if (event.color && typeof event.color === "object" && "dot" in event.color) {
                                 colorObj = event.color as { dot: string };
                               }
-                              // Omit color from event, then add colorObj
                               const { color, ...eventRest } = event;
                               return (
                                 <EventTile
@@ -939,7 +965,7 @@ export default function CalendarPage() {
                                     }
                                     navigate("/dashboard");
                                   }}
-                                  showDetails={false}
+                                  showDetails={true}
                                 />
                               );
                             })}
@@ -974,9 +1000,11 @@ export default function CalendarPage() {
                         onClose={() => setPanelOpen(false)}
                       />
                     )}
-                    <div className="rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm overflow-hidden p-4 mt-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-semibold text-sm">Upcoming Shows</h3>
+                    <div className="rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm overflow-hidden mt-4">
+                      <div className="px-4 py-3 border-b border-border/30 flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-sm truncate">Upcoming Shows</h3>
+                        </div>
                         {upcomingShows.length > 3 && (
                           <button
                             className="text-xs text-primary underline hover:text-primary/80"
@@ -987,36 +1015,30 @@ export default function CalendarPage() {
                         )}
                       </div>
                       {upcomingShows.length === 0 ? (
-                        <div className="text-muted-foreground text-xs">No upcoming shows.</div>
+                        <div className="p-6 text-center text-sm text-muted-foreground">No upcoming shows.</div>
                       ) : (
-                        <div className="space-y-2">
-                          {upcomingShows.slice(0, 3).map(event => (
-                            <button
-                              key={event.id}
-                              className="w-full text-left bg-card border border-border rounded-xl p-3 hover-elevate active-elevate-2 transition-all"
-                              onClick={() => {
-                                eventSelection.singleSelect(event.name);
-                                if (event.startDate) {
-                                  localStorage.setItem("activeDate", event.startDate);
-                                }
-                                navigate("/dashboard");
-                              }}
-                            >
-                              <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0 flex-1">
-                                  <div className="flex items-center gap-2">
-                                    <h3 className="font-display text-base font-semibold uppercase tracking-wide text-foreground truncate">{event.name}</h3>
-                                  </div>
-                                  {event.startDate && event.endDate && (
-                                    <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
-                                      <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
-                                      <span>{format(parseISO(event.startDate), "MMM d")} – {format(parseISO(event.endDate), "MMM d, yyyy")}</span>
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            </button>
-                          ))}
+                        <div className="divide-y divide-border/20">
+                          {upcomingShows.slice(0, 3).map(event => {
+                            let colorObj = { dot: "bg-primary" };
+                            if (event.color && typeof event.color === "object" && "dot" in event.color) {
+                              colorObj = event.color;
+                            }
+                            const { color, ...eventRest } = event;
+                            return (
+                              <EventTile
+                                key={event.id}
+                                event={{ ...eventRest, color: colorObj }}
+                                onClick={() => {
+                                  eventSelection.singleSelect(event.name);
+                                  if (event.startDate) {
+                                    localStorage.setItem("activeDate", event.startDate);
+                                  }
+                                  navigate("/dashboard");
+                                }}
+                                showDetails={true}
+                              />
+                            );
+                          })}
                         </div>
                       )}
                     </div>
