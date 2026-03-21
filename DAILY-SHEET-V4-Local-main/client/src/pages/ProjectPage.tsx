@@ -2395,6 +2395,12 @@ function CrewTravelManifest({ travelDayId, isAdmin, contacts, assignedUserIds }:
 
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [expandedCrew, setExpandedCrew] = useState<Set<number>>(new Set());
+  const toggleCrewExpand = (id: number) => setExpandedCrew(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
   const [form, setForm] = useState({
     userId: "", flightNumber: "", airline: "",
     departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: "",
@@ -2596,13 +2602,6 @@ function CrewTravelManifest({ travelDayId, isAdmin, contacts, assignedUserIds }:
   if (isLoading) {
     return <div className="flex items-center justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>;
   }
-
-  const [expandedCrew, setExpandedCrew] = useState<Set<number>>(new Set());
-  const toggleCrewExpand = (id: number) => setExpandedCrew(prev => {
-    const next = new Set(prev);
-    next.has(id) ? next.delete(id) : next.add(id);
-    return next;
-  });
 
   return (
     <div className="space-y-2" data-testid={`crew-travel-manifest-${travelDayId}`}>
