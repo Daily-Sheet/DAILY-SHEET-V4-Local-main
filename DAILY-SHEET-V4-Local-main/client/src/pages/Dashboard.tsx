@@ -298,16 +298,15 @@ export default function Dashboard() {
   });
 
   const [activeDate, setActiveDate] = useState(() => {
-    const stored = localStorage.getItem("activeDate");
-    if (stored && /^\d{4}-\d{2}-\d{2}$/.test(stored)) return stored;
-    const today = format(new Date(), "yyyy-MM-dd");
     const params = new URLSearchParams(window.location.search);
     const dateParam = params.get("date");
     if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
       const parsed = parseISO(dateParam);
       if (!isNaN(parsed.getTime())) return dateParam;
     }
-    return today;
+    const stored = localStorage.getItem("activeDate");
+    if (stored && /^\d{4}-\d{2}-\d{2}$/.test(stored)) return stored;
+    return format(new Date(), "yyyy-MM-dd");
   });
   selectedDateRef.current = activeDate;
 

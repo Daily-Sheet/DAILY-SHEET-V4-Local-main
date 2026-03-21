@@ -3054,7 +3054,7 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <Link href={`/?event=${encodeURIComponent(show.event.name)}${show.event.startDate ? `&date=${show.event.startDate}` : ""}`} className="font-display font-bold text-base uppercase tracking-wide text-foreground truncate hover:underline hover:text-primary cursor-pointer block" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                        <Link href={`/dashboard?event=${encodeURIComponent(show.event.name)}${show.event.startDate ? `&date=${show.event.startDate}` : ""}`} className="font-display font-bold text-base uppercase tracking-wide text-foreground truncate hover:underline hover:text-primary cursor-pointer block" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
                           {show.event.name}
                         </Link>
                         {(show.event.startDate || show.event.endDate) && (

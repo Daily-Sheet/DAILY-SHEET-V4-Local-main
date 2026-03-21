@@ -64,7 +64,6 @@ import {
   type TimesheetEntry, type DailyCheckin, type Leg
 } from "@shared/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
-import { Calendar } from "@/components/ui/calendar";
 import { SaveShowAsTemplateButton } from "@/components/CreateScheduleDialog";
 import { VenueForm } from "@/components/dashboard/venue/VenueForm";
 
@@ -2192,7 +2191,7 @@ function EventsAdmin() {
             className="flex-1 min-w-0 cursor-pointer"
             onClick={() => {
               eventSelection.singleSelect(event.name);
-              setLocation(`/${event.startDate ? `?date=${event.startDate}` : ""}`);
+              setLocation(`/dashboard${event.startDate ? `?date=${event.startDate}` : ""}`);
             }}
             data-testid={`link-event-dashboard-${event.id}`}
           >
@@ -2578,6 +2577,13 @@ function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival
   const [showName, setShowName] = useState("");
   const [startDate, setStartDate] = useState(defaultStartDate || format(new Date(), "yyyy-MM-dd"));
   const [endDate, setEndDate] = useState(defaultEndDate || defaultStartDate || format(new Date(), "yyyy-MM-dd"));
+
+  // Sync dates when leg dates change (e.g. after editing a festival's dates)
+  useEffect(() => {
+    if (defaultStartDate) setStartDate(defaultStartDate);
+    if (defaultEndDate) setEndDate(defaultEndDate);
+    else if (defaultStartDate) setEndDate(defaultStartDate);
+  }, [defaultStartDate, defaultEndDate]);
   const [venueId, setVenueId] = useState<number | null>(null);
   const [venueSearchOpen, setVenueSearchOpen] = useState(false);
   const [venueForAllDays, setVenueForAllDays] = useState(false);
@@ -2717,6 +2723,7 @@ function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival
             onChangeStart={setStartDate}
             onChangeEnd={setEndDate}
             testIdPrefix="project-show-date-range"
+            label={`${entityLabel} Dates`}
           />
           <div>
             <Label className="text-sm font-medium">Venue (optional)</Label>
@@ -3235,7 +3242,7 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
 
   const shows = useMemo(() =>
     (eventsList as Event[])
-      .filter((e: any) => e.projectId === projectId && (!isTour || !e.legId))
+      .filter((e: any) => e.projectId === projectId && ((!isTour && !isFestival) || !e.legId))
       .sort((a, b) => (a.startDate || "9999").localeCompare(b.startDate || "9999")),
     [eventsList, projectId, isTour]
   );
@@ -3325,7 +3332,7 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
             <div key={show.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 group" data-testid={`row-show-${show.id}`}>
               <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: show.color || "hsl(var(--primary))" }} />
               <div className="flex-1 min-w-0">
-                <Link href={`/?event=${encodeURIComponent(show.name)}${show.startDate ? `&date=${show.startDate}` : ""}`} className="text-sm font-medium truncate hover:underline hover:text-primary block" data-testid={`text-show-name-${show.id}`}>{show.name}</Link>
+                <Link href={`/dashboard?event=${encodeURIComponent(show.name)}${show.startDate ? `&date=${show.startDate}` : ""}`} className="text-sm font-medium truncate hover:underline hover:text-primary block" data-testid={`text-show-name-${show.id}`}>{show.name}</Link>
                 {(show.startDate || show.endDate) && (
                   <p className="text-xs text-muted-foreground truncate" data-testid={`text-show-dates-${show.id}`}>
                     {show.startDate === show.endDate
@@ -3370,7 +3377,9 @@ function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { pr
   const [selectedShowIds, setSelectedShowIds] = useState<Set<number>>(new Set());
   const [expandedLegs, setExpandedLegs] = useState<Record<number, boolean>>({});
   const [newLeg, setNewLeg] = useState({ name: "", notes: "", showCount: 0, startDate: "", endDate: "", stageCount: 0 });
-  const [editLegData, setEditLegData] = useState({ name: "", notes: "" });
+  const [editLegData, setEditLegData] = useState({ name: "", notes: "", startDate: "", endDate: "" });
+  const [cascadeConfirmOpen, setCascadeConfirmOpen] = useState(false);
+  const [pendingLegUpdate, setPendingLegUpdate] = useState<{ id: number; data: any; oldStartDate: string; oldEndDate: string } | null>(null);
   const [addTravelLegId, setAddTravelLegId] = useState<number | null>(null);
   const [newTravel, setNewTravel] = useState({
     date: "", notes: "", flightNumber: "", airline: "",
@@ -3403,14 +3412,50 @@ function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { pr
   });
 
   const updateLegMutation = useMutation({
-    mutationFn: async ({ id, data }: { id: number; data: { name: string; notes: string } }) => {
+    mutationFn: async ({ id, data }: { id: number; data: { name: string; notes: string; startDate?: string; endDate?: string } }) => {
       const res = await apiRequest("PATCH", `/api/legs/${id}`, data);
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "legs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       setEditLegId(null);
       toast({ title: `${containerLabel} updated` });
+    },
+  });
+
+  const cascadeDatesMutation = useMutation({
+    mutationFn: async ({ legId, oldStartDate, oldEndDate, newStartDate, newEndDate }: { legId: number; oldStartDate: string; oldEndDate: string; newStartDate: string; newEndDate: string }) => {
+      const legEvents = projectEvents.filter((e: any) => e.legId === legId);
+      const oldStart = new Date(oldStartDate + "T00:00:00");
+      const oldEnd = new Date(oldEndDate + "T00:00:00");
+      const newStart = new Date(newStartDate + "T00:00:00");
+      const newEnd = new Date(newEndDate + "T00:00:00");
+
+      const updates = legEvents.map(ev => {
+        const patch: any = {};
+        if (ev.startDate) {
+          const evStart = new Date(ev.startDate + "T00:00:00");
+          const startOffsetDays = Math.round((evStart.getTime() - oldStart.getTime()) / (1000 * 60 * 60 * 24));
+          const newEvStart = new Date(newStart);
+          newEvStart.setDate(newEvStart.getDate() + startOffsetDays);
+          patch.startDate = newEvStart.toISOString().split("T")[0];
+        }
+        if (ev.endDate) {
+          const evEnd = new Date(ev.endDate + "T00:00:00");
+          const endOffsetFromEnd = Math.round((oldEnd.getTime() - evEnd.getTime()) / (1000 * 60 * 60 * 24));
+          const newEvEnd = new Date(newEnd);
+          newEvEnd.setDate(newEvEnd.getDate() - endOffsetFromEnd);
+          patch.endDate = newEvEnd.toISOString().split("T")[0];
+        }
+        return { id: ev.id, patch };
+      }).filter(u => u.patch.startDate || u.patch.endDate);
+
+      await Promise.all(updates.map(u => apiRequest("PATCH", `/api/events/${u.id}`, u.patch)));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ title: "Event dates updated to match new festival dates" });
     },
   });
 
@@ -3488,13 +3533,33 @@ function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { pr
                   {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
                   <div className="min-w-0">
                     <Link href={`/project/${projectId}?from=admin`} className="text-sm font-medium truncate hover:underline hover:text-primary block" onClick={(e: React.MouseEvent) => e.stopPropagation()}>{leg.name}</Link>
-                    <p className="text-xs text-muted-foreground">{legShows.length} {entityLabel.toLowerCase()}{legShows.length !== 1 ? "s" : ""}{leg.startDate ? ` · ${format(new Date(leg.startDate + "T00:00:00"), "MMM d")}${leg.endDate && leg.endDate !== leg.startDate ? ` – ${format(new Date(leg.endDate + "T00:00:00"), "MMM d")}` : ""}` : ""}{leg.notes ? ` · ${leg.notes}` : ""}</p>
+                    <p className="text-xs text-muted-foreground">{(() => {
+                      if (isFestival) {
+                        const stages = legShows.filter((e: any) => e.eventType !== "area");
+                        const areas = legShows.filter((e: any) => e.eventType === "area");
+                        const parts: string[] = [];
+                        if (stages.length > 0) parts.push(`${stages.length} stage${stages.length !== 1 ? "s" : ""}`);
+                        if (areas.length > 0) parts.push(`${areas.length} area${areas.length !== 1 ? "s" : ""}`);
+                        return parts.join(" · ") || "empty";
+                      }
+                      return `${legShows.length} show${legShows.length !== 1 ? "s" : ""}`;
+                    })()}{(() => {
+                      let ds = leg.startDate;
+                      let de = leg.endDate;
+                      if (!ds && legShows.length > 0) {
+                        const starts = legShows.map(e => e.startDate).filter(Boolean).sort();
+                        const ends = legShows.map(e => e.endDate).filter(Boolean).sort();
+                        if (starts.length) ds = starts[0];
+                        if (ends.length) de = ends[ends.length - 1];
+                      }
+                      return ds ? ` · ${format(new Date(ds + "T00:00:00"), "MMM d")}${de && de !== ds ? ` – ${format(new Date(de + "T00:00:00"), "MMM d")}` : ""}` : "";
+                    })()}{leg.notes ? ` · ${leg.notes}` : ""}</p>
                   </div>
                 </button>
                 <Button variant="outline" size="sm" className="h-6 text-xs" onClick={() => { setAddShowsToLegId(leg.id); setSelectedShowIds(new Set()); }} disabled={unassignedShows.length === 0} data-testid={`button-add-shows-leg-${leg.id}`}>
                   <Plus className="w-3 h-3 mr-1" /> {entityLabel}s
                 </Button>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditLegId(leg.id); setEditLegData({ name: leg.name, notes: leg.notes || "" }); }} data-testid={`button-edit-leg-${leg.id}`}>
+                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => { setEditLegId(leg.id); setEditLegData({ name: leg.name, notes: leg.notes || "", startDate: leg.startDate || "", endDate: leg.endDate || "" }); }} data-testid={`button-edit-leg-${leg.id}`}>
                   <Pencil className="w-3 h-3" />
                 </Button>
                 <ConfirmDelete
@@ -3512,7 +3577,7 @@ function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { pr
                     <div key={show.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 group" data-testid={`row-leg-show-${show.id}`}>
                       <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: show.color || "hsl(var(--primary))" }} />
                       <div className="flex-1 min-w-0">
-                        <Link href={`/?event=${encodeURIComponent(show.name)}${show.startDate ? `&date=${show.startDate}` : ""}`} className="text-sm font-medium truncate hover:underline hover:text-primary block">{show.name}</Link>
+                        <Link href={`/dashboard?event=${encodeURIComponent(show.name)}${show.startDate ? `&date=${show.startDate}` : ""}`} className="text-sm font-medium truncate hover:underline hover:text-primary block">{show.name}</Link>
                         {(show.startDate || show.endDate) && (
                           <p className="text-xs text-muted-foreground truncate">
                             {show.startDate === show.endDate ? show.startDate : `${show.startDate ?? "?"} → ${show.endDate ?? "?"}`}
@@ -3651,15 +3716,83 @@ function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { pr
               <Label>Notes</Label>
               <Textarea value={editLegData.notes} onChange={e => setEditLegData(p => ({ ...p, notes: e.target.value }))} className="mt-1 resize-none" rows={2} data-testid="input-edit-leg-notes" />
             </div>
+            {isFestival && (
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>Start Date</Label>
+                  <div className="mt-1">
+                    <DatePicker value={editLegData.startDate} onChange={(v) => setEditLegData(p => ({ ...p, startDate: v }))} maxDate={editLegData.endDate || undefined} data-testid="input-edit-leg-start-date" />
+                  </div>
+                </div>
+                <div>
+                  <Label>End Date</Label>
+                  <div className="mt-1">
+                    <DatePicker value={editLegData.endDate} onChange={(v) => setEditLegData(p => ({ ...p, endDate: v }))} minDate={editLegData.startDate || undefined} data-testid="input-edit-leg-end-date" />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           <Button
             className="w-full mt-3"
-            onClick={() => editLegId && editLegData.name.trim() && updateLegMutation.mutate({ id: editLegId, data: { name: editLegData.name.trim(), notes: editLegData.notes } })}
+            onClick={() => {
+              if (!editLegId || !editLegData.name.trim()) return;
+              const leg = legs.find(l => l.id === editLegId);
+              const oldStartDate = leg?.startDate || "";
+              const oldEndDate = leg?.endDate || "";
+              const datesChanged = isFestival && (editLegData.startDate !== oldStartDate || editLegData.endDate !== oldEndDate);
+              const hasChildEvents = isFestival && projectEvents.some((e: any) => e.legId === editLegId);
+              const hasBothOldDates = oldStartDate && oldEndDate;
+
+              if (datesChanged && hasChildEvents && hasBothOldDates && editLegData.startDate && editLegData.endDate) {
+                setPendingLegUpdate({ id: editLegId, data: { name: editLegData.name.trim(), notes: editLegData.notes, startDate: editLegData.startDate, endDate: editLegData.endDate }, oldStartDate, oldEndDate });
+                setCascadeConfirmOpen(true);
+              } else {
+                updateLegMutation.mutate({ id: editLegId, data: { name: editLegData.name.trim(), notes: editLegData.notes, ...(isFestival ? { startDate: editLegData.startDate || undefined, endDate: editLegData.endDate || undefined } : {}) } });
+              }
+            }}
             disabled={!editLegData.name.trim() || updateLegMutation.isPending}
             data-testid="button-update-leg"
           >
             {updateLegMutation.isPending ? "Saving..." : "Save Changes"}
           </Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* Cascade Date Confirmation Dialog */}
+      <Dialog open={cascadeConfirmOpen} onOpenChange={(o) => { if (!o) setCascadeConfirmOpen(false); }}>
+        <DialogContent className="sm:max-w-[420px] font-body">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl uppercase tracking-wide text-primary">Update Event Dates?</DialogTitle>
+            <DialogDescription>
+              Shift all stages and areas to match the new festival dates? Individual date offsets will be preserved.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex gap-2 mt-2">
+            <Button className="flex-1" onClick={async () => {
+              if (!pendingLegUpdate) return;
+              await updateLegMutation.mutateAsync({ id: pendingLegUpdate.id, data: pendingLegUpdate.data });
+              await cascadeDatesMutation.mutateAsync({
+                legId: pendingLegUpdate.id,
+                oldStartDate: pendingLegUpdate.oldStartDate,
+                oldEndDate: pendingLegUpdate.oldEndDate,
+                newStartDate: pendingLegUpdate.data.startDate,
+                newEndDate: pendingLegUpdate.data.endDate,
+              });
+              setCascadeConfirmOpen(false);
+              setPendingLegUpdate(null);
+            }} disabled={updateLegMutation.isPending || cascadeDatesMutation.isPending}>
+              {(updateLegMutation.isPending || cascadeDatesMutation.isPending) ? "Updating..." : "Yes, shift all dates"}
+            </Button>
+            <Button variant="outline" className="flex-1" onClick={() => {
+              if (!pendingLegUpdate) return;
+              updateLegMutation.mutate({ id: pendingLegUpdate.id, data: pendingLegUpdate.data });
+              setCascadeConfirmOpen(false);
+              setPendingLegUpdate(null);
+            }} disabled={updateLegMutation.isPending}>
+              No, just update festival
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 
@@ -4239,13 +4372,6 @@ function ProjectsAdmin() {
                           )}
                           {project.isTour && (
                             <Badge variant="secondary" className="text-[10px] uppercase tracking-wide bg-blue-500/10 text-blue-600 dark:text-blue-400">Tour</Badge>
-                          )}
-                          {(project.startDate || project.endDate) && (
-                            <span className="text-xs text-muted-foreground">
-                              {project.startDate && format(new Date(project.startDate + "T00:00:00"), "MMM d, yyyy")}
-                              {project.startDate && project.endDate && " – "}
-                              {project.endDate && format(new Date(project.endDate + "T00:00:00"), "MMM d, yyyy")}
-                            </span>
                           )}
                         </div>
                       </button>
@@ -5646,8 +5772,6 @@ function TimesheetReportsView({ projectsList }: { projectsList: Project[] }) {
   const [reportProjectId, setReportProjectId] = useState<string>("");
   const [reportStartDate, setReportStartDate] = useState("");
   const [reportEndDate, setReportEndDate] = useState("");
-  const [startPickerOpen, setStartPickerOpen] = useState(false);
-  const [endPickerOpen, setEndPickerOpen] = useState(false);
 
   const effectiveProjectId = reportProjectId && reportProjectId !== "all" ? reportProjectId : "";
   const hasFilters = effectiveProjectId || (reportStartDate && reportEndDate);
@@ -5724,53 +5848,23 @@ function TimesheetReportsView({ projectsList }: { projectsList: Project[] }) {
             </div>
             <div>
               <label className="text-sm font-medium">Start Date</label>
-              <Popover open={startPickerOpen} onOpenChange={setStartPickerOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn("w-full justify-start text-left font-normal", !reportStartDate && "text-muted-foreground")}
-                    data-testid="select-report-start-date"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {reportStartDate ? format(new Date(reportStartDate + "T12:00:00"), "MMM d, yyyy") : "Start date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={reportStartDate ? new Date(reportStartDate + "T12:00:00") : undefined}
-                    onSelect={(date) => {
-                      if (date) { setReportStartDate(format(date, "yyyy-MM-dd")); setStartPickerOpen(false); }
-                    }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <DatePicker
+                value={reportStartDate}
+                onChange={setReportStartDate}
+                maxDate={reportEndDate || undefined}
+                clearable
+                data-testid="select-report-start-date"
+              />
             </div>
             <div>
               <label className="text-sm font-medium">End Date</label>
-              <Popover open={endPickerOpen} onOpenChange={setEndPickerOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn("w-full justify-start text-left font-normal", !reportEndDate && "text-muted-foreground")}
-                    data-testid="select-report-end-date"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {reportEndDate ? format(new Date(reportEndDate + "T12:00:00"), "MMM d, yyyy") : "End date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={reportEndDate ? new Date(reportEndDate + "T12:00:00") : undefined}
-                    onSelect={(date) => {
-                      if (date) { setReportEndDate(format(date, "yyyy-MM-dd")); setEndPickerOpen(false); }
-                    }}
-                    initialFocus
-                  />
-                </PopoverContent>
-              </Popover>
+              <DatePicker
+                value={reportEndDate}
+                onChange={setReportEndDate}
+                minDate={reportStartDate || undefined}
+                clearable
+                data-testid="select-report-end-date"
+              />
             </div>
           </div>
         </CardContent>
@@ -5851,7 +5945,6 @@ function TimeSheetsAdmin() {
   const [timesheetMode, setTimesheetMode] = useState<"entries" | "reports">("entries");
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [selectedDate, setSelectedDate] = useState(() => format(new Date(), "yyyy-MM-dd"));
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [sendDialogOpen, setSendDialogOpen] = useState(false);
   const [sendEmails, setSendEmails] = useState("");
   const [pdfToken, setPdfToken] = useState<string | null>(null);
@@ -6173,32 +6266,11 @@ function TimeSheetsAdmin() {
             </div>
             <div>
               <label className="text-sm font-medium">Date</label>
-              <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className={cn("w-full justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}
-                    data-testid="select-timesheet-date"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {selectedDate ? format(new Date(selectedDate + "T12:00:00"), "MMM d, yyyy") : "Pick a date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate ? new Date(selectedDate + "T12:00:00") : undefined}
-                    onSelect={(date) => {
-                      if (date) {
-                        setSelectedDate(format(date, "yyyy-MM-dd"));
-                        setDatePickerOpen(false);
-                      }
-                    }}
-                    initialFocus
-                    defaultMonth={selectedDate ? new Date(selectedDate + "T12:00:00") : undefined}
-                  />
-                </PopoverContent>
-              </Popover>
+              <DatePicker
+                value={selectedDate}
+                onChange={setSelectedDate}
+                data-testid="select-timesheet-date"
+              />
             </div>
           </div>
 

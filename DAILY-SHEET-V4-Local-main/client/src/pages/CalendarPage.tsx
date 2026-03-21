@@ -430,9 +430,9 @@ export default function CalendarPage() {
   function handleNavigateToDashboard(date: string, showName?: string) {
     if (showName) {
       eventSelection.singleSelect(showName);
-      navigate(`/?date=${date}&show=${encodeURIComponent(showName)}`);
+      navigate(`/dashboard?date=${date}&show=${encodeURIComponent(showName)}`);
     } else {
-      navigate(`/?date=${date}`);
+      navigate(`/dashboard?date=${date}`);
     }
   }
 
