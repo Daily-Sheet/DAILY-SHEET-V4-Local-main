@@ -447,7 +447,16 @@ export default function CalendarPage() {
     return ci ? ci.eventNames : [];
   };
 
-  const showPanel = panelOpen && selectedDate && (selectedDayShows.length > 0 || selectedDayTravelDays.length > 0);
+  // Always show the day panel if a day is selected, otherwise show upcoming shows
+  const showPanel = !!selectedDate;
+
+  // Helper: get upcoming shows (not archived, startDate >= today)
+  const upcomingShows = useMemo(() => {
+    const todayDate = new Date();
+    return eventsList
+      .filter(ev => !ev.archived && ev.startDate && new Date(ev.startDate) >= todayDate)
+      .sort((a, b) => new Date(a.startDate!).getTime() - new Date(b.startDate!).getTime());
+  }, [eventsList]);
 
   const monthTravelDays = useMemo(() => {
     const monthStart = format(startOfMonth(currentMonth), "yyyy-MM-dd");
@@ -806,17 +815,57 @@ export default function CalendarPage() {
                     animate={{ opacity: 1, x: 0, width: 280 }}
                     exit={{ opacity: 0, x: 16, width: 0 }}
                     transition={{ duration: 0.2, ease: "easeOut" }}
-                    className="flex-shrink-0 sticky top-20 overflow-hidden"
+                    className="flex-shrink-0 sticky top-20 overflow-visible"
                     style={{ minWidth: 0 }}
                   >
-                    <DayPanel
-                      date={selectedDate}
-                      shows={selectedDayShows}
-                      travelDays={selectedDayTravelDays}
-                      onNavigate={handleNavigateToDashboard}
-                      onNavigateTour={handleNavigateToTour}
-                      onClose={() => setPanelOpen(false)}
-                    />
+                    <div>
+                      {selectedDate && (
+                        <DayPanel
+                          date={selectedDate}
+                          shows={selectedDayShows}
+                          travelDays={selectedDayTravelDays}
+                          onNavigate={handleNavigateToDashboard}
+                          onNavigateTour={handleNavigateToTour}
+                          onClose={() => setPanelOpen(false)}
+                        />
+                      )}
+                      <div className="rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm overflow-hidden p-4 mt-4">
+                        <h3 className="font-semibold text-sm mb-2">Upcoming Shows</h3>
+                        {upcomingShows.length === 0 ? (
+                          <div className="text-muted-foreground text-xs">No upcoming shows.</div>
+                        ) : (
+                          <div className="space-y-2">
+                            {upcomingShows.slice(0, 5).map(event => (
+                              <button
+                                key={event.id}
+                                className="w-full text-left bg-card border border-border rounded-xl p-3 hover-elevate active-elevate-2 transition-all"
+                                onClick={() => {
+                                  eventSelection.singleSelect(event.name);
+                                  if (event.startDate) {
+                                    localStorage.setItem("activeDate", event.startDate);
+                                  }
+                                  navigate("/dashboard");
+                                }}
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <h3 className="font-display text-base font-semibold uppercase tracking-wide text-foreground truncate">{event.name}</h3>
+                                    </div>
+                                    {event.startDate && event.endDate && (
+                                      <div className="flex items-center gap-1.5 mt-1.5 text-xs text-muted-foreground">
+                                        <CalendarDays className="h-3.5 w-3.5 flex-shrink-0" />
+                                        <span>{format(parseISO(event.startDate), "MMM d")} – {format(parseISO(event.endDate), "MMM d, yyyy")}</span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
