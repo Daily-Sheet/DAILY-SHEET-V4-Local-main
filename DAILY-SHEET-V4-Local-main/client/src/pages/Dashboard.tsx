@@ -396,10 +396,15 @@ export default function Dashboard() {
 
   const activeTourProjectIds = useMemo(() => allProjects.filter((p: Project) => p.isTour && !p.archived).map((p: Project) => p.id), [allProjects]);
   const firstTourProjectId = activeTourProjectIds[0] ?? null;
-  const { data: dashboardTravelDays = [] } = useQuery<TravelDay[]>({
-    queryKey: ["/api/projects", firstTourProjectId, "travel-days"],
-    enabled: !!firstTourProjectId,
+  const travelDayQueries = useQueries({
+    queries: activeTourProjectIds.map(id => ({
+      queryKey: ["/api/projects", id, "travel-days"],
+      enabled: true,
+    })),
   });
+  const dashboardTravelDays = useMemo(() => {
+    return travelDayQueries.flatMap(q => (q.data as TravelDay[]) || []);
+  }, [travelDayQueries]);
   const travelDayForSelectedDate = useMemo(() => {
     return dashboardTravelDays.find(td => td.date === activeDate) || null;
   }, [dashboardTravelDays, activeDate]);
@@ -510,7 +515,7 @@ export default function Dashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", addTravelProjectId, "travel-days"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", firstTourProjectId, "travel-days"] });
+      activeTourProjectIds.forEach(id => queryClient.invalidateQueries({ queryKey: ["/api/projects", id, "travel-days"] }));
       setTravelDayDialogOpen(false);
       setNewTravelForm(emptyTravelForm);
       toast({ title: "Travel day added" });
@@ -523,7 +528,7 @@ export default function Dashboard() {
       await apiRequest("DELETE", `/api/travel-days/${id}`);
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/projects", firstTourProjectId, "travel-days"] });
+      activeTourProjectIds.forEach(id => queryClient.invalidateQueries({ queryKey: ["/api/projects", id, "travel-days"] }));
       toast({ title: "Travel day removed" });
     },
   });
