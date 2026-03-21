@@ -19,8 +19,8 @@ export function useGlobalShortcuts() {
         return;
       }
       if (e.key === "d" || e.key === "D") {
-        if (window.location.pathname !== "/") {
-          window.location.href = "/";
+        if (window.location.pathname !== "/dashboard") {
+          window.location.href = "/dashboard";
         }
         return;
       }
