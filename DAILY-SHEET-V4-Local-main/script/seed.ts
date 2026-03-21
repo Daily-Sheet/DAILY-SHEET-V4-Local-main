@@ -15,9 +15,11 @@ import bcrypt from "bcrypt";
 import { eq, count, isNotNull } from "drizzle-orm";
 import { users, workspaces, workspaceMembers } from "../shared/models/auth.js";
 
-const { Pool } = pg;
 
-const DATABASE_URL = process.env.DATABASE_URL;
+
+const { Pool } = pg;
+const DATABASE_URL = process.env.DATABASE_URL as string;
+
 if (!DATABASE_URL) {
   console.error("ERROR: DATABASE_URL is not set.");
   process.exit(1);
@@ -124,14 +126,127 @@ async function seed() {
     ok(`Added admin as manager of workspace ${workspaceId}`);
   }
 
-  console.log(`
-Seed complete.
+  // 4. Fake Venues
+  const venuesTable = (await import("../shared/schema.js")).venues;
+  const [venueCount] = await db.select({ value: count() }).from(venuesTable).where(eq(venuesTable.workspaceId, workspaceId));
+  if (venueCount.value === 0) {
+    await db.insert(venuesTable).values([
+      {
+        name: "The Grand Arena",
+        address: "123 Main St, Big City",
+        contactName: "Jane Venue",
+        contactPhone: "555-1234",
+        wifiSsid: "GrandArenaGuest",
+        wifiPassword: "grand2024",
+        notes: "Parking in rear lot.",
+        workspaceId,
+        createdByWorkspaceId: workspaceId,
+      },
+      {
+        name: "Downtown Club",
+        address: "456 Center Ave, Downtown",
+        contactName: "Mike Clubber",
+        contactPhone: "555-5678",
+        wifiSsid: "DowntownClub",
+        wifiPassword: "clubguest",
+        notes: "Load-in via alley.",
+        workspaceId,
+        createdByWorkspaceId: workspaceId,
+      },
+      {
+        name: "Festival Grounds",
+        address: "789 Festival Rd, Outskirts",
+        contactName: "Sally Field",
+        contactPhone: "555-9012",
+        wifiSsid: "FestGrounds",
+        wifiPassword: "festival!",
+        notes: "Outdoor venue, bring rain gear.",
+        workspaceId,
+        createdByWorkspaceId: workspaceId,
+      },
+    ]);
+    ok("Seeded 3 fake venues");
+  } else {
+    skip("Venues already exist");
+  }
 
-  Login:     ${SEED_ADMIN.email}
-  Password:  ${SEED_ADMIN.password}
+  // 5. Fake Projects
+  const projectsTable = (await import("../shared/schema.js")).projects;
+  const [projectCount] = await db.select({ value: count() }).from(projectsTable).where(eq(projectsTable.workspaceId, workspaceId));
+  if (projectCount.value === 0) {
+    const [tour, festival] = await db.insert(projectsTable).values([
+      {
+        name: "Spring Tour 2026",
+        description: "A multi-city spring tour.",
+        startDate: "2026-03-01",
+        endDate: "2026-03-31",
+        isTour: true,
+        isFestival: false,
+        workspaceId,
+      },
+      {
+        name: "Summer Fest 2026",
+        description: "Annual summer festival.",
+        startDate: "2026-06-10",
+        endDate: "2026-06-12",
+        isTour: false,
+        isFestival: true,
+        workspaceId,
+      },
+    ]).returning({ id: projectsTable.id });
+    ok("Seeded 2 fake projects");
 
-Change the password after first login.
-`);
+    // 6. Fake Events (Shows/Runs)
+    const eventsTable = (await import("../shared/schema.js")).events;
+    const venues = await db.select({ id: venuesTable.id }).from(venuesTable).where(eq(venuesTable.workspaceId, workspaceId));
+    await db.insert(eventsTable).values([
+      {
+        name: "Opening Night",
+        color: "#FF5733",
+        notes: "Kickoff show for the tour.",
+        startDate: "2026-03-01",
+        endDate: "2026-03-01",
+        venueId: venues[0]?.id,
+        projectId: tour.id,
+        workspaceId,
+      },
+      {
+        name: "Downtown Bash",
+        color: "#33A1FF",
+        notes: "Club show downtown.",
+        startDate: "2026-03-10",
+        endDate: "2026-03-10",
+        venueId: venues[1]?.id,
+        projectId: tour.id,
+        workspaceId,
+      },
+      {
+        name: "Festival Opener",
+        color: "#33FF57",
+        notes: "First day of the festival.",
+        startDate: "2026-06-10",
+        endDate: "2026-06-10",
+        venueId: venues[2]?.id,
+        projectId: festival.id,
+        workspaceId,
+      },
+      {
+        name: "Festival Finale",
+        color: "#FF33A1",
+        notes: "Closing show for the festival.",
+        startDate: "2026-06-12",
+        endDate: "2026-06-12",
+        venueId: venues[2]?.id,
+        projectId: festival.id,
+        workspaceId,
+      },
+    ]);
+    ok("Seeded 4 fake events (shows/runs)");
+  } else {
+    skip("Projects/events already exist");
+  }
+
+  console.log(`\nSeed complete.\n\n  Login:     ${SEED_ADMIN.email}\n  Password:  ${SEED_ADMIN.password}\n\nChange the password after first login.\n`);
 }
 
 seed()

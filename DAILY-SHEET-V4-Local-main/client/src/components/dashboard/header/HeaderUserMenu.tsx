@@ -1,3 +1,4 @@
+import { Link } from "wouter";
 import { useState } from "react";
 import { Sun, Moon, Eye, LogOut, Check, Users, Building2, ArrowRightLeft, Loader2, Plus, X } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -15,7 +16,22 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import type { Contact } from "@shared/schema";
 
-export function HeaderUserMenu({ contacts = [], canEdit = false, allEventAssignments = [] }: { contacts?: Contact[]; canEdit?: boolean; allEventAssignments?: any[] }) {
+import { NotificationBell } from "@/components/NotificationBell";
+import { Settings } from "lucide-react";
+
+export function HeaderUserMenu({
+  contacts = [],
+  canEdit = false,
+  allEventAssignments = [],
+  showAdmin = false,
+  showNotifications = false,
+}: {
+  contacts?: Contact[];
+  canEdit?: boolean;
+  allEventAssignments?: any[];
+  showAdmin?: boolean;
+  showNotifications?: boolean;
+}) {
   const { user, logout } = useAuth();
   const { palette, setPalette, colors } = useColorScheme();
   const { theme, toggleTheme } = useTheme();
@@ -66,18 +82,6 @@ export function HeaderUserMenu({ contacts = [], canEdit = false, allEventAssignm
   return (
     <>
       <div className="flex items-center gap-0.5">
-        {/* Always-visible logout button in the header */}
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-muted-foreground hover:text-destructive transition-colors"
-          onClick={() => logout()}
-          title="Log Out"
-          data-testid="button-logout-header"
-        >
-          <LogOut className="h-4 w-4" />
-        </Button>
-
         <Popover>
         <PopoverTrigger asChild>
           <Button variant="ghost" size="icon" className="rounded-full" data-testid="button-user-menu">
@@ -88,6 +92,17 @@ export function HeaderUserMenu({ contacts = [], canEdit = false, allEventAssignm
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-64 p-2 max-h-[80vh] overflow-y-auto" align="end">
+          {/* Notification Bell and Admin button moved here */}
+          <div className="flex items-center gap-2 mb-2">
+            {showNotifications && <NotificationBell />}
+            {showAdmin && (
+              <Link href="/admin">
+                <Button variant="outline" size="sm" className="bg-card/50 backdrop-blur-sm border-border/30" data-testid="link-admin-panel">
+                  <Settings className="mr-2 h-4 w-4" /> Admin
+                </Button>
+              </Link>
+            )}
+          </div>
           <div className="space-y-1">
             <div className="px-2 py-1.5">
               <p className="text-sm font-medium truncate">{user?.firstName} {user?.lastName}</p>

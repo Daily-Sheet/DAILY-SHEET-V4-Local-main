@@ -6,6 +6,7 @@ import { Shield, LogIn, ArrowRight } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
+import { buildApiUrl } from "@/lib/api";
 import { resetBootstrap } from "@/hooks/use-auth";
 
 export default function AdminLogin() {
@@ -19,7 +20,7 @@ export default function AdminLogin() {
     e.preventDefault();
     setIsPending(true);
     try {
-      const res = await fetch((import.meta.env.VITE_API_URL ?? "") + "/api/auth/login", {
+      const res = await fetch(buildApiUrl("/api/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -34,7 +35,7 @@ export default function AdminLogin() {
       }
 
       if (data.role !== "admin") {
-        await fetch((import.meta.env.VITE_API_URL ?? "") + "/api/auth/logout", { method: "POST", credentials: "include" });
+        await fetch(buildApiUrl("/api/auth/logout"), { method: "POST", credentials: "include" });
         toast({ title: "Access Denied", description: "This login is for administrators only. Please use the crew login instead.", variant: "destructive" });
         return;
       }
