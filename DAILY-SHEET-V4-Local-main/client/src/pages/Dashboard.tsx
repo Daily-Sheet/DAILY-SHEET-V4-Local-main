@@ -2405,7 +2405,14 @@ export default function Dashboard() {
         open={commandPaletteOpen}
         onOpenChange={setCommandPaletteOpen}
         onNavigateTab={(tab) => setActiveTab(tab as TabId)}
-        onSelectShow={(name) => eventSelection.singleSelect(name)}
+        onSelectShow={(name, startDate, endDate) => {
+          eventSelection.singleSelect(name);
+          if (startDate) {
+            const todayStr = format(new Date(), "yyyy-MM-dd");
+            const end = endDate || startDate;
+            setActiveDate(todayStr >= startDate && todayStr <= end ? todayStr : startDate);
+          }
+        }}
       />
 
     </div>

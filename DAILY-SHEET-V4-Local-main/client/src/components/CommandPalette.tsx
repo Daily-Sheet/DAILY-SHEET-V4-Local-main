@@ -15,7 +15,7 @@ interface CommandPaletteProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onNavigateTab?: (tab: string) => void;
-  onSelectShow?: (showName: string) => void;
+  onSelectShow?: (showName: string, startDate?: string, endDate?: string) => void;
 }
 
 export function CommandPalette({ open, onOpenChange, onNavigateTab, onSelectShow }: CommandPaletteProps) {
@@ -30,7 +30,7 @@ export function CommandPalette({ open, onOpenChange, onNavigateTab, onSelectShow
     onOpenChange(false);
     switch (type) {
       case "show":
-        if (onSelectShow) onSelectShow(item.name);
+        if (onSelectShow) onSelectShow(item.name, item.startDate, item.endDate);
         if (onNavigateTab) onNavigateTab("overview");
         break;
       case "project":

@@ -108,7 +108,8 @@ export function OnTourWidget({ events, projects, venues, allDayVenues, selectedD
         }
       }
 
-      if (currentStop || nextStop) {
+      // Only show the banner if we're currently at a stop (leg is active)
+      if (currentStop) {
         return { project: tp, currentStop, nextStop };
       }
     }
