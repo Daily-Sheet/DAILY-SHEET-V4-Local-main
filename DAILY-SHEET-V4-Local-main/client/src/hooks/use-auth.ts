@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { User } from "@shared/models/auth";
 import { api } from "@shared/routes";
+import { buildApiUrl } from "@/lib/api";
 import { queryClient as globalQueryClient } from "@/lib/queryClient";
 
 export type AuthUser = User & { eventAssignments?: string[]; projectAssignments?: { projectId: number; position?: string | null }[]; workspaceRole?: string; workspaceCount?: number };
@@ -53,13 +54,13 @@ function seedQueryCaches(data: BootstrapResponse) {
 
 async function fetchWithBootstrap(): Promise<AuthUser | null> {
   if (!needsBootstrap) {
-    const response = await fetch((import.meta.env.VITE_API_URL ?? "") + "/api/auth/user", { credentials: "include" });
+    const response = await fetch(buildApiUrl("/api/auth/user"), { credentials: "include" });
     if (response.status === 401) return null;
     if (!response.ok) throw new Error(`${response.status}: ${response.statusText}`);
     return response.json();
   }
 
-  const response = await fetch((import.meta.env.VITE_API_URL ?? "") + "/api/bootstrap", { credentials: "include" });
+  const response = await fetch(buildApiUrl("/api/bootstrap"), { credentials: "include" });
 
   if (response.status === 401) {
     return null;
@@ -93,7 +94,7 @@ export function useAuth() {
 
   const logoutMutation = useMutation({
     mutationFn: async () => {
-      await fetch((import.meta.env.VITE_API_URL ?? "") + "/api/auth/logout", {
+      await fetch(buildApiUrl("/api/auth/logout"), {
         method: "POST",
         credentials: "include",
       });

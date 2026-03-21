@@ -10,6 +10,9 @@ export function serveStatic(app: Express) {
     );
   }
   app.use(express.static(distPath));
+  app.use("/api", (_req, res) => {
+    res.status(404).json({ message: "API route not found" });
+  });
   app.use("/{*path}", (_req, res) => {
     res.sendFile(path.resolve(distPath, "index.html"));
   });

@@ -14,6 +14,7 @@ import {
   ExternalLink, Clock, X, Plane, LayoutGrid, List,
 } from "lucide-react";
 import { useQuery, useQueries } from "@tanstack/react-query";
+import { useLegs } from "../hooks/use-legs";
 import type { Event, Project } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
 import { useColorScheme } from "@/components/ColorSchemeProvider";
@@ -21,6 +22,7 @@ import { useEventSelection } from "@/contexts/EventSelectionContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { PullToRefresh } from "@/components/PullToRefresh";
+import { EventTile } from "@/components/EventTile";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -67,14 +69,11 @@ function DayPanel({
 
   return (
     <div className="rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm overflow-hidden">
-      <div className="px-4 py-3 border-b border-border/30 flex items-center justify-between gap-2">
+      <div className="px-4 py-3 border-b border-border/30 flex items-center gap-2">
         <div className="min-w-0">
           <p className="text-[10px] text-muted-foreground uppercase tracking-wide font-medium">Selected Day</p>
           <h3 className="font-semibold text-sm truncate">{formatted}</h3>
         </div>
-        <button onClick={onClose} className="text-muted-foreground hover:text-foreground p-1 flex-shrink-0 transition-colors">
-          <X className="w-4 h-4" />
-        </button>
       </div>
 
       {!hasContent ? (
@@ -85,38 +84,19 @@ function DayPanel({
         <div className="divide-y divide-border/20">
           {/* Shows */}
           {shows.map(({ event, crew, scheduleItems, color }) => (
-            <div key={`show-${event.id}`} className="px-4 py-3 flex items-start gap-2.5">
-              <div className={cn("w-2.5 h-2.5 rounded-full mt-[3px] flex-shrink-0", color?.dot || "bg-primary")} />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium leading-snug truncate">{event.name}</p>
-                {event.startDate && event.endDate && (
-                  <p className="text-[10px] text-muted-foreground mt-0.5">
-                    {format(parseISO(event.startDate), "MMM d")}
-                    {" – "}
-                    {format(parseISO(event.endDate), "MMM d, yyyy")}
-                    {" · "}
-                    {differenceInDays(parseISO(event.endDate), parseISO(event.startDate)) + 1}d
-                  </p>
-                )}
-                <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <Users className="w-3 h-3" />{crew} crew
-                  </span>
-                  {scheduleItems > 0 && (
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />{scheduleItems} item{scheduleItems !== 1 ? "s" : ""}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <button
-                onClick={() => onNavigate(date, event.name)}
-                className="flex-shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-colors"
-                title={`Open ${event.name} in Dashboard`}
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-              </button>
-            </div>
+            <EventTile
+              key={`show-${event.id}`}
+              event={{ ...event, color }}
+              crew={crew}
+              scheduleItems={scheduleItems}
+              onClick={() => {
+                if (event.startDate) {
+                  localStorage.setItem("activeDate", event.startDate);
+                }
+                window.location.href = "/dashboard";
+              }}
+              showDetails={true}
+            />
           ))}
 
           {/* Travel days */}
@@ -194,15 +174,49 @@ export default function CalendarPage() {
 
   const { data: allEvents = [] } = useQuery<Event[]>({ queryKey: ["/api/events"] });
   const { data: allProjects = [] } = useQuery<Project[]>({ queryKey: ["/api/projects"] });
+
+  // Assume first project is active for now (customize as needed)
+  const activeProjectId = allProjects[0]?.id;
+  const { data: legs = [] } = useLegs(activeProjectId);
   const { data: allSchedules = [] } = useQuery<any[]>({ queryKey: ["/api/schedules"] });
 
+
+  // Group all schedule instances by event name, and compute the min/max date for each event
   const eventsList = useMemo(() => {
-    if (isAdmin) return allEvents.filter((e: Event) => !e.archived);
-    const assigned = user?.eventAssignments as string[] | undefined;
-    if (!assigned || assigned.length === 0) return [];
-    const assignedSet = new Set(assigned);
-    return allEvents.filter((e: Event) => !e.archived && assignedSet.has(e.name));
-  }, [allEvents, isAdmin, user]);
+    // Filter events by user assignment/admin
+    let filteredEvents: Event[];
+    if (isAdmin) filteredEvents = allEvents.filter((e: Event) => !e.archived);
+    else {
+      const assigned = user?.eventAssignments as string[] | undefined;
+      if (!assigned || assigned.length === 0) return [];
+      const assignedSet = new Set(assigned);
+      filteredEvents = allEvents.filter((e: Event) => !e.archived && assignedSet.has(e.name));
+    }
+
+    // Map event name to all its instance dates (from schedules)
+    const eventInstanceDates = new Map<string, string[]>();
+    allSchedules.forEach((s: any) => {
+      if (!s.eventName || !s.eventDate) return;
+      if (!eventInstanceDates.has(s.eventName)) eventInstanceDates.set(s.eventName, []);
+      eventInstanceDates.get(s.eventName)!.push(s.eventDate);
+    });
+
+    // For each event, compute the min/max date from its instances
+    return filteredEvents.map(ev => {
+      const instanceDates = eventInstanceDates.get(ev.name);
+      if (instanceDates && instanceDates.length > 0) {
+        // Sort dates to get min/max
+        const sorted = instanceDates.slice().sort();
+        return {
+          ...ev,
+          startDate: sorted[0],
+          endDate: sorted[sorted.length - 1],
+        };
+      }
+      // Fallback to event's own start/end if no instances
+      return ev;
+    });
+  }, [allEvents, allSchedules, isAdmin, user]);
 
   const { data: allEventAssignments = [] } = useQuery<any[]>({ queryKey: ["/api/event-assignments"] });
 
@@ -447,7 +461,16 @@ export default function CalendarPage() {
     return ci ? ci.eventNames : [];
   };
 
-  const showPanel = panelOpen && selectedDate && (selectedDayShows.length > 0 || selectedDayTravelDays.length > 0);
+  // Always show the day panel if a day is selected, otherwise show upcoming shows
+  const showPanel = !!selectedDate;
+
+  // Helper: get upcoming shows (not archived, startDate >= today)
+  const upcomingShows = useMemo(() => {
+    const todayDate = new Date();
+    return eventsList
+      .filter(ev => !ev.archived && ev.startDate && new Date(ev.startDate) >= todayDate)
+      .sort((a, b) => new Date(a.startDate!).getTime() - new Date(b.startDate!).getTime());
+  }, [eventsList]);
 
   const monthTravelDays = useMemo(() => {
     const monthStart = format(startOfMonth(currentMonth), "yyyy-MM-dd");
@@ -489,6 +512,8 @@ export default function CalendarPage() {
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, []);
+
+  const [showUpcomingModal, setShowUpcomingModal] = useState(false);
 
   return (
     <div className="min-h-screen bg-background pb-24 sm:pb-0">
@@ -661,123 +686,208 @@ export default function CalendarPage() {
                     ))}
                   </div>
 
-                  {weeks.map((week, wi) => (
-                    <div key={wi}>
-                      <div className="grid grid-cols-7">
-                        {week.map((day) => {
-                          const dateStr = format(day, "yyyy-MM-dd");
-                          const inMonth = isSameMonth(day, currentMonth);
-                          const todayDay = isToday(day);
-                          const selected = dateStr === selectedDate && panelOpen;
-                          const dotsOnDay = calendarDotInfo.get(dateStr) || [];
-                          const dayIsOverlap = dotsOnDay.length > 1;
-
-                          const filteredDotsOnDay = calendarFilter === "all"
-                            ? dotsOnDay
-                            : dotsOnDay.filter(ciId => ciId === calendarFilter);
-
-                          const eventsOnDay = overlapInfo.get(dateStr) || [];
-                          const filteredEvents = calendarFilter === "all"
-                            ? eventsOnDay
-                            : eventsOnDay.filter(en => {
-                                const ci = calendarItems.find(c => c.id === calendarFilter);
-                                return ci?.eventNames.includes(en);
-                              });
-
-                          const travelDaysOnDay = allTravelDays.filter(td => td.date === dateStr);
-                          const hasShows = eventsOnDay.length > 0;
-                          const hasTravelDays = travelDaysOnDay.length > 0;
-
-                          return (
-                            <button
-                              key={dateStr}
-                              onClick={() => handleDayClick(dateStr)}
-                              className={cn(
-                                "relative flex flex-col items-start p-1 sm:p-1.5 transition-all border-b border-r border-border/20 group",
-                                isMobile ? "min-h-[56px]" : "min-h-[72px]",
-                                !inMonth && "opacity-30",
-                                selected && "bg-primary/10 dark:bg-primary/15",
-                                !selected && (hasShows || hasTravelDays) && "hover:bg-muted/40",
-                                !selected && !hasShows && !hasTravelDays && "hover:bg-muted/20",
-                              )}
-                              data-testid={`cal-day-${dateStr}`}
-                            >
-                              <div className="flex items-center justify-between w-full mb-0.5">
-                                <span className={cn(
-                                  "text-xs sm:text-sm leading-none",
-                                  todayDay && "bg-primary text-primary-foreground rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-[10px] sm:text-xs font-bold",
-                                  !todayDay && selected && "font-semibold text-primary",
-                                  !todayDay && !selected && "text-foreground/80",
-                                )}>
-                                  {format(day, "d")}
-                                </span>
-                                {dayIsOverlap && calendarFilter === "all" && inMonth && (
-                                  <div className="w-1.5 h-1.5 rounded-full bg-destructive/70" title="Overlapping shows" />
+                  {(isMobile
+                    ? (() => {
+                        // Find the current week index
+                        const today = new Date();
+                        const currentWeekIdx = weeks.findIndex(week =>
+                          week.some(day => isToday(day))
+                        );
+                        // Show only current week and next week (if exists)
+                        return weeks.slice(
+                          currentWeekIdx === -1 ? 0 : currentWeekIdx,
+                          currentWeekIdx === -1 ? 2 : currentWeekIdx + 2
+                        );
+                      })()
+                    : weeks
+                  ).map((week, wi) => {
+                    // For each week, render a grid row and absolutely positioned event bars
+                    // 1. Render the day cells as before
+                    // 2. Render event bars as overlays
+                    const weekStart = week[0];
+                    const weekEnd = week[6];
+                    // Find events that overlap this week
+                    const weekEvents = monthCalendarItems.filter(ev => {
+                      if (!ev.startDate || !ev.endDate) return false;
+                      return (
+                        ev.endDate >= format(weekStart, "yyyy-MM-dd") &&
+                        ev.startDate <= format(weekEnd, "yyyy-MM-dd")
+                      );
+                    });
+                    // Calculate max row for this week to set container and cell height
+                    let maxRow = 1;
+                    {
+                      // 1. For each event, determine which days in the week it occupies
+                      const weekDays = week.map(d => format(d, "yyyy-MM-dd"));
+                      const eventIntervals = weekEvents.map(ev => {
+                        const startIdx = Math.max(0, weekDays.findIndex(d => d >= ev.startDate!));
+                        const endIdx = Math.min(6, weekDays.findIndex(d => d > ev.endDate!) === -1 ? 6 : weekDays.findIndex(d => d > ev.endDate!) - 1);
+                        return { ev, startIdx, endIdx };
+                      });
+                      // 2. Sort by startIdx, then by endIdx
+                      eventIntervals.sort((a, b) => a.startIdx - b.startIdx || a.endIdx - b.endIdx);
+                      // 3. Assign rows using greedy coloring
+                      const activeRows = [];
+                      eventIntervals.forEach(({ startIdx, endIdx }) => {
+                        for (let i = activeRows.length - 1; i >= 0; i--) {
+                          if (activeRows[i].endIdx < startIdx) activeRows.splice(i, 1);
+                        }
+                        let row = 0;
+                        while (activeRows.some(r => r.row === row)) row++;
+                        activeRows.push({ endIdx, row });
+                        if (row + 1 > maxRow) maxRow = row + 1;
+                      });
+                    }
+                    // Use larger row height on mobile for better spacing
+                    const isMobileRow = isMobile;
+                    const eventBarRowHeight = isMobileRow ? 52 : 40;
+                    const weekRowHeight = 36 + maxRow * eventBarRowHeight; // 36px for date number + per event bar row
+                    return (
+                      <div key={wi} className="relative" style={{ minHeight: weekRowHeight }}>
+                        <div className="grid grid-cols-7" style={{ minHeight: weekRowHeight }}>
+                          {week.map((day) => {
+                            const dateStr = format(day, "yyyy-MM-dd");
+                            const inMonth = isSameMonth(day, currentMonth);
+                            const todayDay = isToday(day);
+                            const selected = dateStr === selectedDate && panelOpen;
+                            const dayIsOverlap = (calendarDotInfo.get(dateStr) || []).length > 1;
+                            return (
+                              <button
+                                key={dateStr}
+                                onClick={() => handleDayClick(dateStr)}
+                                className={cn(
+                                  "relative flex flex-col items-start p-1 sm:p-1.5 transition-all border-b border-r border-border/20 group",
+                                  !inMonth && "opacity-30",
+                                  selected && "bg-primary/10 dark:bg-primary/15",
+                                  !selected && dayIsOverlap && "hover:bg-muted/40",
                                 )}
-                              </div>
-
-                              {!isMobile && (filteredEvents.length > 0 || hasTravelDays) && (
-                                <div className="flex flex-col gap-px w-full mt-auto overflow-hidden">
-                                  {filteredEvents.slice(0, 2).map((en, idx) => {
-                                    const c = colorMap.get(en);
-                                    return (
-                                      <div
-                                        key={`${en}-${idx}`}
-                                        className={cn(
-                                          "text-[8px] sm:text-[9px] leading-tight truncate rounded px-0.5 py-px font-medium",
-                                          c?.bg || "bg-primary/10",
-                                          c?.text || "text-primary",
-                                        )}
-                                        title={en}
-                                      >
-                                        {en}
-                                      </div>
-                                    );
-                                  })}
-                                  {filteredEvents.length > 2 && (
-                                    <span className="text-[8px] text-muted-foreground/60 pl-0.5">+{filteredEvents.length - 2}</span>
-                                  )}
-                                  {travelDaysOnDay.slice(0, 1).map(td => (
-                                    <div
-                                      key={`travel-${td.id}`}
-                                      className="text-[8px] sm:text-[9px] leading-tight truncate rounded px-0.5 py-px font-medium bg-sky-500/15 text-sky-600 dark:text-sky-400 flex items-center gap-0.5"
-                                      title={`Travel: ${td.departureAirport ?? ""} → ${td.arrivalAirport ?? ""}`}
-                                    >
-                                      <Plane className="w-2 h-2 flex-shrink-0" />
-                                      {td.departureAirport && td.arrivalAirport
-                                        ? `${td.departureAirport}→${td.arrivalAirport}`
-                                        : "Travel"}
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-
-                              {isMobile && (filteredDotsOnDay.length > 0 || hasTravelDays) && (
-                                <div className="flex gap-0.5 mt-auto">
-                                  {filteredDotsOnDay.slice(0, 3).map((ciId, idx) => {
-                                    const c = calendarColorMap.get(ciId);
-                                    return (
-                                      <div
-                                        key={`${ciId}-${idx}`}
-                                        className={cn("w-1 h-1 rounded-full", c?.dot || "bg-primary")}
-                                      />
-                                    );
-                                  })}
-                                  {hasTravelDays && (
-                                    <div className="w-1 h-1 rounded-full bg-sky-500" title="Travel day" />
-                                  )}
-                                  {filteredDotsOnDay.length > 3 && (
-                                    <span className="text-[7px] text-muted-foreground">+{filteredDotsOnDay.length - 3}</span>
+                                style={{ minHeight: weekRowHeight }}
+                                data-testid={`cal-day-${dateStr}`}
+                              >
+                                <div className="flex items-center justify-between w-full mb-7">
+                                  <span className={cn(
+                                    "text-xs sm:text-sm leading-none",
+                                    todayDay && "bg-primary text-primary-foreground rounded-full w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center text-[10px] sm:text-xs font-bold",
+                                    !todayDay && selected && "font-semibold text-primary",
+                                    !todayDay && !selected && "text-foreground/80",
+                                  )}>
+                                    {format(day, "d")}
+                                  </span>
+                                  {dayIsOverlap && calendarFilter === "all" && inMonth && (
+                                    <div className="w-1.5 h-1.5 rounded-full bg-destructive/70" title="Overlapping shows" />
                                   )}
                                 </div>
-                              )}
-                            </button>
+                              </button>
+                            );
+                          })}
+                        </div>
+                        {/* Leg bars overlay (above event bars) */}
+                        {(() => {
+                          if (!legs || legs.length === 0) return null;
+                          const weekDays = week.map(d => format(d, "yyyy-MM-dd"));
+                          return (
+                            <div className="absolute left-0 w-full pointer-events-none px-1.5 sm:px-2" style={{ top: 0, height: 28, borderRadius: '0.75rem', overflow: 'hidden', zIndex: 3 }}>
+                              {legs.map(leg => {
+                                if (!leg.startDate || !leg.endDate) return null;
+                                // Find overlap with this week
+                                const legStartIdx = weekDays.findIndex(d => d >= leg.startDate);
+                                const legEndIdx = weekDays.findIndex(d => d > leg.endDate);
+                                const startIdx = legStartIdx === -1 ? 0 : legStartIdx;
+                                const endIdx = legEndIdx === -1 ? 6 : legEndIdx - 1;
+                                // Only render if leg overlaps this week
+                                if (startIdx > 6 || endIdx < 0 || startIdx > endIdx) return null;
+                                const left = (startIdx / 7) * 100;
+                                const width = ((endIdx - startIdx + 1) / 7) * 100;
+                                // Use a color or fallback
+                                const color = `hsl(${(leg.id * 47) % 360}, 70%, 60%)`;
+                                return (
+                                  <div
+                                    key={leg.id + '-' + startIdx + '-' + endIdx}
+                                    className="absolute flex items-center px-2 text-xs font-semibold shadow-sm whitespace-nowrap border border-border/40 rounded-md"
+                                    style={{ left: `${left}%`, width: `${width}%`, top: 2, height: 24, background: color, color: '#fff', zIndex: 3, opacity: 0.85 }}
+                                    title={leg.name}
+                                  >
+                                    {leg.name}
+                                  </div>
+                                );
+                              })}
+                            </div>
                           );
-                        })}
-                      </div>
+                        })()}
 
-                    </div>
-                  ))}
+                        {/* Event bars overlay */}
+                        {/* Calculate max row for this week to set container height */}
+                        {(() => {
+                          // 1. For each event, determine which days in the week it occupies
+                          const weekDays = week.map(d => format(d, "yyyy-MM-dd"));
+                          const eventIntervals = weekEvents.map(ev => {
+                            const startIdx = Math.max(0, weekDays.findIndex(d => d >= ev.startDate!));
+                            const endIdx = Math.min(6, weekDays.findIndex(d => d > ev.endDate!) === -1 ? 6 : weekDays.findIndex(d => d > ev.endDate!) - 1);
+                            return { ev, startIdx, endIdx };
+                          });
+                          // 2. Sort by startIdx, then by endIdx
+                          eventIntervals.sort((a, b) => a.startIdx - b.startIdx || a.endIdx - b.endIdx);
+                          // 3. Assign rows using greedy coloring
+                          const rowAssignments: { [key: string]: number } = {};
+                          const activeRows: { endIdx: number, row: number }[] = [];
+                          let maxRow = 0;
+                          eventIntervals.forEach(({ ev, startIdx, endIdx }) => {
+                            for (let i = activeRows.length - 1; i >= 0; i--) {
+                              if (activeRows[i].endIdx < startIdx) activeRows.splice(i, 1);
+                            }
+                            let row = 0;
+                            while (activeRows.some(r => r.row === row)) row++;
+                            // Use a composite key of event ID and interval to ensure uniqueness
+                            const key = `${ev.id}-${startIdx}-${endIdx}`;
+                            rowAssignments[key] = row;
+                            activeRows.push({ endIdx, row });
+                            if (row + 1 > maxRow) maxRow = row + 1;
+                          });
+                          // Render the overlay container with correct height
+                          return (
+                            <div className="absolute left-0 w-full pointer-events-none px-1.5 sm:px-2" style={{ top: '32px', height: `calc(100% - 36px)`, borderRadius: '0.75rem', overflow: 'hidden' }}>
+                              {eventIntervals.map(({ ev, startIdx, endIdx }) => {
+                                const left = (startIdx / 7) * 100;
+                                const width = ((endIdx - startIdx + 1) / 7) * 100;
+                                const c = calendarColorMap.get(ev.id);
+                                const key = `${ev.id}-${startIdx}-${endIdx}`;
+                                const rowIdx = rowAssignments[key] ?? 0;
+                                const isStart = startIdx === 0 || weekDays[startIdx] === ev.startDate;
+                                const isEnd = endIdx === 6 || weekDays[endIdx] === ev.endDate;
+                                return (
+                                  <div
+                                    key={ev.id + '-' + startIdx + '-' + endIdx}
+                                    className={cn(
+                                      "absolute flex items-center pl-2 pr-3 py-2 text-xs font-medium shadow-sm whitespace-normal break-words border border-border/40",
+                                      // Responsive: smaller font and padding for xs screens
+                                      "xs:text-[11px] xs:py-1.5 xs:pl-1.5 xs:pr-2",
+                                      // More vertical margin between bars on small screens
+                                      "xs:mt-1.5",
+                                      c?.bg || "bg-primary/20",
+                                      c?.text || "text-primary",
+                                      isStart && isEnd ? "rounded-md" : isStart ? "rounded-l-md" : isEnd ? "rounded-r-md" : "",
+                                      "overflow-hidden"
+                                    )}
+                                    style={{
+                                      left: `calc(${left}% + 2px)`,
+                                      width: `calc(${width}% - 4px)`,
+                                      top: `calc(${rowIdx} * ${eventBarRowHeight}px)`,
+                                      minHeight: isMobileRow ? 48 : 40,
+                                      height: isMobileRow ? 48 : 40,
+                                      zIndex: 2
+                                    }}
+                                    title={ev.label}
+                                  >
+                                    {ev.label}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          );
+                        })()}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Footer */}
@@ -806,17 +916,63 @@ export default function CalendarPage() {
                     animate={{ opacity: 1, x: 0, width: 280 }}
                     exit={{ opacity: 0, x: 16, width: 0 }}
                     transition={{ duration: 0.2, ease: "easeOut" }}
-                    className="flex-shrink-0 sticky top-20 overflow-hidden"
+                    className="flex-shrink-0 sticky top-20 overflow-visible"
                     style={{ minWidth: 0 }}
                   >
-                    <DayPanel
-                      date={selectedDate}
-                      shows={selectedDayShows}
-                      travelDays={selectedDayTravelDays}
-                      onNavigate={handleNavigateToDashboard}
-                      onNavigateTour={handleNavigateToTour}
-                      onClose={() => setPanelOpen(false)}
-                    />
+                    <div>
+                      {selectedDate && (
+                        <DayPanel
+                          date={selectedDate}
+                          shows={selectedDayShows}
+                          travelDays={selectedDayTravelDays}
+                          onNavigate={handleNavigateToDashboard}
+                          onNavigateTour={handleNavigateToTour}
+                          onClose={() => setPanelOpen(false)}
+                        />
+                      )}
+                      <div className="rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm overflow-hidden mt-4">
+                        <div className="px-4 py-3 border-b border-border/30 flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <h3 className="font-semibold text-sm truncate">Upcoming Shows</h3>
+                          </div>
+                          {upcomingShows.length > 3 && (
+                            <button
+                              className="text-xs text-primary underline hover:text-primary/80"
+                              onClick={() => setShowUpcomingModal(true)}
+                            >
+                              View More
+                            </button>
+                          )}
+                        </div>
+                        {upcomingShows.length === 0 ? (
+                          <div className="p-6 text-center text-sm text-muted-foreground">No upcoming shows.</div>
+                        ) : (
+                          <div className="divide-y divide-border/20">
+                            {upcomingShows.slice(0, 3).map(event => {
+                              let colorObj = { dot: "bg-primary" };
+                              if (event.color && typeof event.color === "object" && "dot" in event.color) {
+                                colorObj = event.color as { dot: string };
+                              }
+                              const { color, ...eventRest } = event;
+                              return (
+                                <EventTile
+                                  key={event.id}
+                                  event={{ ...eventRest, color: colorObj }}
+                                  onClick={() => {
+                                    eventSelection.singleSelect(event.name);
+                                    if (event.startDate) {
+                                      localStorage.setItem("activeDate", event.startDate);
+                                    }
+                                    navigate("/dashboard");
+                                  }}
+                                  showDetails={true}
+                                />
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -833,14 +989,60 @@ export default function CalendarPage() {
                   transition={{ duration: 0.2, ease: "easeOut" }}
                   className="mt-4"
                 >
-                  <DayPanel
-                    date={selectedDate}
-                    shows={selectedDayShows}
-                    travelDays={selectedDayTravelDays}
-                    onNavigate={handleNavigateToDashboard}
-                    onNavigateTour={handleNavigateToTour}
-                    onClose={() => setPanelOpen(false)}
-                  />
+                  <div>
+                    {selectedDate && (
+                      <DayPanel
+                        date={selectedDate}
+                        shows={selectedDayShows}
+                        travelDays={selectedDayTravelDays}
+                        onNavigate={handleNavigateToDashboard}
+                        onNavigateTour={handleNavigateToTour}
+                        onClose={() => setPanelOpen(false)}
+                      />
+                    )}
+                    <div className="rounded-xl border border-border/40 bg-card/60 backdrop-blur-sm overflow-hidden mt-4">
+                      <div className="px-4 py-3 border-b border-border/30 flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-sm truncate">Upcoming Shows</h3>
+                        </div>
+                        {upcomingShows.length > 3 && (
+                          <button
+                            className="text-xs text-primary underline hover:text-primary/80"
+                            onClick={() => setShowUpcomingModal(true)}
+                          >
+                            View More
+                          </button>
+                        )}
+                      </div>
+                      {upcomingShows.length === 0 ? (
+                        <div className="p-6 text-center text-sm text-muted-foreground">No upcoming shows.</div>
+                      ) : (
+                        <div className="divide-y divide-border/20">
+                          {upcomingShows.slice(0, 3).map(event => {
+                            let colorObj = { dot: "bg-primary" };
+                            if (event.color && typeof event.color === "object" && "dot" in event.color) {
+                              colorObj = event.color;
+                            }
+                            const { color, ...eventRest } = event;
+                            return (
+                              <EventTile
+                                key={event.id}
+                                event={{ ...eventRest, color: colorObj }}
+                                onClick={() => {
+                                  eventSelection.singleSelect(event.name);
+                                  if (event.startDate) {
+                                    localStorage.setItem("activeDate", event.startDate);
+                                  }
+                                  navigate("/dashboard");
+                                }}
+                                showDetails={true}
+                              />
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

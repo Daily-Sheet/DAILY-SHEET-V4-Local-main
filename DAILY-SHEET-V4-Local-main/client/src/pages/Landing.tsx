@@ -7,6 +7,7 @@ import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { resetBootstrap } from "@/hooks/use-auth";
+import { buildApiUrl } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 
 export default function Landing() {
@@ -22,7 +23,7 @@ export default function Landing() {
   const { data: setupStatus } = useQuery<{ needsSetup: boolean }>({
     queryKey: ["/api/auth/check-setup"],
     queryFn: async () => {
-      const res = await fetch((import.meta.env.VITE_API_URL ?? "") + "/api/auth/check-setup");
+      const res = await fetch(buildApiUrl("/api/auth/check-setup"));
       if (!res.ok) throw new Error("Failed");
       return res.json();
     },
@@ -34,7 +35,7 @@ export default function Landing() {
     e.preventDefault();
     setIsPending(true);
     try {
-      const res = await fetch((import.meta.env.VITE_API_URL ?? "") + "/api/auth/login", {
+      const res = await fetch(buildApiUrl("/api/auth/login"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -62,7 +63,7 @@ export default function Landing() {
     e.preventDefault();
     setForgotPending(true);
     try {
-      await fetch((import.meta.env.VITE_API_URL ?? "") + "/api/auth/forgot-password", {
+      await fetch(buildApiUrl("/api/auth/forgot-password"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: forgotEmail }),

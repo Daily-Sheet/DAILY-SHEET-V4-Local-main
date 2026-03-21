@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input";
 import { KeyRound, CheckCircle2, ArrowRight } from "lucide-react";
 import { Link, useSearch } from "wouter";
+import { buildApiUrl } from "@/lib/api";
 
 export default function ResetPassword() {
   const searchString = useSearch();
@@ -29,7 +30,7 @@ export default function ResetPassword() {
     }
     setIsPending(true);
     try {
-      const res = await fetch((import.meta.env.VITE_API_URL ?? "") + "/api/auth/reset-password", {
+      const res = await fetch(buildApiUrl("/api/auth/reset-password"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token, password }),

@@ -229,6 +229,76 @@ For any field you cannot determine from the document, use null. Be thorough - te
     res.json(packets);
   });
 
+  app.get("/api/venues/export", isAuthenticated, async (req: any, res) => {
+    console.log(`[venues/export] start user=${req.user?.id} path=${req.path} query=${JSON.stringify(req.query)}`);
+    try {
+      const venues = await storage.getAllVenues();
+
+      const rows = await Promise.all(
+        venues.map(async (venue) => {
+          const zones = await storage.getZonesByVenue(venue.id);
+          const zoneNames = zones.map((z) => z.name || "").join(" | ");
+          const zoneCount = zones.length;
+          return {
+            id: venue.id,
+            name: venue.name,
+            address: venue.address,
+            contactName: venue.contactName || "",
+            contactPhone: venue.contactPhone || "",
+            wifiSsid: venue.wifiSsid || "",
+            wifiPassword: venue.wifiPassword || "",
+            parking: venue.parking || "",
+            loadIn: venue.loadIn || "",
+            capacity: venue.capacity || "",
+            dressingRooms: venue.dressingRooms ? "true" : "false",
+            dressingRoomsNotes: venue.dressingRoomsNotes || "",
+            showers: venue.showers ? "true" : "false",
+            showersNotes: venue.showersNotes || "",
+            laundry: venue.laundry ? "true" : "false",
+            laundryNotes: venue.laundryNotes || "",
+            meals: venue.meals || "",
+            mealsNotes: venue.mealsNotes || "",
+            notes: venue.notes || "",
+            techPacketUrl: venue.techPacketUrl || "",
+            latitude: venue.latitude || "",
+            longitude: venue.longitude || "",
+            workspaceId: venue.workspaceId ?? "",
+            createdByWorkspaceId: venue.createdByWorkspaceId ?? "",
+            zoneCount,
+            zoneNames,
+          };
+        })
+      );
+
+      const selectedKeys = [
+        "id", "name", "address", "contactName", "contactPhone", "wifiSsid", "wifiPassword",
+        "parking", "loadIn", "capacity", "dressingRooms", "dressingRoomsNotes", "showers", "showersNotes",
+        "laundry", "laundryNotes", "meals", "mealsNotes", "notes", "techPacketUrl", "latitude", "longitude",
+        "workspaceId", "createdByWorkspaceId", "zoneCount", "zoneNames",
+      ];
+
+      const escapeCsv = (value: unknown) => {
+        const str = value === null || value === undefined ? "" : String(value);
+        const escaped = str.replace(/"/g, '""');
+        return `"${escaped}"`;
+      };
+
+      const csvLines = [selectedKeys.join(",")];
+      for (const row of rows) {
+        csvLines.push(selectedKeys.map((key) => escapeCsv((row as any)[key])).join(","));
+      }
+
+      const csv = csvLines.join("\n");
+
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", "attachment; filename=venues-export.csv");
+      res.send(csv);
+    } catch (error) {
+      console.error("Venue export error:", error);
+      res.status(500).json({ message: "Failed to generate venue CSV export" });
+    }
+  });
+
   app.post("/api/venues/:id/tech-packet", isAuthenticated, requireRole("owner", "manager", "admin"), upload.single("file"), async (req: any, res) => {
     try {
       if (!req.file) {

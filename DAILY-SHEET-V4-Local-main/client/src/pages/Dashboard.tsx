@@ -1,4 +1,7 @@
-import { useState, useRef, useMemo, useEffect, useCallback, useSyncExternalStore, lazy, Suspense } from "react";
+import { useState, useRef, useMemo, useEffect, useCallback, useSyncExternalStore, lazy, Suspense, useLayoutEffect } from "react";
+// ...existing code...
+  // Number of sub-card rows (Venue, Schedule, Crew, Activity)
+
 import { DEPARTMENTS } from "@shared/constants";
 import { cn } from "@/lib/utils";
 import { AppHeader } from "@/components/AppHeader";
@@ -293,7 +296,9 @@ export default function Dashboard() {
     onError: () => toast({ title: "Failed to switch organization", variant: "destructive" }),
   });
 
-  const [selectedDate, setSelectedDate] = useState(() => {
+  const [activeDate, setActiveDate] = useState(() => {
+    const stored = localStorage.getItem("activeDate");
+    if (stored && /^\d{4}-\d{2}-\d{2}$/.test(stored)) return stored;
     const today = format(new Date(), "yyyy-MM-dd");
     const params = new URLSearchParams(window.location.search);
     const dateParam = params.get("date");
@@ -303,7 +308,15 @@ export default function Dashboard() {
     }
     return today;
   });
-  selectedDateRef.current = selectedDate;
+  selectedDateRef.current = activeDate;
+
+  // Persist activeDate to localStorage whenever it changes
+  useEffect(() => {
+    if (activeDate) {
+      localStorage.setItem("activeDate", activeDate);
+    }
+  }, [activeDate]);
+
   const queryClient = useQueryClient();
 
   const savePreferencesMutation = useMutation({
@@ -338,7 +351,7 @@ export default function Dashboard() {
     if (dateParam && /^\d{4}-\d{2}-\d{2}$/.test(dateParam)) {
       const parsed = parseISO(dateParam);
       if (!isNaN(parsed.getTime())) {
-        setSelectedDate(dateParam);
+        setActiveDate(dateParam);
         applied = true;
       }
     }
@@ -387,8 +400,8 @@ export default function Dashboard() {
     enabled: !!firstTourProjectId,
   });
   const travelDayForSelectedDate = useMemo(() => {
-    return dashboardTravelDays.find(td => td.date === selectedDate) || null;
-  }, [dashboardTravelDays, selectedDate]);
+    return dashboardTravelDays.find(td => td.date === activeDate) || null;
+  }, [dashboardTravelDays, activeDate]);
 
   const [selectedVenueId, setSelectedVenueId] = useState<number | null>(null);
 
@@ -400,13 +413,13 @@ export default function Dashboard() {
     for (const name of effectiveEvents) {
       const ev = eventsList.find((e: Event) => e.name === name);
       if (ev) {
-        const dayVenue = allDayVenues.find(dv => dv.eventId === ev.id && dv.date === selectedDate);
+        const dayVenue = allDayVenues.find(dv => dv.eventId === ev.id && dv.date === activeDate);
         if (dayVenue) return dayVenue.venueId;
         if (ev.venueId) return ev.venueId;
       }
     }
     return null;
-  }, [selectedEvents, eventsList, allDayVenues, selectedDate]);
+  }, [selectedEvents, eventsList, allDayVenues, activeDate]);
   const venue = (() => {
     if (eventLinkedVenueId) return venuesList.find(v => v.id === eventLinkedVenueId) || null;
     if (selectedVenueId) return venuesList.find(v => v.id === selectedVenueId) || null;
@@ -492,7 +505,7 @@ export default function Dashboard() {
 
   const createTravelDayMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("POST", `/api/projects/${addTravelProjectId}/travel-days`, { date: selectedDate, ...newTravelForm });
+      await apiRequest("POST", `/api/projects/${addTravelProjectId}/travel-days`, { date: activeDate, ...newTravelForm });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", addTravelProjectId, "travel-days"] });
@@ -552,8 +565,8 @@ export default function Dashboard() {
     }
     if (type === "show") {
       setQuickShowName("");
-      setQuickShowStartDate(selectedDate);
-      setQuickShowEndDate(selectedDate);
+      setQuickShowStartDate(activeDate);
+      setQuickShowEndDate(activeDate);
       setQuickAddType("show");
     } else if (type === "project") {
       setQuickProjectName("");
@@ -625,12 +638,12 @@ export default function Dashboard() {
   }, [schedules, eventsList, selectedEvents]);
 
   useEffect(() => {
-    if (availableDates.length > 0 && !selectedDate) {
+    if (availableDates.length > 0 && !activeDate) {
       const todayStr = format(new Date(), "yyyy-MM-dd");
       const fallback = availableDates.includes(todayStr) ? todayStr : availableDates[0];
-      setSelectedDate(fallback);
+      setActiveDate(fallback);
     }
-  }, [availableDates, selectedDate]);
+  }, [availableDates, activeDate]);
 
   const availableEvents = useMemo(() => {
     const activeEvents = (eventsList as Event[]).filter((e: Event) => !e.archived);
@@ -742,7 +755,7 @@ export default function Dashboard() {
         eventSelection.setSelectedEvents([closestFutureEvent.name]);
         // Also jump the date to the show's start date if it's not today
         if (closestFutureEvent.startDate && closestFutureEvent.startDate !== todayStr) {
-          setSelectedDate(closestFutureEvent.startDate);
+          setActiveDate(closestFutureEvent.startDate);
         }
       }
     } else {
@@ -776,7 +789,7 @@ export default function Dashboard() {
   }, [user, availableEvents, eventsList]);
 
   const handleDateSelect = useCallback((date: string) => {
-    setSelectedDate(date);
+    setActiveDate(date);
     // Auto-select shows active on the clicked date
     const availableSet = new Set(availableEvents);
     const showsOnDate = (eventsList as Event[]).filter((e: Event) => {
@@ -811,12 +824,12 @@ export default function Dashboard() {
       if (item.eventName && !expandedAssignedEvents.has(item.eventName)) return false;
     }
     const d = item.eventDate || format(new Date(item.startTime), "yyyy-MM-dd");
-    if (d !== selectedDate) return false;
+    if (d !== activeDate) return false;
     if (effectiveSelectedEvents.length > 0) {
       return item.eventName ? effectiveSelectedEventsSet.has(item.eventName) : false;
     }
     return true;
-  }), [sortedSchedule, selectedDate, effectiveSelectedEventsSet, isManager, expandedAssignedEvents]);
+  }), [sortedSchedule, activeDate, effectiveSelectedEventsSet, isManager, expandedAssignedEvents]);
 
   const searchFilteredNestedFlat = useMemo(() => {
     const tree = buildNestedSchedule(filteredSchedule);
@@ -877,13 +890,13 @@ export default function Dashboard() {
         if (item.eventName && !expandedAssignedEvents.has(item.eventName)) return false;
       }
       const d = item.eventDate || format(new Date(item.startTime), "yyyy-MM-dd");
-      return d === selectedDate;
+      return d === activeDate;
     }).sort((a, b) => {
       const diff = getLocalTimeMinutes(a.startTime) - getLocalTimeMinutes(b.startTime);
       if (diff !== 0) return diff;
       return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
     });
-  }, [sortedSchedule, selectedDate, isManager, expandedAssignedEvents]);
+  }, [sortedSchedule, activeDate, isManager, expandedAssignedEvents]);
 
   const allShowsForSelectedDate = useMemo(() => {
     if (!isManager) {
@@ -895,9 +908,9 @@ export default function Dashboard() {
       if (!ev.startDate) return false;
       const start = ev.startDate;
       const end = ev.endDate || ev.startDate;
-      return selectedDate >= start && selectedDate <= end;
+      return activeDate >= start && activeDate <= end;
     });
-  }, [eventsList, selectedDate, isManager, expandedAssignedEvents]);
+  }, [eventsList, activeDate, isManager, expandedAssignedEvents]);
 
   const showsForSelectedDate = useMemo(() => {
     if (effectiveSelectedEvents.length === 0) return allShowsForSelectedDate;
@@ -966,130 +979,62 @@ export default function Dashboard() {
     );
   }
 
-  if (showLanding && !isManager && eventsList.length > 0) {
-    const directAssigned = new Set(user?.eventAssignments || []);
-    const projAssignments = user?.projectAssignments || [];
-    const projAssignedNames = new Set<string>();
-    if (projAssignments.length > 0) {
-      const projIds = new Set(projAssignments.map(pa => pa.projectId));
-      for (const ev of eventsList) {
-        if (ev.projectId && projIds.has(ev.projectId)) {
-          if (!directAssigned.has(ev.name)) {
-            projAssignedNames.add(ev.name);
-          }
-          directAssigned.add(ev.name);
-        }
-      }
-    }
-    const assignedEvents = eventsList.filter((e: Event) => directAssigned.has(e.name));
-    if (assignedEvents.length > 0) {
-      return (
-        <div className="min-h-screen bg-background font-body flex flex-col">
-          <AppHeader />
-          <div className="flex-1 p-4 sm:p-6 max-w-2xl mx-auto w-full">
-            <h2 className="text-lg font-display uppercase tracking-wide text-foreground mb-4" data-testid="text-your-shows">Your Shows</h2>
-            <div className="space-y-3">
-              {assignedEvents.map((event: Event) => {
-                const eventVenue = event.venueId ? venuesList.find(v => v.id === event.venueId) : null;
-                const eventProject = event.projectId ? allProjects.find((p: Project) => p.id === event.projectId) : null;
-                const isFestival = eventProject?.isFestival;
-                const isTour = eventProject?.isTour;
-                const dateRange = event.startDate && event.endDate
-                  ? `${format(new Date(event.startDate + "T00:00:00"), "MMM d")} – ${format(new Date(event.endDate + "T00:00:00"), "MMM d, yyyy")}`
-                  : event.startDate
-                    ? format(new Date(event.startDate + "T00:00:00"), "MMM d, yyyy")
-                    : null;
-                return (
-                  <button
-                    key={event.id}
-                    className="w-full text-left bg-card border border-border rounded-xl p-4 hover-elevate active-elevate-2 transition-all"
-                    onClick={() => {
-                      eventSelection.singleSelect(event.name);
-                      setShowLanding(false);
-                    }}
-                    data-testid={`button-show-landing-${event.id}`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-display text-base font-semibold uppercase tracking-wide text-foreground truncate">
-                            {event.name}
-                          </h3>
-                          {projAssignedNames.has(event.name) && (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 whitespace-nowrap flex-shrink-0">{isTour ? "All Shows" : "All Stages"}</span>
-                          )}
-                        </div>
-                        {isFestival && eventProject && (
-                          <div className="flex items-center gap-1 mt-0.5">
-                            <Badge variant="secondary" className="text-[10px]">Stage</Badge>
-                            <span className="text-xs text-muted-foreground">{eventProject.name}</span>
-                          </div>
-                        )}
-                        {dateRange && (
-                          <div className="flex items-center gap-1.5 mt-1.5 text-sm text-muted-foreground">
-                            <CalendarIcon className="h-3.5 w-3.5 flex-shrink-0" />
-                            <span>{dateRange}</span>
-                          </div>
-                        )}
-                        {eventVenue && (
-                          <div className="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">
-                            <MapPin className="h-3.5 w-3.5 flex-shrink-0" />
-                            <span className="truncate">{eventVenue.name}</span>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex-shrink-0">
-                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-            {assignedEvents.length > 1 && (
-              <Button
-                variant="outline"
-                className="w-full mt-4"
-                onClick={() => setShowLanding(false)}
-                data-testid="button-view-all-shows"
-              >
-                View All Shows
-              </Button>
-            )}
-          </div>
-        </div>
-      );
-    }
-  }
+  // 'Your Shows' landing logic removed; now handled by /shows page
 
   return (
     <PullToRefresh>
     <div className="min-h-screen bg-background pb-24 sm:pb-0 font-body print:pb-0 print:min-h-0 overflow-x-clip">
-      <AppHeader actions={<>
-        {(isManager || isAdmin) && (
-          <>
-            <Button variant="outline" size="sm" className="hidden sm:flex" onClick={() => setShowSendDialog(true)} data-testid="button-send-daily">
-              <Send className="mr-2 h-4 w-4" /> Send Daily
-            </Button>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="outline" size="icon" className="sm:hidden bg-card/50 backdrop-blur-sm border-border/30" onClick={() => setShowSendDialog(true)} data-testid="button-send-daily-mobile">
-                  <Send className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>Send Daily</TooltipContent>
-            </Tooltip>
-          </>
-        )}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button variant="outline" size="icon" className="bg-card/50 backdrop-blur-sm border-border/30" onClick={() => setCommandPaletteOpen(true)} data-testid="button-command-palette">
-              <Search className="h-4 w-4" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Search (⌘K)</TooltipContent>
-        </Tooltip>
-      </>} />
+      <AppHeader
+        actions={<>
+          {(isManager || isAdmin) && (
+            <>
+              <Button variant="outline" size="sm" className="hidden sm:flex" onClick={() => setShowSendDialog(true)} data-testid="button-send-daily">
+                <Send className="mr-2 h-4 w-4" /> Send Daily
+              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" className="sm:hidden bg-card/50 backdrop-blur-sm border-border/30" onClick={() => setShowSendDialog(true)} data-testid="button-send-daily-mobile">
+                    <Send className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Send Daily</TooltipContent>
+              </Tooltip>
+            </>
+          )}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="outline" size="icon" className="bg-card/50 backdrop-blur-sm border-border/30" onClick={() => setCommandPaletteOpen(true)} data-testid="button-command-palette">
+                <Search className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Search (⌘K)</TooltipContent>
+          </Tooltip>
+        </>}
+      >
+        <ShowSwitcher
+          eventsList={eventsList as Event[]}
+          availableEvents={availableEvents}
+          effectiveSelectedEvents={effectiveSelectedEvents}
+          effectiveSelectedEventsSet={effectiveSelectedEventsSet}
+          projects={allProjects}
+          selectedDate={activeDate}
+          onToggleEvent={eventSelection.toggleEvent}
+          onSingleSelect={(name) => {
+            eventSelection.singleSelect(name);
+            const ev = (eventsList as Event[]).find((e: Event) => e.name === name);
+            if (ev?.startDate) {
+              const start = ev.startDate;
+              const end = ev.endDate || ev.startDate;
+              setActiveDate(todayStr >= start && todayStr <= end ? todayStr : start);
+            }
+          }}
+          onSelectAll={() => eventSelection.selectAll(availableEvents)}
+          onSelectAllCurrent={(names) => eventSelection.setSelectedEvents(names)}
+          onClearAll={() => eventSelection.setSelectedEvents([])}
+          userProjectAssignments={user?.projectAssignments}
+          userEventAssignments={user?.eventAssignments as string[] | undefined}
+        />
+      </AppHeader>
 
       <main className="container mx-auto px-4 py-4 print:px-0 print:py-1">
         <AnimatePresence>
@@ -1274,98 +1219,74 @@ export default function Dashboard() {
                 <SlidersHorizontal className="h-4 w-4" />
               </Button>
             </div>
-            <div className="flex items-center gap-2 min-w-0">
-              <ShowSwitcher
-                eventsList={eventsList as Event[]}
-                availableEvents={availableEvents}
-                effectiveSelectedEvents={effectiveSelectedEvents}
-                effectiveSelectedEventsSet={effectiveSelectedEventsSet}
-                projects={allProjects}
-                selectedDate={selectedDate}
-                onToggleEvent={eventSelection.toggleEvent}
-                onSingleSelect={(name) => {
-                  eventSelection.singleSelect(name);
-                  const ev = (eventsList as Event[]).find((e: Event) => e.name === name);
-                  if (ev?.startDate) {
-                    const start = ev.startDate;
-                    const end = ev.endDate || ev.startDate;
-                    // If today falls within the show's run, stay on today; otherwise jump to start
-                    setSelectedDate(todayStr >= start && todayStr <= end ? todayStr : start);
-                  }
-                }}
-                onSelectAll={() => eventSelection.selectAll(availableEvents)}
-                onSelectAllCurrent={(names) => eventSelection.setSelectedEvents(names)}
-                onClearAll={() => eventSelection.setSelectedEvents([])}
-                userProjectAssignments={user?.projectAssignments}
-                userEventAssignments={user?.eventAssignments as string[] | undefined}
-              />
-              <span className="hidden sm:inline text-xs text-muted-foreground truncate min-w-0" data-testid="text-show-summary">
-                {effectiveSelectedEvents.length === 1
-                  ? effectiveSelectedEvents[0]
-                  : effectiveSelectedEvents.length > 1
-                    ? `${effectiveSelectedEvents.length} of ${availableEvents.length} shows`
-                    : null}
-              </span>
-            </div>
+            {/* ShowSwitcher moved to header. */}
             {allShowsForSelectedDate.length > 1 && (
-              <div className="-mx-4 px-4" data-testid="show-filter-pills">
-                <div className="flex flex-wrap gap-1.5 pb-0.5">
-                  {(() => {
-                    const pillNames = allShowsForSelectedDate.map((ev: Event) => ev.name);
-                    const allPillsShown = pillNames.every(n => effectiveSelectedEventsSet.has(n));
-                    return (
-                      <>
-                        <button
-                          onClick={() => eventSelection.selectAll(availableEvents)}
-                          className={cn(
-                            "flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap",
-                            allPillsShown
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-muted text-muted-foreground hover:bg-muted/80"
-                          )}
-                          data-testid="pill-show-all"
-                        >
-                          All
-                        </button>
-                        {pillNames.map(name => {
-                          const isActive = !allPillsShown && effectiveSelectedEventsSet.has(name);
-                          const color = showColorMap.get(name);
-                          return (
-                            <button
-                              key={name}
-                              onClick={() => {
-                                if (isActive) {
-                                  eventSelection.selectAll(availableEvents);
-                                } else {
-                                  eventSelection.singleSelect(name);
-                                }
-                              }}
-                              className={cn(
-                                "flex-shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap",
-                                isActive
-                                  ? "bg-primary text-primary-foreground"
-                                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-                              )}
-                              data-testid={`pill-show-${name.replace(/\s+/g, '-')}`}
-                            >
-                              {color && (
-                                <span
-                                  className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", color.dot)}
-                                />
-                              )}
-                              {name}
-                            </button>
-                          );
-                        })}
-                      </>
-                    );
-                  })()}
+              <div
+                className="-mx-4 px-4 mb-2"
+                data-testid="show-filter-pills"
+              >
+                <div className="bg-muted/40 border border-muted rounded-lg px-4 py-2 flex flex-col gap-1">
+                  <span className="text-xs font-semibold text-muted-foreground mb-1 pl-0.5 select-none">
+                    Filter by Show:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5 pb-0.5">
+                    {(() => {
+                      const pillNames = allShowsForSelectedDate.map((ev: Event) => ev.name);
+                      const allPillsShown = pillNames.every(n => effectiveSelectedEventsSet.has(n));
+                      return (
+                        <>
+                          <button
+                            onClick={() => eventSelection.selectAll(availableEvents)}
+                            className={cn(
+                              "flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap",
+                              allPillsShown
+                                ? "bg-primary text-primary-foreground"
+                                : "bg-muted text-muted-foreground hover:bg-muted/80"
+                            )}
+                            data-testid="pill-show-all"
+                          >
+                            All
+                          </button>
+                          {pillNames.map(name => {
+                            const isActive = !allPillsShown && effectiveSelectedEventsSet.has(name);
+                            const color = showColorMap.get(name);
+                            return (
+                              <button
+                                key={name}
+                                onClick={() => {
+                                  if (isActive) {
+                                    eventSelection.selectAll(availableEvents);
+                                  } else {
+                                    eventSelection.singleSelect(name);
+                                  }
+                                }}
+                                className={cn(
+                                  "flex-shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap",
+                                  isActive
+                                    ? "bg-primary text-primary-foreground"
+                                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                                )}
+                                data-testid={`pill-show-${name.replace(/\s+/g, '-')}`}
+                              >
+                                {color && (
+                                  <span
+                                    className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", color.dot)}
+                                  />
+                                )}
+                                {name}
+                              </button>
+                            );
+                          })}
+                        </>
+                      );
+                    })()}
+                  </div>
                 </div>
-              </div>
+                </div>
             )}
             <DayNavigator
               dates={availableDates}
-              selectedDate={selectedDate}
+              selectedDate={activeDate}
               onSelectDate={handleDateSelect}
               events={(eventsList as Event[]).filter((e: Event) => !e.archived)}
             />
@@ -1397,7 +1318,7 @@ export default function Dashboard() {
                     </Card>
                   ) : (
                   <>
-                  <OnTourWidget events={eventsList} projects={allProjects} venues={venuesList} allDayVenues={allDayVenues} selectedDate={selectedDate} />
+                  <OnTourWidget events={eventsList} projects={allProjects} venues={venuesList} allDayVenues={allDayVenues} selectedDate={activeDate} />
                   {travelDayForSelectedDate && (
                     <motion.div
                       initial={{ opacity: 0, y: 12 }}
@@ -1469,23 +1390,17 @@ export default function Dashboard() {
                     <div className="flex flex-col items-center justify-center py-24 text-center" data-testid="overview-empty">
                       <Clock className="w-12 h-12 text-muted-foreground/40 mb-4" />
                       <h3 className="text-xl font-display uppercase tracking-wide text-muted-foreground mb-2">No Shows for Today</h3>
-                      <p className="text-sm text-muted-foreground/70">There are no shows scheduled for {isToday(parseISO(selectedDate)) ? "today" : format(parseISO(selectedDate), "EEEE, MMM d")}.</p>
+                      <p className="text-sm text-muted-foreground/70">There are no shows scheduled for {isToday(parseISO(activeDate)) ? "today" : format(parseISO(activeDate), "EEEE, MMM d")}.</p>
                     </div>
                   )}
+
                   {showsForSelectedDate.length > 0 && (
                     <div className={cn(
                       "gap-4 mt-3",
-                      showsForSelectedDate.length > 1 ? "grid grid-cols-1 md:grid-cols-2" : "space-y-4"
+                      showsForSelectedDate.length > 1 ? "grid grid-cols-1 md:grid-cols-2 items-stretch" : "space-y-4"
                     )}>
-                      {(() => {
-                        const sortedShows = [...showsForSelectedDate].sort((a, b) => {
-                          const dateA = a.startDate || "";
-                          const dateB = b.startDate || "";
-                          return dateB.localeCompare(dateA);
-                        });
-                        return sortedShows.map(s => s.name);
-                      })().map((evName, showIdx) => {
-                        const showName = evName;
+                      {showsForSelectedDate.map((show, showIdx) => {
+                        const showName = show.name;
                         const showScheduleItems = filteredSchedule.filter(item => item.eventName === showName);
                         const showUserIds = new Set(allEventAssignments.filter((a: any) => a.eventName === showName).map((a: any) => a.userId));
                         const showContacts = [...dailySheetContacts.filter(c => c.userId && showUserIds.has(c.userId))].sort((a, b) => {
@@ -1495,7 +1410,7 @@ export default function Dashboard() {
                         });
                         const labelColor = showColorMap.get(showName);
                         const showEvent = showsForSelectedDate.find(s => s.name === showName);
-                        const dayVenueEntry = showEvent ? allDayVenues.find(dv => dv.eventId === showEvent.id && dv.date === selectedDate) : null;
+                        const dayVenueEntry = showEvent ? allDayVenues.find(dv => dv.eventId === showEvent.id && dv.date === activeDate) : null;
                         const resolvedVenueId = dayVenueEntry ? dayVenueEntry.venueId : showEvent?.venueId;
                         const showVenue = resolvedVenueId ? venuesList.find(v => v.id === resolvedVenueId) || null : null;
                         const showProject = showEvent?.projectId ? allProjects.find(p => p.id === showEvent.projectId) : null;
@@ -1506,7 +1421,7 @@ export default function Dashboard() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.3, delay: showIdx * 0.05 }}
                           >
-                          <Card className="border border-border/30 shadow-sm bg-card/50 backdrop-blur-sm rounded-xl flex flex-col overflow-hidden" data-testid={`overview-card-${showName.replace(/\s+/g, '-')}`}>
+                          <Card className="border border-border/30 shadow-sm bg-card/50 backdrop-blur-sm rounded-xl flex flex-col overflow-hidden h-full" data-testid={`overview-card-${showName.replace(/\s+/g, '-')}`}> 
                             {showVenue ? (
                               <div className="bg-secondary/70 backdrop-blur-sm text-secondary-foreground rounded-t-xl">
                                 <div className="p-3 sm:p-4">
@@ -1553,15 +1468,15 @@ export default function Dashboard() {
                                     </div>
                                     <div className="text-right flex-shrink-0 flex flex-col items-center">
                                       <div className="text-2xl font-display font-bold text-yellow-400 leading-none">
-                                        {format(new Date(selectedDate + "T12:00:00"), "d")}
+                                        {format(new Date(activeDate + "T12:00:00"), "d")}
                                       </div>
                                       <div className="text-[10px] uppercase tracking-widest opacity-70">
-                                        {format(new Date(selectedDate + "T12:00:00"), "MMM")}
+                                        {format(new Date(activeDate + "T12:00:00"), "MMM")}
                                       </div>
                                       {canEdit && showEvent && (
                                         <VenueQuickSelect
                                           show={showEvent}
-                                          selectedDate={selectedDate}
+                                          selectedDate={activeDate}
                                           currentVenueId={resolvedVenueId ?? null}
                                           venuesList={venuesList}
                                           onEditShow={() => setEditingShow(showEvent)}
@@ -1575,7 +1490,7 @@ export default function Dashboard() {
                                         {showVenue.parking && (
                                           <span className="text-[11px] text-secondary-foreground/70 flex-1" data-testid={`venue-bar-parking-${showEvent?.id}`}><span className="font-semibold">Parking:</span> {showVenue.parking}</span>
                                         )}
-                                        <WeatherWidget venueId={resolvedVenueId} date={selectedDate} />
+                                        <WeatherWidget venueId={resolvedVenueId} date={activeDate} />
                                       </div>
                                     </div>
                                   )}
@@ -1592,7 +1507,7 @@ export default function Dashboard() {
                                   show={showEvent}
                                   canEdit={canEdit}
                                   venuesList={venuesList}
-                                  selectedDate={selectedDate}
+                                  selectedDate={activeDate}
                                   projectName={showProject?.name}
                                   projectDriveUrl={showProject?.driveUrl}
                                   projectHref={canEdit ? `/project/${showEvent.projectId}` : undefined}
@@ -1609,10 +1524,12 @@ export default function Dashboard() {
                               </CardHeader>
                             )}
                             <CardContent className="p-3 flex-1">
-                              <div className="grid grid-cols-2 gap-3">
+                              <div
+                                className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch min-w-0 grid-rows-2"
+                              >
                                 <button
-                                  className="flex flex-col gap-1.5 p-3 rounded-xl border border-border/30 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-colors text-left min-h-[120px]"
-                                  onClick={() => setActiveTab("venue")}
+                                  className="flex flex-col gap-1.5 p-3 rounded-xl border border-border/30 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-colors text-left min-h-[120px] h-full max-h-[14rem] overflow-hidden w-full min-w-0"
+                                  onClick={() => setActiveTab('venue')}
                                   data-testid={`overview-venue-${showName.replace(/\s+/g, '-')}`}
                                 >
                                   <div className="flex items-center gap-1.5">
@@ -1633,10 +1550,9 @@ export default function Dashboard() {
                                     <span className="text-xs text-muted-foreground italic">No venue assigned</span>
                                   )}
                                 </button>
-
                                 <button
-                                  className="flex flex-col gap-1.5 p-3 rounded-xl border border-border/30 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-colors text-left min-h-[120px]"
-                                  onClick={() => setActiveTab("schedule")}
+                                  className="flex flex-col gap-1.5 p-3 rounded-xl border border-border/30 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-colors text-left min-h-[120px] h-full max-h-[14rem] overflow-hidden w-full min-w-0"
+                                  onClick={() => setActiveTab('schedule')}
                                   data-testid={`overview-schedule-${showName.replace(/\s+/g, '-')}`}
                                 >
                                   <div className="flex items-center gap-1.5">
@@ -1672,10 +1588,9 @@ export default function Dashboard() {
                                     })()}
                                   </div>
                                 </button>
-
                                 <button
-                                  className="flex flex-col gap-1.5 p-3 rounded-xl border border-border/30 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-colors text-left min-h-[120px]"
-                                  onClick={() => setActiveTab("assigned-crew")}
+                                  className="flex flex-col gap-1.5 p-3 rounded-xl border border-border/30 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-colors text-left min-h-[120px] h-full max-h-[14rem] overflow-hidden w-full min-w-0"
+                                  onClick={() => setActiveTab('assigned-crew')}
                                   data-testid={`overview-crew-${showName.replace(/\s+/g, '-')}`}
                                 >
                                   <div className="flex items-center gap-1.5">
@@ -1683,14 +1598,14 @@ export default function Dashboard() {
                                     <span className="text-xs font-display uppercase tracking-wide text-muted-foreground">Crew</span>
                                     <Badge variant="secondary" className="text-[9px] px-1 py-0 ml-auto">{showContacts.length}</Badge>
                                     {(() => {
-                                      const phones = showContacts.filter(c => c.phone).map(c => c.phone!.replace(/[^\d+]/g, "")).filter(p => p.length >= 7);
+                                      const phones = showContacts.filter(c => c.phone).map(c => c.phone!.replace(/[^\d+]/g, '')).filter(p => p.length >= 7);
                                       const unique = Array.from(new Set(phones));
                                       if (unique.length >= 2) {
                                         return (
                                           <a
-                                            href={`sms:/open?addresses=${unique.join(",")}`}
+                                            href={`sms:/open?addresses=${unique.join(',')}`}
                                             className="text-primary flex-shrink-0"
-                                            onClick={(e) => e.stopPropagation()}
+                                            onClick={e => e.stopPropagation()}
                                             data-testid={`overview-group-text-${showName.replace(/\s+/g, '-')}`}
                                             title="Group Text"
                                           >
@@ -1708,8 +1623,8 @@ export default function Dashboard() {
                                       }
                                       const deptGroups = new Map<string, typeof showContacts>();
                                       for (const c of showContacts) {
-                                        const dept = c.role ? c.role.split(",")[0].trim() : "General";
-                                        const label = dept || "General";
+                                        const dept = c.role ? c.role.split(',')[0].trim() : 'General';
+                                        const label = dept || 'General';
                                         if (!deptGroups.has(label)) deptGroups.set(label, []);
                                         deptGroups.get(label)!.push(c);
                                       }
@@ -1723,7 +1638,7 @@ export default function Dashboard() {
                                         );
                                         for (const c of members) {
                                           if (rendered >= maxPreview) break;
-                                          const fullName = [c.firstName, c.lastName].filter(Boolean).join(" ");
+                                          const fullName = [c.firstName, c.lastName].filter(Boolean).join(' ');
                                           elements.push(
                                             <div key={c.id} className="flex items-center justify-between gap-1 min-w-0">
                                               <span className="text-[11px] font-medium truncate">{fullName}</span>
@@ -1731,7 +1646,7 @@ export default function Dashboard() {
                                                 <a
                                                   href={`tel:${c.phone}`}
                                                   className="text-[10px] text-primary flex-shrink-0 flex items-center gap-0.5"
-                                                  onClick={(e) => e.stopPropagation()}
+                                                  onClick={e => e.stopPropagation()}
                                                   data-testid={`overview-crew-phone-${c.id}`}
                                                 >
                                                   <Phone className="w-2.5 h-2.5" />
@@ -1751,11 +1666,15 @@ export default function Dashboard() {
                                     })()}
                                   </div>
                                 </button>
-
-                                <OverviewActivitySquare
-                                  showName={showName}
-                                  onTap={() => setActiveTab("activity")}
-                                />
+                                <div
+                                  className="h-full max-h-[14rem] overflow-hidden flex w-full min-w-0"
+                                >
+                                  <OverviewActivitySquare
+                                    showName={showName}
+                                    onTap={() => setActiveTab('activity')}
+                                    className="h-full w-full min-w-0 max-h-[14rem]"
+                                  />
+                                </div>
                               </div>
                             </CardContent>
                           </Card>
@@ -1812,12 +1731,12 @@ export default function Dashboard() {
                         <>
                           <ScheduleTemplateDialog
                             defaultEventName={effectiveSelectedEvents.length === 1 ? effectiveSelectedEvents[0] : undefined}
-                            defaultDate={selectedDate}
+                            defaultDate={activeDate}
                             availableEvents={effectiveSelectedEvents}
                           />
                           <CreateScheduleDialog
                             defaultEventName={effectiveSelectedEvents.length === 1 ? effectiveSelectedEvents[0] : undefined}
-                            defaultDate={selectedDate}
+                            defaultDate={activeDate}
                             trigger={
                               <Button variant="outline" size="sm" className="h-7 text-xs gap-1" data-testid="button-add-schedule-item">
                                 <Plus className="h-3 w-3" /> Add Item
@@ -1835,7 +1754,7 @@ export default function Dashboard() {
                                 defaultEventName={effectiveSelectedEvents.length === 1 ? effectiveSelectedEvents[0] : undefined}
                               />
                               <ClearDayButton
-                                date={selectedDate}
+                                date={activeDate}
                                 eventName={effectiveSelectedEvents.length === 1 ? effectiveSelectedEvents[0] : undefined}
                                 count={filteredSchedule.length}
                               />
@@ -2086,7 +2005,7 @@ export default function Dashboard() {
                       </div>
                     );
                   })()}
-                  <AssignedCrewView contacts={contacts} user={user} selectedEvents={showsForSelectedDate.map(s => s.name)} allEventAssignments={allEventAssignments} selectedDate={selectedDate} />
+                  <AssignedCrewView contacts={contacts} user={user} selectedEvents={showsForSelectedDate.map(s => s.name)} allEventAssignments={allEventAssignments} selectedDate={activeDate} />
                 </motion.div>
               </TabsContent>
             )}
@@ -2116,7 +2035,7 @@ export default function Dashboard() {
                       <TimesheetTab
                         eventId={ev.id}
                         eventName={ev.name}
-                        date={selectedDate}
+                        date={activeDate}
                         isAdmin={isAdmin}
                         currentUserName={currentUserName}
                       />
@@ -2200,9 +2119,9 @@ export default function Dashboard() {
                     showNames.forEach(name => {
                       const ev = eventsList.find((e: Event) => e.name === name);
                       if (!ev) return;
-                      if (ev.startDate && selectedDate < ev.startDate) return;
-                      if (ev.endDate && selectedDate > ev.endDate) return;
-                      const dayVenue = allDayVenues.find(dv => dv.eventId === ev.id && dv.date === selectedDate);
+                      if (ev.startDate && activeDate < ev.startDate) return;
+                      if (ev.endDate && activeDate > ev.endDate) return;
+                      const dayVenue = allDayVenues.find(dv => dv.eventId === ev.id && dv.date === activeDate);
                       const resolvedVenueId = dayVenue ? dayVenue.venueId : ev.venueId;
                       if (!resolvedVenueId) return;
                       const venue = venuesList.find(v => v.id === resolvedVenueId);
@@ -2259,7 +2178,7 @@ export default function Dashboard() {
                             {canEdit && (
                               <VenueQuickSelect
                                 show={groupShows[0]}
-                                selectedDate={selectedDate}
+                                selectedDate={activeDate}
                                 currentVenueId={resolvedVenueId}
                                 venuesList={venuesList}
                                 onEditShow={() => setEditingShow(groupShows[0])}
@@ -2386,7 +2305,7 @@ export default function Dashboard() {
       <SendDailyDialog
         open={showSendDialog}
         onClose={() => setShowSendDialog(false)}
-        selectedDate={selectedDate}
+        selectedDate={activeDate}
         showsForSelectedDate={showsForSelectedDate}
         contacts={contacts}
         workspaceName={currentWorkspace?.name}
@@ -2407,7 +2326,7 @@ export default function Dashboard() {
         <DialogContent className="sm:max-w-[480px] max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="font-display uppercase tracking-wide">Add Travel Day</DialogTitle>
-            <DialogDescription>{format(parseISO(selectedDate + "T12:00:00"), "MMMM d, yyyy")}</DialogDescription>
+            <DialogDescription>{format(parseISO(activeDate + "T12:00:00"), "MMMM d, yyyy")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1" style={{ WebkitOverflowScrolling: "touch" }}>
             {activeTourProjects.length > 1 && (

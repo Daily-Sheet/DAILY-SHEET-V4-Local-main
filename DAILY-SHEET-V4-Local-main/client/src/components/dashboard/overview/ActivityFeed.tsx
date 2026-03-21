@@ -195,7 +195,7 @@ export function ActivityFeed({ filterEvents = [] }: { filterEvents?: string[] })
   );
 }
 
-export function OverviewActivitySquare({ showName, onTap }: { showName: string; onTap: () => void }) {
+export function OverviewActivitySquare({ showName, onTap, className = "" }: { showName: string; onTap: () => void; className?: string }) {
   const { data: entries = [] } = useQuery<{
     id: number;
     actorName: string;
@@ -241,7 +241,7 @@ export function OverviewActivitySquare({ showName, onTap }: { showName: string; 
 
   return (
     <button
-      className="flex flex-col gap-1.5 p-3 rounded-xl border border-border/30 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-colors text-left min-h-[120px]"
+      className={`flex flex-col gap-1.5 p-3 rounded-xl border border-border/30 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-colors text-left min-h-[120px] h-full w-full min-w-0 max-h-[14rem] ${className}`}
       onClick={onTap}
       data-testid={`overview-activity-${showName.replace(/\s+/g, '-')}`}
     >
