@@ -24,6 +24,12 @@ export function useGlobalShortcuts() {
         }
         return;
       }
+      if (e.key === "a" || e.key === "A") {
+        if (window.location.pathname !== "/admin") {
+          window.location.href = "/admin";
+        }
+        return;
+      }
     };
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);

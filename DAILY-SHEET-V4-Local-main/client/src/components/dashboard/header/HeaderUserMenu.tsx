@@ -275,6 +275,10 @@ export function HeaderUserMenu({
                   <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono border border-border/50">T</kbd>
                 </div>
                 <div className="flex items-center justify-between">
+                  <span>Open Admin</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono border border-border/50">A</kbd>
+                </div>
+                <div className="flex items-center justify-between">
                   <span>Gantt / List View</span>
                   <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono border border-border/50">G</kbd>
                 </div>
