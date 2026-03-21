@@ -2572,8 +2572,8 @@ function ActiveDotAdmin({ userId, activityMap }: { userId: string; activityMap: 
   );
 }
 
-function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival, legId, buttonLabel }: { projectId: number; projectName: string; venues: Venue[]; isFestival?: boolean; legId?: number | null; buttonLabel?: string }) {
-  const entityLabel = isFestival ? "Stage" : "Show";
+function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival, legId, buttonLabel, eventTypeOverride }: { projectId: number; projectName: string; venues: Venue[]; isFestival?: boolean; legId?: number | null; buttonLabel?: string; eventTypeOverride?: string }) {
+  const entityLabel = eventTypeOverride === "area" ? "Area" : isFestival ? "Stage" : "Show";
   const [open, setOpen] = useState(false);
   const [showName, setShowName] = useState("");
   const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -2685,7 +2685,7 @@ function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival
       notes: notes.trim() || undefined,
       projectId,
       legId: legId ?? undefined,
-      eventType: isFestival ? "stage" : "show",
+      eventType: eventTypeOverride || (isFestival ? "stage" : "show"),
     });
   }
 
@@ -3544,6 +3544,9 @@ function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { pr
                   {legShows.length === 0 && <p className="text-xs text-muted-foreground italic mb-1">No {entityLabel.toLowerCase()}s in this {containerLabel.toLowerCase()} yet.</p>}
                   <div className="flex gap-2 flex-wrap">
                     <CreateShowForProjectDialog projectId={projectId} projectName={projectName} venues={venues} isFestival={isFestival} legId={leg.id} buttonLabel={`Add ${entityLabel}`} />
+                    {isFestival && (
+                      <CreateShowForProjectDialog projectId={projectId} projectName={projectName} venues={venues} isFestival={isFestival} legId={leg.id} buttonLabel="Add Area" eventTypeOverride="area" />
+                    )}
                     <Button variant="ghost" size="sm" onClick={() => { setAddTravelLegId(leg.id); resetTravelForm(); }}>
                       <Plane className="w-4 h-4" /><span className="ml-1">Add Travel Day</span>
                     </Button>
