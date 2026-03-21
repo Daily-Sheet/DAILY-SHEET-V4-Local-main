@@ -2,7 +2,7 @@ import { db } from "./db";
 import {
   schedules, contacts, files, venues, venueTechPackets, comments, users, eventAssignments, events, sessions, fileFolders, settings,
   workspaces, workspaceMembers, workspaceInvites, taskTypes, scheduleTemplates, eventDayVenues, zones, projects, sections, departments, crewPositions, timesheetEntries, notifications, activityLog, travelDays, gearRequests, projectAssignments, crewTravel, dailyCheckins, accessLinks,
-  mapPins, mapPinLikes, mapPinComments, legs,
+  mapPins, mapPinLikes, mapPinComments, legs, bandPortalLinks,
   type InsertSchedule, type InsertContact, type InsertFile, type InsertVenue, type InsertVenueTechPacket, type VenueTechPacket, type InsertComment,
   type InsertEventAssignment, type InsertEvent, type InsertFileFolder,
   type InsertWorkspace, type InsertWorkspaceMember, type InsertWorkspaceInvite,
@@ -18,6 +18,7 @@ import {
   type InsertCrewTravel, type CrewTravel,
   type InsertDailyCheckin, type DailyCheckin,
   type InsertAccessLink, type AccessLink,
+  type InsertBandPortalLink, type BandPortalLink,
   type MapPin, type InsertMapPin, type MapPinLike, type MapPinComment, type InsertMapPinComment,
   type Schedule, type Contact, type Venue, type Comment, type User, type EventAssignment, type Event, type FileFolder, type Setting,
   type Workspace, type WorkspaceMember, type WorkspaceInvite, type TaskType, type ScheduleTemplate, type EventDayVenue,
@@ -262,6 +263,13 @@ export interface IStorage {
   getAccessLinksByWorkspace(workspaceId: number): Promise<AccessLink[]>;
   revokeAccessLink(id: number, workspaceId: number): Promise<AccessLink | undefined>;
   deleteAccessLink(id: number): Promise<void>;
+
+  // Band Portal
+  createBandPortalLink(link: InsertBandPortalLink): Promise<BandPortalLink>;
+  getBandPortalLinkByToken(token: string): Promise<BandPortalLink | undefined>;
+  getBandPortalLinks(workspaceId: number): Promise<BandPortalLink[]>;
+  revokeBandPortalLink(id: number, workspaceId: number): Promise<BandPortalLink | undefined>;
+  deleteBandPortalLink(id: number): Promise<void>;
 
   // Community Map
   getMapPins(): Promise<MapPin[]>;
@@ -1484,6 +1492,35 @@ export class DatabaseStorage implements IStorage {
 
   async deleteMapPinComment(id: number): Promise<void> {
     await db.delete(mapPinComments).where(eq(mapPinComments.id, id));
+  }
+
+  // Band Portal
+  async createBandPortalLink(link: InsertBandPortalLink): Promise<BandPortalLink> {
+    const [created] = await db.insert(bandPortalLinks).values(link).returning();
+    return created;
+  }
+
+  async getBandPortalLinkByToken(token: string): Promise<BandPortalLink | undefined> {
+    const [link] = await db.select().from(bandPortalLinks).where(eq(bandPortalLinks.token, token));
+    return link;
+  }
+
+  async getBandPortalLinks(workspaceId: number): Promise<BandPortalLink[]> {
+    return await db.select().from(bandPortalLinks)
+      .where(eq(bandPortalLinks.workspaceId, workspaceId))
+      .orderBy(desc(bandPortalLinks.createdAt));
+  }
+
+  async revokeBandPortalLink(id: number, workspaceId: number): Promise<BandPortalLink | undefined> {
+    const [updated] = await db.update(bandPortalLinks)
+      .set({ revoked: true })
+      .where(and(eq(bandPortalLinks.id, id), eq(bandPortalLinks.workspaceId, workspaceId)))
+      .returning();
+    return updated;
+  }
+
+  async deleteBandPortalLink(id: number): Promise<void> {
+    await db.delete(bandPortalLinks).where(eq(bandPortalLinks.id, id));
   }
 
 }

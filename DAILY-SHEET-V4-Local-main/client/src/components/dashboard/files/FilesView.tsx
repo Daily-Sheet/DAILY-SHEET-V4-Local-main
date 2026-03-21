@@ -15,6 +15,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
 import type { FileFolder } from "@shared/schema";
+import { BandPortalManager } from "./BandPortalManager";
 
 const PdfPreview = lazy(() => import("@/components/PdfPreview"));
 
@@ -745,6 +746,8 @@ export function FilesView({ selectedEvents }: { selectedEvents: string[] }) {
           </Button>
         )}
       </div>
+
+      {canEdit && <BandPortalManager selectedEvents={selectedEvents} />}
 
       {searchFilteredFiles !== null ? (
         <div className="space-y-1.5">

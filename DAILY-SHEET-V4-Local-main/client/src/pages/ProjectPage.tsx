@@ -2597,6 +2597,13 @@ function CrewTravelManifest({ travelDayId, isAdmin, contacts, assignedUserIds }:
     return <div className="flex items-center justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>;
   }
 
+  const [expandedCrew, setExpandedCrew] = useState<Set<number>>(new Set());
+  const toggleCrewExpand = (id: number) => setExpandedCrew(prev => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
+
   return (
     <div className="space-y-2" data-testid={`crew-travel-manifest-${travelDayId}`}>
       {crewTravelList.length === 0 && (
@@ -2605,13 +2612,46 @@ function CrewTravelManifest({ travelDayId, isAdmin, contacts, assignedUserIds }:
       {crewTravelList.map((ct: any) => {
         const hasFlight = ct.flightNumber || ct.departureAirport || ct.arrivalAirport;
         const hasHotel = ct.hotelName;
+        const hasDetails = hasFlight || hasHotel || ct.groundTransport || ct.notes;
+        const isCrewExpanded = expandedCrew.has(ct.id);
         return (
-          <div key={ct.id} className="rounded-md border border-border/40 bg-background/50 p-2.5 group" data-testid={`crew-travel-item-${ct.id}`}>
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-foreground" data-testid={`text-crew-travel-name-${ct.id}`}>{getCrewName(ct.userId)}</p>
+          <div key={ct.id} className="rounded-md border border-border/40 bg-background/50 group" data-testid={`crew-travel-item-${ct.id}`}>
+            <button
+              type="button"
+              className="w-full flex items-center justify-between gap-2 p-2.5 cursor-pointer hover:bg-muted/30 transition-colors"
+              onClick={() => toggleCrewExpand(ct.id)}
+            >
+              <div className="flex items-center gap-2 min-w-0">
+                <p className="text-sm font-medium text-foreground truncate" data-testid={`text-crew-travel-name-${ct.id}`}>{getCrewName(ct.userId)}</p>
+                {!isCrewExpanded && hasFlight && (
+                  <span className="text-[10px] text-muted-foreground truncate">{ct.departureAirport && ct.arrivalAirport ? `${ct.departureAirport} → ${ct.arrivalAirport}` : ct.flightNumber || ""}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                {isAdmin && isCrewExpanded && (
+                  <span className="flex items-center gap-0.5" onClick={e => e.stopPropagation()}>
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => openEdit(ct)} data-testid={`button-edit-crew-travel-${ct.id}`}>
+                      <Pencil className="w-3 h-3" />
+                    </Button>
+                    <ConfirmDelete
+                      onConfirm={() => deleteMutation.mutate(ct.id)}
+                      title="Remove crew travel?"
+                      description="This will remove the travel details for this crew member."
+                      triggerClassName="text-destructive"
+                      data-testid={`button-delete-crew-travel-${ct.id}`}
+                      triggerLabel={<Trash2 className="w-3 h-3" />}
+                    />
+                  </span>
+                )}
+                {hasDetails && (
+                  <ChevronDown className={cn("w-3.5 h-3.5 text-muted-foreground transition-transform", isCrewExpanded && "rotate-180")} />
+                )}
+              </div>
+            </button>
+            {isCrewExpanded && hasDetails && (
+              <div className="px-2.5 pb-2.5 space-y-1">
                 {hasFlight && (
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Plane className="w-3 h-3 text-muted-foreground flex-shrink-0" />
                     {ct.airline && <span className="text-xs text-muted-foreground">{ct.airline}</span>}
                     {ct.flightNumber && <span className="text-xs font-semibold">{ct.flightNumber}</span>}
@@ -2623,7 +2663,7 @@ function CrewTravelManifest({ travelDayId, isAdmin, contacts, assignedUserIds }:
                   </div>
                 )}
                 {hasHotel && (
-                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <MapPin className="w-3 h-3 text-muted-foreground flex-shrink-0" />
                     <span className="text-xs text-muted-foreground">{ct.hotelName}</span>
                     {ct.hotelAddress && <span className="text-xs text-muted-foreground">· {ct.hotelAddress}</span>}
@@ -2637,31 +2677,16 @@ function CrewTravelManifest({ travelDayId, isAdmin, contacts, assignedUserIds }:
                   </div>
                 )}
                 {ct.groundTransport && (
-                  <div className="flex items-center gap-2 mt-1">
+                  <div className="flex items-center gap-2">
                     <Car className="w-3 h-3 text-muted-foreground flex-shrink-0" />
                     <span className="text-xs text-muted-foreground">{ct.groundTransport}</span>
                   </div>
                 )}
                 {ct.notes && (
-                  <p className="text-xs text-muted-foreground mt-1 italic">{ct.notes}</p>
+                  <p className="text-xs text-muted-foreground italic">{ct.notes}</p>
                 )}
               </div>
-              {isAdmin && (
-                <div className="flex items-center gap-0.5 flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" size="icon" onClick={() => openEdit(ct)} data-testid={`button-edit-crew-travel-${ct.id}`}>
-                    <Pencil className="w-3 h-3" />
-                  </Button>
-                  <ConfirmDelete
-                    onConfirm={() => deleteMutation.mutate(ct.id)}
-                    title="Remove crew travel?"
-                    description="This will remove the travel details for this crew member."
-                    triggerClassName="text-destructive"
-                    data-testid={`button-delete-crew-travel-${ct.id}`}
-                    triggerLabel={<Trash2 className="w-3 h-3" />}
-                  />
-                </div>
-              )}
-            </div>
+            )}
           </div>
         );
       })}

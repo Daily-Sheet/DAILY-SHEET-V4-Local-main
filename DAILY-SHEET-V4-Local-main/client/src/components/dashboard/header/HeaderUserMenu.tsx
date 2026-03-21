@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { useState } from "react";
-import { Sun, Moon, Eye, LogOut, Check, Users, Building2, ArrowRightLeft, Loader2, Plus, X } from "lucide-react";
+import { Sun, Moon, Eye, LogOut, Check, Users, Building2, ArrowRightLeft, Loader2, Plus, X, Keyboard } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -253,6 +253,53 @@ export function HeaderUserMenu({
                     {palette === key && <Check className="h-3 w-3 ml-auto" />}
                   </button>
                 ))}
+              </div>
+            </div>
+            <Separator />
+            <div className="px-2 py-1.5">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <Keyboard className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Keyboard Shortcuts</span>
+              </div>
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <div className="flex items-center justify-between">
+                  <span>Open Calendar</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono border border-border/50">C</kbd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Open Dashboard</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono border border-border/50">D</kbd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Jump to Today</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono border border-border/50">T</kbd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Gantt / List View</span>
+                  <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono border border-border/50">G</kbd>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Search</span>
+                  <div className="flex items-center gap-0.5">
+                    <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono border border-border/50">⌘</kbd>
+                    <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono border border-border/50">K</kbd>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Prev / Next</span>
+                  <div className="flex items-center gap-0.5">
+                    <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono border border-border/50">←</kbd>
+                    <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono border border-border/50">→</kbd>
+                  </div>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Switch Tab</span>
+                  <div className="flex items-center gap-0.5">
+                    <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono border border-border/50">1</kbd>
+                    <span className="text-[9px]">–</span>
+                    <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono border border-border/50">9</kbd>
+                  </div>
+                </div>
               </div>
             </div>
             <Separator />

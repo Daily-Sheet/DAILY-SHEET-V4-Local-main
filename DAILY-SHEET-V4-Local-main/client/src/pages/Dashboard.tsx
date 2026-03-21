@@ -32,7 +32,6 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { TimePicker } from "@/components/ui/time-picker";
 import { DatePicker } from "@/components/ui/date-picker";
 import { useTheme } from "@/components/ThemeProvider";
-import { Calendar } from "@/components/ui/calendar";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { CommandPalette } from "@/components/CommandPalette";
@@ -73,7 +72,6 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Checkbox } from "@/components/ui/checkbox";
 
 import { useColorScheme, PALETTES, type PaletteName } from "@/components/ColorSchemeProvider";
-import { DateRangePicker } from "@/components/DateRangePicker";
 import { Save } from "lucide-react";
 import { PullToRefresh } from "@/components/PullToRefresh";
 import GanttScheduleView from "@/components/GanttScheduleView";
@@ -232,6 +230,7 @@ export default function Dashboard() {
   const [scheduleViewMode, setScheduleViewMode] = useState<"list" | "timeline">("list");
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [travelExpanded, setTravelExpanded] = useState(false);
   const handleDateSelectRef = useRef<((date: string) => void) | null>(null);
   const selectedDateRef = useRef<string>("");
   useEffect(() => {
@@ -255,6 +254,8 @@ export default function Dashboard() {
       } else if (e.key === "ArrowRight") {
         e.preventDefault();
         handleDateSelectRef.current?.(format(addDays(parseISO(selectedDateRef.current), 1), "yyyy-MM-dd"));
+      } else if (e.key === "g" || e.key === "G") {
+        setScheduleViewMode(prev => prev === "list" ? "timeline" : "list");
       } else if (e.key >= "1" && e.key <= "9") {
         const idx = parseInt(e.key) - 1;
         if (idx < visibleTabs.length) setActiveTab(visibleTabs[idx]);
@@ -797,9 +798,7 @@ export default function Dashboard() {
       const end = e.endDate || e.startDate;
       return e.startDate <= date && end >= date;
     }).map((e: Event) => e.name);
-    if (showsOnDate.length > 0) {
-      eventSelection.setSelectedEvents(showsOnDate);
-    }
+    eventSelection.setSelectedEvents(showsOnDate);
   }, [availableEvents, eventsList, eventSelection]);
   handleDateSelectRef.current = handleDateSelect;
 
@@ -807,8 +806,7 @@ export default function Dashboard() {
     if (!isManager && availableEvents.length === 0) return [];
     const availableSet = new Set(availableEvents);
     const validSelected = selectedEvents.filter(n => availableSet.has(n));
-    if (validSelected.length > 0 && validSelected.length < availableEvents.length) return validSelected;
-    return availableEvents;
+    return validSelected;
   }, [availableEvents, isManager, selectedEvents]);
   const effectiveSelectedEventsSet = useMemo(() => new Set(effectiveSelectedEvents), [effectiveSelectedEvents]);
   const multiShowSelected = effectiveSelectedEvents.length > 1;
@@ -1308,14 +1306,6 @@ export default function Dashboard() {
                 >
                   {hasNoAssignment ? (
                     <NoAssignmentState message="You haven't been assigned to any shows yet. Once an admin assigns you to a show, your overview will appear here." />
-                  ) : effectiveSelectedEvents.length === 0 && availableEvents.length > 0 ? (
-                    <Card className="border border-border/30 shadow-sm bg-card/50 backdrop-blur-sm rounded-xl">
-                      <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                        <Mic2 className="w-10 h-10 text-muted-foreground/30 mb-3" />
-                        <p className="text-muted-foreground font-medium">No shows selected</p>
-                        <p className="text-sm text-muted-foreground/70 mt-1">Tap the show switcher above to pick which shows to view</p>
-                      </CardContent>
-                    </Card>
                   ) : (
                   <>
                   <OnTourWidget events={eventsList} projects={allProjects} venues={venuesList} allDayVenues={allDayVenues} selectedDate={activeDate} />
@@ -1327,13 +1317,18 @@ export default function Dashboard() {
                       data-testid="overview-travel-day"
                     >
                       <Card className="border-amber-500/20 bg-amber-500/5 backdrop-blur-xl rounded-xl overflow-hidden">
-                        <CardContent className="p-4 space-y-3">
-                          <div className="flex items-center justify-between">
+                        <CardContent className="p-0">
+                          <button
+                            type="button"
+                            className="w-full flex items-center justify-between p-4 cursor-pointer hover:bg-amber-500/5 transition-colors"
+                            onClick={() => setTravelExpanded(prev => !prev)}
+                            data-testid="button-toggle-travel-details"
+                          >
                             <div className="flex items-center gap-2">
                               <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center">
                                 <Plane className="w-4 h-4 text-amber-500" />
                               </div>
-                              <div>
+                              <div className="text-left">
                                 <h3 className="text-sm font-display uppercase tracking-wider font-semibold text-amber-600 dark:text-amber-400" data-testid="text-travel-day-title">Travel Day</h3>
                                 {(() => {
                                   const tourProject = allProjects.find((p: Project) => p.id === travelDayForSelectedDate.projectId);
@@ -1342,46 +1337,56 @@ export default function Dashboard() {
                               </div>
                             </div>
                             <div className="flex items-center gap-1">
-                              <Link href={`/project/${travelDayForSelectedDate.projectId}`}>
-                                <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-amber-600 dark:text-amber-400 hover:text-amber-700 hover:bg-amber-500/10" data-testid="button-travel-day-itinerary">
-                                  View Itinerary
-                                </Button>
-                              </Link>
-                              {isAdmin && (
-                                <ConfirmDelete
-                                  title="Delete Travel Day?"
-                                  description="This will remove the travel day and all crew travel details."
-                                  onConfirm={() => deleteTravelDayMutation.mutate(travelDayForSelectedDate.id)}
-                                  triggerVariant="ghost"
-                                  triggerSize="icon"
-                                  triggerClassName="h-7 w-7 text-amber-600 dark:text-amber-400 hover:text-destructive"
-                                  data-testid="button-delete-travel-day"
-                                />
+                              {travelDayForSelectedDate.departureAirport && travelDayForSelectedDate.arrivalAirport && !travelExpanded && (
+                                <span className="text-xs text-muted-foreground mr-2">{travelDayForSelectedDate.departureAirport} → {travelDayForSelectedDate.arrivalAirport}</span>
                               )}
+                              {travelExpanded ? <ChevronUp className="w-4 h-4 text-amber-500" /> : <ChevronDown className="w-4 h-4 text-amber-500" />}
                             </div>
-                          </div>
-                          {travelDayForSelectedDate.departureAirport && travelDayForSelectedDate.arrivalAirport && (
-                            <div className="flex items-center gap-2 text-sm">
-                              <Navigation className="w-3.5 h-3.5 text-amber-500" />
-                              <span className="font-medium">{travelDayForSelectedDate.departureAirport}</span>
-                              <span className="text-muted-foreground">→</span>
-                              <span className="font-medium">{travelDayForSelectedDate.arrivalAirport}</span>
-                            </div>
-                          )}
-                          {(travelDayForSelectedDate.flightNumber || travelDayForSelectedDate.airline) && (
-                            <div className="flex items-center gap-2 text-sm bg-background/50 rounded-lg p-2">
-                              <PlaneTakeoff className="w-3.5 h-3.5 text-muted-foreground" />
-                              {travelDayForSelectedDate.airline && <span className="text-muted-foreground">{travelDayForSelectedDate.airline}</span>}
-                              {travelDayForSelectedDate.flightNumber && <span className="font-semibold">{travelDayForSelectedDate.flightNumber}</span>}
-                              {travelDayForSelectedDate.departureTime && (
-                                <span className="text-xs text-muted-foreground ml-auto">{travelDayForSelectedDate.departureTime}</span>
+                          </button>
+                          {travelExpanded && (
+                            <div className="px-4 pb-4 space-y-3">
+                              <div className="flex items-center gap-1 justify-end">
+                                <Link href={`/project/${travelDayForSelectedDate.projectId}`}>
+                                  <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-amber-600 dark:text-amber-400 hover:text-amber-700 hover:bg-amber-500/10" data-testid="button-travel-day-itinerary">
+                                    View Itinerary
+                                  </Button>
+                                </Link>
+                                {isAdmin && (
+                                  <ConfirmDelete
+                                    title="Delete Travel Day?"
+                                    description="This will remove the travel day and all crew travel details."
+                                    onConfirm={() => deleteTravelDayMutation.mutate(travelDayForSelectedDate.id)}
+                                    triggerVariant="ghost"
+                                    triggerSize="icon"
+                                    triggerClassName="h-7 w-7 text-amber-600 dark:text-amber-400 hover:text-destructive"
+                                    data-testid="button-delete-travel-day"
+                                  />
+                                )}
+                              </div>
+                              {travelDayForSelectedDate.departureAirport && travelDayForSelectedDate.arrivalAirport && (
+                                <div className="flex items-center gap-2 text-sm">
+                                  <Navigation className="w-3.5 h-3.5 text-amber-500" />
+                                  <span className="font-medium">{travelDayForSelectedDate.departureAirport}</span>
+                                  <span className="text-muted-foreground">→</span>
+                                  <span className="font-medium">{travelDayForSelectedDate.arrivalAirport}</span>
+                                </div>
                               )}
+                              {(travelDayForSelectedDate.flightNumber || travelDayForSelectedDate.airline) && (
+                                <div className="flex items-center gap-2 text-sm bg-background/50 rounded-lg p-2">
+                                  <PlaneTakeoff className="w-3.5 h-3.5 text-muted-foreground" />
+                                  {travelDayForSelectedDate.airline && <span className="text-muted-foreground">{travelDayForSelectedDate.airline}</span>}
+                                  {travelDayForSelectedDate.flightNumber && <span className="font-semibold">{travelDayForSelectedDate.flightNumber}</span>}
+                                  {travelDayForSelectedDate.departureTime && (
+                                    <span className="text-xs text-muted-foreground ml-auto">{travelDayForSelectedDate.departureTime}</span>
+                                  )}
+                                </div>
+                              )}
+                              {travelDayForSelectedDate.notes && (
+                                <p className="text-xs text-muted-foreground italic">{travelDayForSelectedDate.notes}</p>
+                              )}
+                              <TravelDayCrewSummary travelDayId={travelDayForSelectedDate.id} userId={user?.id} contacts={contacts} hasTopLevelDetails={!!(travelDayForSelectedDate.departureAirport || travelDayForSelectedDate.flightNumber || travelDayForSelectedDate.notes)} />
                             </div>
                           )}
-                          {travelDayForSelectedDate.notes && (
-                            <p className="text-xs text-muted-foreground italic">{travelDayForSelectedDate.notes}</p>
-                          )}
-                          <TravelDayCrewSummary travelDayId={travelDayForSelectedDate.id} userId={user?.id} contacts={contacts} hasTopLevelDetails={!!(travelDayForSelectedDate.departureAirport || travelDayForSelectedDate.flightNumber || travelDayForSelectedDate.notes)} />
                         </CardContent>
                       </Card>
                     </motion.div>
@@ -1686,6 +1691,8 @@ export default function Dashboard() {
 
                   </>
                   )}
+                  </>
+                  )}
                 </motion.div>
               </TabsContent>
             )}
@@ -1695,12 +1702,12 @@ export default function Dashboard() {
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
                   {hasNoAssignment ? (
                     <NoAssignmentState message="You haven't been assigned to any shows yet. Once an admin assigns you, your schedule will appear here." />
-                  ) : effectiveSelectedEvents.length === 0 && availableEvents.length > 0 ? (
+                  ) : effectiveSelectedEvents.length === 0 ? (
                     <Card className="border border-border/30 shadow-sm bg-card/50 backdrop-blur-sm rounded-xl">
                       <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                         <Mic2 className="w-10 h-10 text-muted-foreground/30 mb-3" />
-                        <p className="text-muted-foreground font-medium">No shows selected</p>
-                        <p className="text-sm text-muted-foreground/70 mt-1">Tap the show switcher above to pick which shows to view</p>
+                        <p className="text-muted-foreground font-medium">{allShowsForSelectedDate.length === 0 ? "No shows on this day" : "No shows selected"}</p>
+                        <p className="text-sm text-muted-foreground/70 mt-1">{allShowsForSelectedDate.length === 0 ? "Navigate to a day with scheduled shows to see details." : "Tap the show switcher above to pick which shows to view"}</p>
                       </CardContent>
                     </Card>
                   ) : (

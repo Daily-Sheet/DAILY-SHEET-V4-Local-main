@@ -7,6 +7,7 @@ import { ThemeProvider } from "@/components/ThemeProvider";
 import { ColorSchemeProvider } from "@/components/ColorSchemeProvider";
 import { EventSelectionProvider } from "@/contexts/EventSelectionContext";
 import { useAuth } from "@/hooks/use-auth";
+import { useGlobalShortcuts } from "@/hooks/use-global-shortcuts";
 import Dashboard from "@/pages/Dashboard";
 import Admin from "@/pages/Admin";
 import Landing from "@/pages/Landing";
@@ -17,6 +18,7 @@ import ResetPassword from "@/pages/ResetPassword";
 import CalendarPage from "@/pages/CalendarPage";
 import ProjectPage from "@/pages/ProjectPage";
 import AccessPage from "@/pages/AccessPage";
+import BandPortalPage from "@/pages/BandPortalPage";
 import MapPage from "@/pages/MapPage";
 import NotFound from "@/pages/not-found";
 import { Loader2, LayoutDashboard, CalendarDays, Settings2, Map } from "lucide-react";
@@ -111,6 +113,7 @@ function AuthenticatedRouter() {
 }
 
 function App() {
+  useGlobalShortcuts();
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
@@ -125,6 +128,7 @@ function App() {
             <Route path="/reset-password" component={ResetPassword} />
             <Route path="/admin-login" component={AdminLogin} />
             <Route path="/access/:token" component={AccessPage} />
+            <Route path="/portal/:token" component={BandPortalPage} />
 
             <Route>{() => <AuthenticatedRouter />}</Route>
             </Switch>

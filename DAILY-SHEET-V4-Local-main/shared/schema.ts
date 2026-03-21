@@ -498,3 +498,22 @@ export const insertMapPinCommentSchema = createInsertSchema(mapPinComments).omit
 export type MapPinComment = typeof mapPinComments.$inferSelect;
 export type InsertMapPinComment = z.infer<typeof insertMapPinCommentSchema>;
 export type InsertAccessLink = z.infer<typeof insertAccessLinkSchema>;
+
+// Band Portal
+export const bandPortalLinks = pgTable("band_portal_links", {
+  id: serial("id").primaryKey(),
+  token: text("token").notNull().unique(),
+  eventName: text("event_name").notNull(),
+  folderName: text("folder_name").notNull(),
+  workspaceId: integer("workspace_id").notNull(),
+  bandName: text("band_name").notNull(),
+  notes: text("notes"),
+  expiresAt: timestamp("expires_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  createdBy: text("created_by").notNull(),
+  revoked: boolean("revoked").default(false),
+});
+
+export const insertBandPortalLinkSchema = createInsertSchema(bandPortalLinks).omit({ id: true, createdAt: true });
+export type BandPortalLink = typeof bandPortalLinks.$inferSelect;
+export type InsertBandPortalLink = z.infer<typeof insertBandPortalLinkSchema>;
