@@ -110,6 +110,7 @@ export default function Shows() {
         </div>
         <div className="space-y-3">
           {filteredEvents.map((event: Event) => {
+            // ShowTile: internal reference for show selection button
             const eventVenue = event.venueId ? venuesList.find((v: Venue) => v.id === event.venueId) : null;
             const eventProject = event.projectId ? allProjects.find((p: Project) => p.id === event.projectId) : null;
             const isFestival = eventProject?.isFestival;
@@ -119,6 +120,7 @@ export default function Shows() {
               : event.startDate
                 ? format(new Date(event.startDate + "T00:00:00"), "MMM d, yyyy")
                 : null;
+            // ShowTile element
             return (
               <button
                 key={event.id}
@@ -130,6 +132,7 @@ export default function Shows() {
                   }
                   setLocation("/dashboard");
                 }}
+                data-testid={`show-tile-${event.id}`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">

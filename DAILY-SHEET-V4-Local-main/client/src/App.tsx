@@ -34,7 +34,7 @@ function MobileNav() {
 
   const isAdmin = ADMIN_ROLES.includes(user?.role || "");
   const navItems = [
-    { to: "/", label: "Dashboard", icon: LayoutDashboard },
+    { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
     { to: "/shows", label: "Shows", icon: CalendarDays },
     { to: "/calendar", label: "Calendar", icon: CalendarDays },
     { to: "/map", label: "Map", icon: Map },
@@ -99,12 +99,13 @@ function AuthenticatedRouter() {
   return (
     <Switch>
       <Route path="/select-org" component={OrgSelectorPage} />
-      <Route path="/" component={Dashboard} />
+      <Route path="/dashboard" component={Dashboard} />
       <Route path="/shows" component={Shows} />
       <Route path="/calendar" component={CalendarPage} />
       <Route path="/map" component={MapPage} />
       <Route path="/project/:id" component={ProjectPage} />
       <Route path="/admin" component={AdminRoute} />
+      <Route path="/" component={() => <Redirect to="/dashboard" />} />
       <Route component={NotFound} />
     </Switch>
   );
