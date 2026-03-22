@@ -754,18 +754,14 @@ export default function Dashboard() {
       defaultsApplied.current = true;
       return;
     }
-    if (isManager) {
-      // Always jump to the closest show in time on every dashboard visit
-      if (closestFutureEvent) {
+    const hasValidSelection = selectedEvents.length > 0 && selectedEvents.some(n => availableEvents.includes(n));
+    if (!hasValidSelection) {
+      if (isManager && closestFutureEvent) {
         eventSelection.setSelectedEvents([closestFutureEvent.name]);
-        // Also jump the date to the show's start date if it's not today
         if (closestFutureEvent.startDate && closestFutureEvent.startDate !== todayStr) {
           setActiveDate(closestFutureEvent.startDate);
         }
-      }
-    } else {
-      const hasValidSelection = selectedEvents.length > 0 && selectedEvents.some(n => availableEvents.includes(n));
-      if (!hasValidSelection) {
+      } else {
         eventSelection.setSelectedEvents([...defaultSelectedEvents]);
       }
     }
