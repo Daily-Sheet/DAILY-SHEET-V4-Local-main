@@ -922,14 +922,16 @@ export default function Dashboard() {
       const tourEvents = (eventsList as Event[])
         .filter(e => e.projectId === tp.id)
         .sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
+      // Find the first future event as the next stop
+      const nextEv = tourEvents.find(ev => ev.startDate && ev.startDate > activeDate);
       let nextStop: { event: Event; venue: Venue | null } | null = null;
+      if (nextEv) {
+        const dayVenue = allDayVenues.find(dv => dv.eventId === nextEv.id && dv.date === nextEv.startDate);
+        const venueId = dayVenue ? dayVenue.venueId : nextEv.venueId;
+        const venue = venueId ? venuesList.find(v => v.id === venueId) || null : null;
+        nextStop = { event: nextEv, venue };
+      }
       for (const ev of tourEvents) {
-        if (ev.startDate && ev.startDate > activeDate && !nextStop) {
-          const dayVenue = allDayVenues.find(dv => dv.eventId === ev.id && dv.date === ev.startDate);
-          const venueId = dayVenue ? dayVenue.venueId : ev.venueId;
-          const venue = venueId ? venuesList.find(v => v.id === venueId) || null : null;
-          nextStop = { event: ev, venue };
-        }
         if (ev.startDate && ev.startDate <= activeDate && (!ev.endDate || ev.endDate >= activeDate)) {
           map.set(ev.name, { project: tp, nextStop });
         }
