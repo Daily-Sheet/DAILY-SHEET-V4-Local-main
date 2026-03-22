@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { useState } from "react";
-import { Sun, Moon, Eye, LogOut, Check, Users, Building2, ArrowRightLeft, Loader2, Plus, X, Keyboard } from "lucide-react";
+import { Sun, Moon, Eye, LogOut, Check, Users, Building2, ArrowRightLeft, Loader2, Plus, X, Keyboard, ChevronRight } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -40,6 +40,9 @@ export function HeaderUserMenu({
   const [profileOpen, setProfileOpen] = useState(false);
   const [createOrgOpen, setCreateOrgOpen] = useState(false);
   const [newOrgName, setNewOrgName] = useState("");
+  const [orgsOpen, setOrgsOpen] = useState(false);
+  const [palettesOpen, setPalettesOpen] = useState(false);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: userWorkspaces = [] } = useQuery<{ id: number; name: string; role: string }[]>({
@@ -130,12 +133,19 @@ export function HeaderUserMenu({
               My Profile
             </button>
             <CrewDirectoryDialog contacts={contacts} canEdit={canEdit} allEventAssignments={allEventAssignments} />
-            <>
-              <Separator />
-              <div className="px-2 py-1">
-                <p className="text-[10px] text-muted-foreground mb-1 flex items-center gap-1">
-                  <Building2 className="h-3 w-3" /> Organizations
-                </p>
+            <Separator />
+            <button
+              type="button"
+              onClick={() => setOrgsOpen(!orgsOpen)}
+              className="flex items-center gap-1 w-full px-2 py-1.5 rounded-md text-[10px] text-muted-foreground hover:bg-accent cursor-pointer"
+            >
+              <ChevronRight className={cn("h-3 w-3 transition-transform", orgsOpen && "rotate-90")} />
+              <Building2 className="h-3 w-3" />
+              <span className="uppercase tracking-wide font-medium">Organizations</span>
+              <span className="ml-auto text-[10px]">{userWorkspaces.length}</span>
+            </button>
+            {orgsOpen && (
+              <div className="px-2 pb-1">
                 <div className="space-y-0.5">
                   {userWorkspaces.map((ws) => {
                     const isCurrent = ws.id === user?.workspaceId;
@@ -194,7 +204,7 @@ export function HeaderUserMenu({
                   </button>
                 )}
               </div>
-            </>
+            )}
             <Separator />
             <button
               type="button"
@@ -230,9 +240,17 @@ export function HeaderUserMenu({
                 )} />
               </div>
             </button>
-            <div className="px-2 py-1">
-              <p className="text-[10px] text-muted-foreground mb-1">Color Palette</p>
-              <div className="space-y-0.5">
+            <button
+              type="button"
+              onClick={() => setPalettesOpen(!palettesOpen)}
+              className="flex items-center gap-1 w-full px-2 py-1.5 rounded-md text-[10px] text-muted-foreground hover:bg-accent cursor-pointer"
+            >
+              <ChevronRight className={cn("h-3 w-3 transition-transform", palettesOpen && "rotate-90")} />
+              <span className="uppercase tracking-wide font-medium">Color Palette</span>
+              <span className="ml-auto text-[10px]">{PALETTES[palette]?.label}</span>
+            </button>
+            {palettesOpen && (
+              <div className="px-2 pb-1 space-y-0.5">
                 {(Object.entries(PALETTES) as [PaletteName, typeof PALETTES[PaletteName]][]).map(([key, { label, colors: palColors }]) => (
                   <button
                     key={key}
@@ -254,14 +272,19 @@ export function HeaderUserMenu({
                   </button>
                 ))}
               </div>
-            </div>
+            )}
             <Separator />
-            <div className="px-2 py-1.5">
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <Keyboard className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wide">Keyboard Shortcuts</span>
-              </div>
-              <div className="space-y-1 text-xs text-muted-foreground">
+            <button
+              type="button"
+              onClick={() => setShortcutsOpen(!shortcutsOpen)}
+              className="flex items-center gap-1 w-full px-2 py-1.5 rounded-md text-[10px] text-muted-foreground hover:bg-accent cursor-pointer"
+            >
+              <ChevronRight className={cn("h-3 w-3 transition-transform", shortcutsOpen && "rotate-90")} />
+              <Keyboard className="h-3 w-3" />
+              <span className="uppercase tracking-wide font-medium">Keyboard Shortcuts</span>
+            </button>
+            {shortcutsOpen && (
+              <div className="px-2 pb-1.5 space-y-1 text-xs text-muted-foreground">
                 <div className="flex items-center justify-between">
                   <span>Open Calendar</span>
                   <kbd className="px-1.5 py-0.5 rounded bg-muted text-[10px] font-mono border border-border/50">C</kbd>
@@ -305,7 +328,7 @@ export function HeaderUserMenu({
                   </div>
                 </div>
               </div>
-            </div>
+            )}
             <Separator />
             <button
               type="button"

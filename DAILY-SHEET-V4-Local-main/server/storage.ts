@@ -564,7 +564,7 @@ export class DatabaseStorage implements IStorage {
     await db.update(users).set({ pushToken }).where(eq(users.id, id));
   }
 
-  async updateUserProfile(id: string, data: { phone?: string | null; department?: string | null }): Promise<User> {
+  async updateUserProfile(id: string, data: { phone?: string | null; department?: string | null; profileImageUrl?: string | null }): Promise<User> {
     const [updated] = await db.update(users).set({ ...data, updatedAt: new Date() }).where(eq(users.id, id)).returning();
     const { passwordHash, ...rest } = updated;
     return { ...rest, passwordHash: null };

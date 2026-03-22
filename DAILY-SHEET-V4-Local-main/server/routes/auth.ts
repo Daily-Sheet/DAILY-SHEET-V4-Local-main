@@ -11,6 +11,7 @@ import { DEPARTMENTS, CONTACT_ROLES, DEFAULT_TASK_TYPES, DEFAULT_CREW_POSITIONS 
 import { isAuthenticated, invalidateUserCache } from "../replit_integrations/auth";
 import { getWorkspaceRole, requireRole } from "./utils";
 import { storage as storageAlias } from "../storage";
+import { saveFileFromDisk, deleteStoredFile } from "../fileStorage";
 
 export function registerAuthRoutes(app: Express, upload: multer.Multer) {
   app.get("/api/auth/user", isAuthenticated, async (req: any, res) => {
@@ -106,6 +107,43 @@ export function registerAuthRoutes(app: Express, upload: multer.Multer) {
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to update profile" });
+    }
+  });
+
+  app.post("/api/auth/profile-image", isAuthenticated, upload.single("image"), async (req: any, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No image uploaded" });
+      }
+      const allowed = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+      if (!allowed.includes(req.file.mimetype)) {
+        return res.status(400).json({ message: "Only JPEG, PNG, WebP, and GIF images are allowed" });
+      }
+      // Delete old profile image if it exists
+      const currentUser = req.user;
+      if (currentUser.profileImageUrl) {
+        try { await deleteStoredFile(currentUser.profileImageUrl); } catch {}
+      }
+      const url = await saveFileFromDisk(req.file.path, req.file.filename);
+      const updated = await storage.updateUserProfile(currentUser.id, { profileImageUrl: url });
+      invalidateUserCache(currentUser.id);
+      res.json({ profileImageUrl: updated.profileImageUrl });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to upload profile image" });
+    }
+  });
+
+  app.delete("/api/auth/profile-image", isAuthenticated, async (req: any, res) => {
+    try {
+      const currentUser = req.user;
+      if (currentUser.profileImageUrl) {
+        try { await deleteStoredFile(currentUser.profileImageUrl); } catch {}
+      }
+      await storage.updateUserProfile(currentUser.id, { profileImageUrl: null });
+      invalidateUserCache(currentUser.id);
+      res.json({ profileImageUrl: null });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to remove profile image" });
     }
   });
 
