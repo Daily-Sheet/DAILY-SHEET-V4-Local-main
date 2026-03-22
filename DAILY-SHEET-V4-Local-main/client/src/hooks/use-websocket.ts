@@ -23,6 +23,23 @@ function getInvalidations(type: string): string[][] {
     case "checkin:checkout":
       return [["/api/daily-checkins"]];
 
+    case "crew:assigned":
+    case "crew:unassigned":
+    case "crew:updated":
+    case "crew:checkin":
+    case "crew:checkout":
+      return [["/api/event-assignments"]];
+
+    case "contact:created":
+    case "contact:updated":
+    case "contact:deleted":
+      return [["/api/contacts"]];
+
+    case "project:crew-assigned":
+    case "project:crew-updated":
+    case "project:crew-unassigned":
+      return [["/api/project-assignments"], ["/api/event-assignments"]];
+
     case "notification:new":
       return [["/api/notifications"], ["/api/notifications/unread-count"]];
 

@@ -5,6 +5,7 @@ import { z } from "zod";
 import { api } from "@shared/routes";
 import { isAuthenticated } from "../replit_integrations/auth";
 import { requireRole, getUserAllowedEventNames } from "./utils";
+import { emitDomainEvent } from "../ws/eventBus";
 
 export function registerContactRoutes(app: Express, upload: multer.Multer) {
   app.get(api.contacts.list.path, isAuthenticated, async (req: any, res) => {
@@ -33,6 +34,8 @@ export function registerContactRoutes(app: Express, upload: multer.Multer) {
       const workspaceId = req.user.workspaceId;
       const input = api.contacts.create.input.parse(req.body);
       const contact = await storage.createContact({ ...input, workspaceId });
+      const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+      emitDomainEvent({ type: "contact:created", workspaceId, actorId: req.user.id, actorName, payload: { contactId: contact.id } });
       res.status(201).json(contact);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -64,6 +67,10 @@ export function registerContactRoutes(app: Express, upload: multer.Multer) {
           }
         }
       }
+      if (created.length > 0) {
+        const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+        emitDomainEvent({ type: "contact:created", workspaceId, actorId: req.user.id, actorName, payload: { imported: created.length } });
+      }
       res.status(201).json({ imported: created.length, errors });
     } catch (err) {
       res.status(500).json({ message: "Failed to import contacts" });
@@ -79,6 +86,8 @@ export function registerContactRoutes(app: Express, upload: multer.Multer) {
       if (!record) return res.status(404).json({ message: "Contact not found" });
       const input = api.contacts.update.input.parse(req.body);
       const contact = await storage.updateContact(id, input);
+      const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+      emitDomainEvent({ type: "contact:updated", workspaceId, actorId: req.user.id, actorName, payload: { contactId: id } });
       res.json(contact);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -98,6 +107,8 @@ export function registerContactRoutes(app: Express, upload: multer.Multer) {
       return res.status(400).json({ message: "This contact is linked to a user account and cannot be deleted. Remove the user from the organization instead." });
     }
     await storage.deleteContact(id);
+    const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+    emitDomainEvent({ type: "contact:deleted", workspaceId, actorId: req.user.id, actorName, payload: { contactId: id } });
     res.status(204).send();
   });
 
@@ -119,6 +130,8 @@ export function registerContactRoutes(app: Express, upload: multer.Multer) {
       return res.status(400).json({ message: `Cannot delete contacts linked to user accounts: ${names}. Remove them from the organization instead.` });
     }
     const deleted = await storage.bulkDeleteContacts(numericIds);
+    const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+    emitDomainEvent({ type: "contact:deleted", workspaceId, actorId: req.user.id, actorName, payload: { ids: numericIds } });
     res.json({ deleted });
   });
 }

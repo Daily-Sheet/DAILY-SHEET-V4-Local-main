@@ -6,6 +6,7 @@ import { users } from "@shared/models/auth";
 import { eq } from "drizzle-orm";
 import { isAuthenticated } from "../replit_integrations/auth";
 import { requireRole, requireWorkspaceAdmin, sendInviteEmail } from "./utils";
+import { emitDomainEvent } from "../ws/eventBus";
 
 export function registerWorkspaceRoutes(app: Express, upload: multer.Multer) {
   // Project Assignments
@@ -54,6 +55,8 @@ export function registerWorkspaceRoutes(app: Express, upload: multer.Multer) {
         }
       }
 
+      const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+      emitDomainEvent({ type: "project:crew-assigned", workspaceId, actorId: req.user.id, actorName, payload: { userId, projectId } });
       res.status(201).json(assignment);
     } catch (err) {
       res.status(500).json({ message: "Failed to create project assignment" });
@@ -85,6 +88,8 @@ export function registerWorkspaceRoutes(app: Express, upload: multer.Multer) {
         }
       }
 
+      const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+      emitDomainEvent({ type: "project:crew-updated", workspaceId, actorId: req.user.id, actorName, payload: { assignmentId: id } });
       res.json(updated);
     } catch (err) {
       res.status(500).json({ message: "Failed to update project assignment" });
@@ -100,6 +105,8 @@ export function registerWorkspaceRoutes(app: Express, upload: multer.Multer) {
       const assignment = all.find((a: any) => a.id === id);
       if (!assignment) return res.status(404).json({ message: "Assignment not found" });
       await storage.deleteProjectAssignment(id);
+      const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+      emitDomainEvent({ type: "project:crew-unassigned", workspaceId, actorId: req.user.id, actorName, payload: { userId: assignment.userId, projectId: assignment.projectId } });
       res.sendStatus(204);
     } catch (err) {
       res.status(500).json({ message: "Failed to delete project assignment" });

@@ -578,7 +578,7 @@ export function AssignedCrewView({ contacts, user, selectedEvents, allEventAssig
           <span>Your shows: {userEvents.join(", ")}</span>
         </div>
       )}
-      {festivalProject && (
+      {festivalProject && !isTourProject && (
         <div className="flex items-center gap-1 p-1 rounded-lg bg-card/80 backdrop-blur-sm border border-border/30 w-fit" data-testid="crew-sub-tabs">
           <button
             onClick={() => setCrewSubTab("festival")}
@@ -692,12 +692,12 @@ export function AssignedCrewView({ contacts, user, selectedEvents, allEventAssig
           )}
         </div>
       )}
-      {festivalProject && crewSubTab === "stage" && Object.keys(groupedByEvent).length === 0 && (
+      {festivalProject && !isTourProject && crewSubTab === "stage" && Object.keys(groupedByEvent).length === 0 && (
         <div className="p-4 text-center text-sm text-muted-foreground rounded-xl border border-border/30 bg-card/30 backdrop-blur-sm">
-          No crew assigned to individual {isTourProject ? "shows" : "stages"} yet.
+          No crew assigned to individual stages yet.
         </div>
       )}
-      {(!festivalProject || crewSubTab === "stage") && Object.entries(groupedByEvent).map(([groupEventName, crewList]) => {
+      {(!festivalProject || (!isTourProject && crewSubTab === "stage")) && Object.entries(groupedByEvent).map(([groupEventName, crewList]) => {
         const sortedCrewList = [...crewList].sort((a, b) => {
           const nameA = [a.firstName, a.lastName].filter(Boolean).join(" ");
           const nameB = [b.firstName, b.lastName].filter(Boolean).join(" ");

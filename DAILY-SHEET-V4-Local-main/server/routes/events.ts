@@ -7,6 +7,7 @@ import { db } from "../db";
 import { eq, and } from "drizzle-orm";
 import { isAuthenticated } from "../replit_integrations/auth";
 import { requireRole, getWorkspaceRole, getUserAllowedEventNames, notifyUsers, logActivity } from "./utils";
+import { emitDomainEvent } from "../ws/eventBus";
 
 export function registerEventRoutes(app: Express, upload: multer.Multer) {
   app.get("/api/events", isAuthenticated, async (req: any, res) => {
@@ -228,6 +229,7 @@ export function registerEventRoutes(app: Express, upload: multer.Multer) {
       res.status(201).json(assignment);
 
       const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+      emitDomainEvent({ type: "crew:assigned", workspaceId, eventName: eventName.trim(), actorId: req.user.id, actorName, payload: { userId: req.params.id } });
       notifyUsers([req.params.id], req.user.id, "assignment_change", "Show Assignment", `You were assigned to "${eventName.trim()}"`, workspaceId, eventName.trim())
         .catch(err => console.error("Notification error:", err));
       const targetMember = members.find((m: any) => m.userId === req.params.id) as any;
@@ -253,6 +255,8 @@ export function registerEventRoutes(app: Express, upload: multer.Multer) {
       }
       const updated = await storage.checkInAssignment(Number(req.params.id));
       res.json(updated);
+      const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+      emitDomainEvent({ type: "crew:checkin", workspaceId: req.user.workspaceId, eventName: assignment.eventName, actorId: req.user.id, actorName, payload: { assignmentId: assignment.id } });
     } catch (err) {
       res.status(500).json({ message: "Failed to check in" });
     }
@@ -272,6 +276,8 @@ export function registerEventRoutes(app: Express, upload: multer.Multer) {
       }
       const updated = await storage.checkOutAssignment(Number(req.params.id));
       res.json(updated);
+      const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+      emitDomainEvent({ type: "crew:checkout", workspaceId: req.user.workspaceId, eventName: assignment.eventName, actorId: req.user.id, actorName, payload: { assignmentId: assignment.id } });
     } catch (err) {
       res.status(500).json({ message: "Failed to check out" });
     }
@@ -305,6 +311,8 @@ export function registerEventRoutes(app: Express, upload: multer.Multer) {
       const { position } = req.body;
       const updated = await storage.updateAssignment(Number(req.params.id), { position: position || null });
       res.json(updated);
+      const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+      emitDomainEvent({ type: "crew:updated", workspaceId: req.user.workspaceId, actorId: req.user.id, actorName, payload: { assignmentId: Number(req.params.id) } });
     } catch (err) {
       res.status(500).json({ message: "Failed to update assignment" });
     }
@@ -319,6 +327,8 @@ export function registerEventRoutes(app: Express, upload: multer.Multer) {
       await removeCrewFromSchedules(assignment.userId, assignment.eventName, workspaceId);
       await storage.deleteAssignment(Number(req.params.id));
       res.status(204).send();
+      const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+      emitDomainEvent({ type: "crew:unassigned", workspaceId, eventName: assignment.eventName, actorId: req.user.id, actorName, payload: { userId: assignment.userId } });
     } catch (err) {
       res.status(500).json({ message: "Failed to delete assignment" });
     }
@@ -351,6 +361,8 @@ export function registerEventRoutes(app: Express, upload: multer.Multer) {
         }
       }
       res.json(assignments);
+      const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+      emitDomainEvent({ type: "crew:assigned", workspaceId, actorId: req.user.id, actorName, payload: { userId: req.params.id, bulk: true } });
     } catch (err) {
       res.status(500).json({ message: "Failed to update assignments" });
     }
