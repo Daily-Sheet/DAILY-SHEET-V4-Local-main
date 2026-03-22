@@ -16,6 +16,7 @@ import { useCreateVenue } from "@/hooks/use-venue";
 import { useQuery } from "@tanstack/react-query";
 import type { Venue, Event, VenueTechPacket } from "@shared/schema";
 import { PlacesAutocomplete } from "@/components/maps/PlacesAutocomplete";
+import { CreateVenueDialog } from "@/components/dashboard/venue/VenueForm";
 
 export function VenueMiniMap({ venue }: { venue: Venue }) {
   if (!venue.latitude || !venue.longitude) return null;
@@ -129,6 +130,7 @@ export function TechPacketHistory({ venueId, canUpload }: { venueId: number; can
 export function VenueQuickSelect({ show, selectedDate, currentVenueId, venuesList, onEditShow }: { show: Event; selectedDate: string; currentVenueId: number | null; venuesList: Venue[]; onEditShow: () => void }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -156,6 +158,7 @@ export function VenueQuickSelect({ show, selectedDate, currentVenueId, venuesLis
   });
 
   return (
+    <>
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <Button size="sm" variant="ghost" className="mt-1 print:hidden" data-testid={`button-change-venue-${show.id}`}>
@@ -200,7 +203,16 @@ export function VenueQuickSelect({ show, selectedDate, currentVenueId, venuesLis
             </button>
           ))}
         </div>
-        <div className="border-t">
+        <div className="border-t space-y-0">
+          <button
+            type="button"
+            onClick={() => { setOpen(false); setCreateDialogOpen(true); }}
+            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-primary hover-elevate rounded-md"
+            data-testid={`button-create-venue-from-quick-select-${show.id}`}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Create New Venue
+          </button>
           <button
             type="button"
             onClick={() => { setOpen(false); onEditShow(); }}
@@ -213,6 +225,14 @@ export function VenueQuickSelect({ show, selectedDate, currentVenueId, venuesLis
         </div>
       </PopoverContent>
     </Popover>
+    <CreateVenueDialog
+      open={createDialogOpen}
+      onOpenChange={setCreateDialogOpen}
+      onCreated={(newVenue) => {
+        setDayVenueMutation.mutate(newVenue.id);
+      }}
+    />
+    </>
   );
 }
 
