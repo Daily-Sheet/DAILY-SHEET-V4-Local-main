@@ -9,10 +9,15 @@ function toMinutes(dateVal: any): number {
   return getLocalTimeMinutes(dateVal);
 }
 
+function itemStartMinutes(item: any): number {
+  return toMinutes(item.startTime) + (item.isNextDay ? 24 * 60 : 0);
+}
+
 function endMinutes(item: any): number {
-  if (!item.endTime) return toMinutes(item.startTime);
-  let end = toMinutes(item.endTime);
-  const start = toMinutes(item.startTime);
+  const offset = item.isNextDay ? 24 * 60 : 0;
+  if (!item.endTime) return toMinutes(item.startTime) + offset;
+  let end = toMinutes(item.endTime) + offset;
+  const start = toMinutes(item.startTime) + offset;
   if (end < start) end += 24 * 60;
   return end;
 }
@@ -20,21 +25,21 @@ function endMinutes(item: any): number {
 export function buildNestedSchedule(items: any[]): ScheduleNode[] {
   const nodes: ScheduleNode[] = [];
   const sorted = [...items].sort((a, b) => {
-    const startDiff = toMinutes(a.startTime) - toMinutes(b.startTime);
+    const startDiff = itemStartMinutes(a) - itemStartMinutes(b);
     if (startDiff !== 0) return startDiff;
-    const durA = endMinutes(a) - toMinutes(a.startTime);
-    const durB = endMinutes(b) - toMinutes(b.startTime);
+    const durA = endMinutes(a) - itemStartMinutes(a);
+    const durB = endMinutes(b) - itemStartMinutes(b);
     return durB - durA;
   });
 
   for (const item of sorted) {
-    const start = toMinutes(item.startTime);
+    const start = itemStartMinutes(item);
     const end = endMinutes(item);
 
     const insertInto = (nodeList: ScheduleNode[]): boolean => {
       for (let i = nodeList.length - 1; i >= 0; i--) {
         const parent = nodeList[i];
-        const pStart = toMinutes(parent.item.startTime);
+        const pStart = itemStartMinutes(parent.item);
         const pEnd = endMinutes(parent.item);
         if (pEnd - pStart <= 0) continue;
         if (start >= pStart && end <= pEnd && start < pEnd && (start !== pStart || end !== pEnd)) {

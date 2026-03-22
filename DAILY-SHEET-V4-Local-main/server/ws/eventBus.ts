@@ -1,7 +1,5 @@
-import events from "events";
+import { EventEmitter } from "node:events";
 import type { DomainEvent } from "./types";
-
-const { EventEmitter } = events;
 
 class DomainEventBus extends EventEmitter {
   emitDomain(event: DomainEvent) {
