@@ -144,11 +144,8 @@ export function ScheduleItem({
         )}
 
         <div className="flex-shrink-0 pt-0.5" style={{ width: '4.5rem' }}>
-          <div className={cn("font-mono text-xs font-bold leading-tight flex items-center gap-1", isNested ? "text-primary/70" : "text-primary")}>
+          <div className={cn("font-mono text-xs font-bold leading-tight", isNested ? "text-primary/70" : "text-primary")}>
             {formatTime(item.startTime)}
-            {item.isNextDay && (
-              <span className="text-[9px] font-semibold text-amber-500 dark:text-amber-400" title="After midnight (next calendar day)">+1</span>
-            )}
           </div>
           {item.endTime && (
             <div className="font-mono text-[10px] text-muted-foreground leading-tight">

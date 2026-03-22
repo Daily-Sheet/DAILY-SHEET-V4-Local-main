@@ -1615,7 +1615,11 @@ export default function Dashboard() {
                                     {(() => {
                                       const withTime = showScheduleItems.filter(item => item.startTime);
                                       const withoutTime = showScheduleItems.filter(item => !item.startTime);
-                                      const sorted = [...withTime].sort((a, b) => getLocalTimeMinutes(a.startTime!) - getLocalTimeMinutes(b.startTime!));
+                                      const sorted = [...withTime].sort((a, b) => {
+                                        const aMin = getLocalTimeMinutes(a.startTime!) + ((a as any).isNextDay ? 24 * 60 : 0);
+                                        const bMin = getLocalTimeMinutes(b.startTime!) + ((b as any).isNextDay ? 24 * 60 : 0);
+                                        return aMin - bMin;
+                                      });
                                       const allItems = [...sorted, ...withoutTime];
                                       return (
                                         <>
@@ -1624,7 +1628,7 @@ export default function Dashboard() {
                                             const section = item.sectionId ? (allSections as any[]).find(s => s.id === item.sectionId) : null;
                                             return (
                                               <div key={item.id} className="flex items-center gap-1 text-[11px] leading-tight min-w-0">
-                                                {item.startTime && <span className="font-medium text-foreground/80 flex-shrink-0">{formatTime(item.startTime)}{(item as any).isNextDay && <span className="text-amber-500 font-semibold ml-0.5">+1</span>}</span>}
+                                                {item.startTime && <span className="font-medium text-foreground/80 flex-shrink-0">{formatTime(item.startTime)}</span>}
                                                 <span className="text-muted-foreground truncate">{item.category || item.title}</span>
                                                 {section && <span className="text-[9px] text-primary/70 flex-shrink-0">· {section.name}</span>}
                                                 {zone && <span className="text-[9px] text-primary/70 flex-shrink-0">· {zone.name}</span>}
