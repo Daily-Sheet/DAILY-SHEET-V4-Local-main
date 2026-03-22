@@ -449,7 +449,7 @@ export default function MapPage() {
           {!pinDropMode && !selectedPin && !pendingLatLng && (
             <Button
               size="icon"
-              className="absolute bottom-4 right-4 h-12 w-12 rounded-full shadow-xl"
+              className="absolute bottom-4 left-4 h-12 w-12 rounded-full shadow-xl"
               style={{ zIndex: 1000 }}
               onClick={() => setPinDropMode(true)}
             >
