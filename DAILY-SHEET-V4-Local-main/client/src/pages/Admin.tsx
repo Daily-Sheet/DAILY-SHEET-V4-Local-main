@@ -4509,8 +4509,8 @@ function ProjectsAdmin() {
                       </div>
                       )}
 
-                      {expandedCards.has(project.id) && (
-                        <ProjectLegsSection projectId={project.id} projectName={project.name} venues={venuesList} isFestival={project.isFestival ?? false} />
+                      {expandedCards.has(project.id) && project.isTour && (
+                        <ProjectLegsSection projectId={project.id} projectName={project.name} venues={venuesList} />
                       )}
 
                       {expandedCards.has(project.id) && (
