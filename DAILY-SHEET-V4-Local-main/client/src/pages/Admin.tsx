@@ -3222,9 +3222,38 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
   const [editEndDate, setEditEndDate] = useState("");
   const [editVenueId, setEditVenueId] = useState<number | null>(null);
   const [editNotes, setEditNotes] = useState("");
+  const [addTravelOpen, setAddTravelOpen] = useState(false);
+  const [newTravel, setNewTravel] = useState({ date: "", notes: "", flightNumber: "", airline: "", departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: "" });
+  const resetTravelForm = () => setNewTravel({ date: "", notes: "", flightNumber: "", airline: "", departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: "" });
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: eventsList = [] } = useQuery<Event[]>({ queryKey: ["/api/events"] });
+
+  const { data: travelDays = [] } = useQuery<TravelDay[]>({
+    queryKey: ["/api/projects", projectId, "travel-days"],
+  });
+
+  const createTravelDayMutation = useMutation({
+    mutationFn: async (data: { date: string; legId: number | null; notes?: string; flightNumber?: string; airline?: string; departureAirport?: string; arrivalAirport?: string; departureTime?: string; arrivalTime?: string }) => {
+      const res = await apiRequest("POST", `/api/projects/${projectId}/travel-days`, data);
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "travel-days"] });
+      setAddTravelOpen(false);
+      resetTravelForm();
+      toast({ title: "Travel day added" });
+    },
+    onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
+  });
+
+  const deleteTravelDayMutation = useMutation({
+    mutationFn: async (id: number) => { await apiRequest("DELETE", `/api/travel-days/${id}`); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "travel-days"] });
+      toast({ title: "Travel day deleted" });
+    },
+  });
 
   const shows = useMemo(() =>
     (eventsList as Event[])
@@ -3347,6 +3376,119 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
           )
         ))}
       </div>
+
+      {/* Travel Days (non-tour projects) */}
+      {!isTour && (
+        <>
+          {travelDays.length > 0 && (
+            <div className="space-y-1 mt-3 pt-3 border-t border-amber-400/20">
+              <p className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-2">Travel Days</p>
+              {[...travelDays].sort((a, b) => a.date.localeCompare(b.date)).map(td => (
+                <div key={td.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-amber-500/5 border border-amber-400/20 group" data-testid={`travel-day-${td.id}`}>
+                  <Plane className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <span className="text-sm font-medium text-amber-700 dark:text-amber-300">{td.date}</span>
+                    {td.airline && td.flightNumber && (
+                      <span className="text-xs text-muted-foreground ml-2">{td.airline} {td.flightNumber}</span>
+                    )}
+                    {td.departureAirport && td.arrivalAirport && (
+                      <span className="text-xs text-muted-foreground ml-2">{td.departureAirport} → {td.arrivalAirport}</span>
+                    )}
+                    {td.notes && <span className="text-xs text-muted-foreground ml-2">· {td.notes}</span>}
+                  </div>
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                    <ConfirmDelete
+                      onConfirm={() => deleteTravelDayMutation.mutate(td.id)}
+                      title="Delete travel day?"
+                      description="This will remove the travel day and all crew travel details."
+                      triggerVariant="ghost"
+                      triggerSize="icon"
+                      triggerClassName="h-7 w-7 text-destructive hover:text-destructive"
+                      triggerLabel={<Trash2 className="w-3 h-3" />}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+          <div className="mt-2">
+            <Button variant="ghost" size="sm" onClick={() => setAddTravelOpen(true)} data-testid={`button-add-travel-day-${projectId}`}>
+              <Plane className="w-4 h-4 mr-1" /> Add Travel Day
+            </Button>
+          </div>
+
+          {/* Add Travel Day Dialog */}
+          <Dialog open={addTravelOpen} onOpenChange={(o) => { if (!o) { setAddTravelOpen(false); resetTravelForm(); } }}>
+            <DialogContent className="sm:max-w-[480px] font-body max-h-[85vh] flex flex-col">
+              <DialogHeader>
+                <DialogTitle className="font-display text-xl uppercase tracking-wide text-primary">
+                  Add Travel Day
+                </DialogTitle>
+                <DialogDescription className="sr-only">Add a travel day with flight details</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1" style={{ WebkitOverflowScrolling: "touch" }}>
+                <div>
+                  <Label>Date</Label>
+                  <DatePicker value={newTravel.date} onChange={(v) => setNewTravel(p => ({ ...p, date: v }))} />
+                </div>
+                <Separator />
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Flight Details (Optional)</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Airline</Label>
+                    <Input placeholder="e.g. United" value={newTravel.airline} onChange={e => setNewTravel(p => ({ ...p, airline: e.target.value }))} className="mt-1" />
+                  </div>
+                  <div>
+                    <Label>Flight Number</Label>
+                    <Input placeholder="e.g. UA1234" value={newTravel.flightNumber} onChange={e => setNewTravel(p => ({ ...p, flightNumber: e.target.value }))} className="mt-1" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Departure Airport</Label>
+                    <Input placeholder="e.g. SFO" value={newTravel.departureAirport} onChange={e => setNewTravel(p => ({ ...p, departureAirport: e.target.value.toUpperCase() }))} className="mt-1" maxLength={4} />
+                  </div>
+                  <div>
+                    <Label>Arrival Airport</Label>
+                    <Input placeholder="e.g. LAX" value={newTravel.arrivalAirport} onChange={e => setNewTravel(p => ({ ...p, arrivalAirport: e.target.value.toUpperCase() }))} className="mt-1" maxLength={4} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Departure Time</Label>
+                    <TimePicker value={newTravel.departureTime} onChange={(v) => setNewTravel(p => ({ ...p, departureTime: v }))} />
+                  </div>
+                  <div>
+                    <Label>Arrival Time</Label>
+                    <TimePicker value={newTravel.arrivalTime} onChange={(v) => setNewTravel(p => ({ ...p, arrivalTime: v }))} />
+                  </div>
+                </div>
+                <div>
+                  <Label>Notes</Label>
+                  <Textarea placeholder="Additional travel notes..." value={newTravel.notes} onChange={e => setNewTravel(p => ({ ...p, notes: e.target.value }))} className="mt-1 resize-none" rows={2} />
+                </div>
+              </div>
+              <Button
+                className="w-full flex-shrink-0 mt-3"
+                onClick={() => newTravel.date && createTravelDayMutation.mutate({
+                  date: newTravel.date,
+                  legId: null,
+                  notes: newTravel.notes || undefined,
+                  flightNumber: newTravel.flightNumber || undefined,
+                  airline: newTravel.airline || undefined,
+                  departureAirport: newTravel.departureAirport || undefined,
+                  arrivalAirport: newTravel.arrivalAirport || undefined,
+                  departureTime: newTravel.departureTime || undefined,
+                  arrivalTime: newTravel.arrivalTime || undefined,
+                })}
+                disabled={!newTravel.date || createTravelDayMutation.isPending}
+              >
+                {createTravelDayMutation.isPending ? "Adding..." : "Add Travel Day"}
+              </Button>
+            </DialogContent>
+          </Dialog>
+        </>
+      )}
     </div>
   );
 }
