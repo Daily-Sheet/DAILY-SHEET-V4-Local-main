@@ -1585,6 +1585,7 @@ function VenueAdmin() {
   const { toast } = useToast();
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [expandedVenues, setExpandedVenues] = useState<Set<number>>(new Set());
   const [venueView, setVenueView] = useState<"list" | "map">("list");
 
   if (isLoading) return <div className="text-center text-muted-foreground py-12">Loading venues...</div>;
@@ -1693,21 +1694,29 @@ function VenueAdmin() {
               </>
             ) : (
               <>
-                <CardHeader className="flex flex-row items-start justify-between gap-2">
-                  <div className="space-y-1">
-                    <CardTitle className="text-lg font-display uppercase tracking-wide">{venue.name}</CardTitle>
-                    <p className="text-sm text-muted-foreground flex items-center gap-1">
-                      <MapPin className="w-3 h-3" /> {venue.address}
-                    </p>
+                <div
+                  className="flex items-center justify-between gap-2 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors"
+                  onClick={() => setExpandedVenues(prev => {
+                    const next = new Set(prev);
+                    next.has(venue.id) ? next.delete(venue.id) : next.add(venue.id);
+                    return next;
+                  })}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    {expandedVenues.has(venue.id) ? <ChevronDown className="w-4 h-4 text-muted-foreground shrink-0" /> : <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
+                    <div className="min-w-0">
+                      <span className="font-display uppercase tracking-wide text-sm font-semibold">{venue.name}</span>
+                      {venue.address && <span className="text-xs text-muted-foreground ml-2 truncate">{venue.address}</span>}
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 shrink-0" onClick={e => e.stopPropagation()}>
                     {venue.techPacketUrl && (
-                      <Button size="icon" variant="ghost" onClick={() => window.open(venue.techPacketUrl!, '_blank')} data-testid={`button-view-tech-packet-${venue.id}`}>
-                        <Eye className="h-4 w-4" />
+                      <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => window.open(venue.techPacketUrl!, '_blank')} data-testid={`button-view-tech-packet-${venue.id}`}>
+                        <Eye className="h-3.5 w-3.5" />
                       </Button>
                     )}
-                    <Button size="icon" variant="ghost" onClick={() => setEditingId(venue.id)} data-testid={`button-edit-venue-${venue.id}`}>
-                      <Pencil className="h-4 w-4" />
+                    <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingId(venue.id)} data-testid={`button-edit-venue-${venue.id}`}>
+                      <Pencil className="h-3.5 w-3.5" />
                     </Button>
                     <ConfirmDelete
                       onConfirm={() => deleteVenue(venue.id, {
@@ -1720,39 +1729,41 @@ function VenueAdmin() {
                       data-testid={`button-delete-venue-${venue.id}`}
                     />
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                    {venue.contactName && (
-                      <div>
-                        <span className="text-muted-foreground">Contact:</span>{" "}
-                        <span>{venue.contactName}</span>
-                        {venue.contactPhone && <span className="ml-1 text-muted-foreground">({venue.contactPhone})</span>}
-                      </div>
-                    )}
-                    {venue.wifiSsid && (
-                      <div>
-                        <span className="text-muted-foreground">Wi-Fi:</span>{" "}
-                        <span>{venue.wifiSsid}</span>
-                        {venue.wifiPassword && <span className="ml-1 text-muted-foreground">/ {venue.wifiPassword}</span>}
-                      </div>
-                    )}
-                    {venue.notes && (
-                      <div>
-                        <span className="text-muted-foreground">Notes:</span>{" "}
-                        <span>{venue.notes}</span>
-                      </div>
-                    )}
-                    {venue.techPacketUrl && (
-                      <div>
-                        <Button variant="outline" size="sm" onClick={() => window.open(venue.techPacketUrl!, '_blank')} data-testid={`button-view-tech-packet-link-${venue.id}`}>
-                          <Eye className="mr-2 h-4 w-4" /> View Tech Packet
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  <VenueZonesSection venueId={venue.id} />
-                </CardContent>
+                </div>
+                {expandedVenues.has(venue.id) && (
+                  <CardContent className="pt-0">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                      {venue.contactName && (
+                        <div>
+                          <span className="text-muted-foreground">Contact:</span>{" "}
+                          <span>{venue.contactName}</span>
+                          {venue.contactPhone && <span className="ml-1 text-muted-foreground">({venue.contactPhone})</span>}
+                        </div>
+                      )}
+                      {venue.wifiSsid && (
+                        <div>
+                          <span className="text-muted-foreground">Wi-Fi:</span>{" "}
+                          <span>{venue.wifiSsid}</span>
+                          {venue.wifiPassword && <span className="ml-1 text-muted-foreground">/ {venue.wifiPassword}</span>}
+                        </div>
+                      )}
+                      {venue.notes && (
+                        <div>
+                          <span className="text-muted-foreground">Notes:</span>{" "}
+                          <span>{venue.notes}</span>
+                        </div>
+                      )}
+                      {venue.techPacketUrl && (
+                        <div>
+                          <Button variant="outline" size="sm" onClick={() => window.open(venue.techPacketUrl!, '_blank')} data-testid={`button-view-tech-packet-link-${venue.id}`}>
+                            <Eye className="mr-2 h-4 w-4" /> View Tech Packet
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                    <VenueZonesSection venueId={venue.id} />
+                  </CardContent>
+                )}
               </>
             )}
           </Card>
