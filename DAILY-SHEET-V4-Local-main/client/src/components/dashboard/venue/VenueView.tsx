@@ -248,12 +248,13 @@ export function DailySheetNoVenue({ show, canEdit, venuesList, selectedDate, pro
 
   const linkVenueMutation = useMutation({
     mutationFn: async ({ eventId, venueId }: { eventId: number; venueId: number }) => {
-      const res = await apiRequest("PATCH", `/api/events/${eventId}`, { venueId });
+      const res = await apiRequest("PATCH", `/api/events/${eventId}`, { venueId, venueForAllDays: true });
       return res.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/events"] });
       queryClient.invalidateQueries({ queryKey: ["/api/venues"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/event-day-venues"] });
       toast({ title: "Venue Linked", description: "Venue has been linked to this show." });
     },
     onError: () => {
