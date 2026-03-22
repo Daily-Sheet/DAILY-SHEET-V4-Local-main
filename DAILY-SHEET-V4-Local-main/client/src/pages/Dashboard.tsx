@@ -85,7 +85,7 @@ import { EditScheduleDialog } from "@/components/dashboard/schedule/EditSchedule
 import { ClearDayButton, ScheduleItem, SortableScheduleItem } from "@/components/dashboard/schedule/ScheduleItem";
 import { CrewPositionEditor } from "@/components/dashboard/crew/CrewPositionEditor";
 import { VenueMiniMap, VenueQuickSelect, DailySheetNoVenue, TechPacketHistory } from "@/components/dashboard/venue/VenueView";
-import { TravelDayCrewSummary, OnTourWidget } from "@/components/dashboard/overview/OnTourWidget";
+import { TravelDayCrewSummary } from "@/components/dashboard/overview/OnTourWidget";
 import { GearRequestDialog, GearRequestHistory } from "@/components/dashboard/overview/GearRequest";
 import { getWeatherIcon, getWeatherLabel, WeatherWidget } from "@/components/dashboard/overview/WeatherWidget";
 import { ActivityFeed, OverviewActivitySquare } from "@/components/dashboard/overview/ActivityFeed";
@@ -915,6 +915,29 @@ export default function Dashboard() {
     return allShowsForSelectedDate.filter((ev: Event) => effectiveSelectedEventsSet.has(ev.name));
   }, [allShowsForSelectedDate, effectiveSelectedEvents, effectiveSelectedEventsSet]);
 
+  // Map show names to their tour project + next stop (for inline tour banner on show cards)
+  const showTourMap = useMemo(() => {
+    const map = new Map<string, { project: Project; nextStop: { event: Event; venue: Venue | null } | null }>();
+    for (const tp of activeTourProjects) {
+      const tourEvents = (eventsList as Event[])
+        .filter(e => e.projectId === tp.id)
+        .sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
+      let nextStop: { event: Event; venue: Venue | null } | null = null;
+      for (const ev of tourEvents) {
+        if (ev.startDate && ev.startDate > activeDate && !nextStop) {
+          const dayVenue = allDayVenues.find(dv => dv.eventId === ev.id && dv.date === ev.startDate);
+          const venueId = dayVenue ? dayVenue.venueId : ev.venueId;
+          const venue = venueId ? venuesList.find(v => v.id === venueId) || null : null;
+          nextStop = { event: ev, venue };
+        }
+        if (ev.startDate && ev.startDate <= activeDate && (!ev.endDate || ev.endDate >= activeDate)) {
+          map.set(ev.name, { project: tp, nextStop });
+        }
+      }
+    }
+    return map;
+  }, [activeTourProjects, eventsList, activeDate, allDayVenues, venuesList]);
+
   const dailySheetContacts = useMemo(() => {
     const dateShowNames = new Set(showsForSelectedDate.map(s => s.name));
     const relevantUserIds = new Set(
@@ -1308,7 +1331,7 @@ export default function Dashboard() {
                     <NoAssignmentState message="You haven't been assigned to any shows yet. Once an admin assigns you to a show, your overview will appear here." />
                   ) : (
                   <>
-                  <OnTourWidget events={eventsList} projects={allProjects} venues={venuesList} allDayVenues={allDayVenues} selectedDate={activeDate} />
+                  {/* Tour context is now inline on each show card via showTourMap */}
                   {travelDayForSelectedDate && (
                     <motion.div
                       initial={{ opacity: 0, y: 12 }}
@@ -1419,6 +1442,7 @@ export default function Dashboard() {
                         const resolvedVenueId = dayVenueEntry ? dayVenueEntry.venueId : showEvent?.venueId;
                         const showVenue = resolvedVenueId ? venuesList.find(v => v.id === resolvedVenueId) || null : null;
                         const showProject = showEvent?.projectId ? allProjects.find(p => p.id === showEvent.projectId) : null;
+                        const tourInfo = showTourMap.get(showName);
                         return (
                           <motion.div
                             key={showName}
@@ -1426,7 +1450,20 @@ export default function Dashboard() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.3, delay: showIdx * 0.05 }}
                           >
-                          <Card className="border border-border/30 shadow-sm bg-card/50 backdrop-blur-sm rounded-xl flex flex-col overflow-hidden h-full" data-testid={`overview-card-${showName.replace(/\s+/g, '-')}`}> 
+                          <Card className={cn("shadow-sm bg-card/50 backdrop-blur-sm rounded-xl flex flex-col overflow-hidden h-full", tourInfo ? "border border-blue-500/30" : "border border-border/30")} data-testid={`overview-card-${showName.replace(/\s+/g, '-')}`}>
+                            {tourInfo && (
+                              <div className="flex items-center justify-between px-3 py-1.5 bg-blue-500/10 border-b border-blue-500/20">
+                                <div className="flex items-center gap-1.5">
+                                  <Navigation className="w-3 h-3 text-blue-500" />
+                                  <span className="text-[10px] font-display uppercase tracking-wider text-blue-600 dark:text-blue-400 font-semibold">On Tour · {tourInfo.project.name}</span>
+                                </div>
+                                <Link href={`/project/${tourInfo.project.id}`}>
+                                  <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px] text-blue-600 dark:text-blue-400 hover:text-blue-700" data-testid={`button-view-itinerary-${tourInfo.project.id}`}>
+                                    Itinerary
+                                  </Button>
+                                </Link>
+                              </div>
+                            )}
                             {showVenue ? (
                               <div className="bg-secondary/70 backdrop-blur-sm text-secondary-foreground rounded-t-xl">
                                 <div className="p-3 sm:p-4">
@@ -1682,6 +1719,15 @@ export default function Dashboard() {
                                 </div>
                               </div>
                             </CardContent>
+                            {tourInfo?.nextStop && (
+                              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/5 border-t border-blue-500/20 text-xs text-muted-foreground">
+                                <Navigation className="w-3 h-3 text-blue-400 flex-shrink-0" />
+                                <span>Next:</span>
+                                <span className="font-medium text-foreground">{tourInfo.nextStop.event.name}</span>
+                                {tourInfo.nextStop.venue && <span>· {tourInfo.nextStop.venue.name}</span>}
+                                {tourInfo.nextStop.event.startDate && <span>· {format(parseISO(tourInfo.nextStop.event.startDate), "MMM d")}</span>}
+                              </div>
+                            )}
                           </Card>
                           </motion.div>
                         );
