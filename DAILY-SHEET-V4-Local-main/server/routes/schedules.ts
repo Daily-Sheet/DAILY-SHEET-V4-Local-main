@@ -15,6 +15,7 @@ import {
   buildScheduleDiff,
   buildScheduleSnapshot,
 } from "./utils";
+import { emitDomainEvent } from "../ws/eventBus";
 
 export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
   // Schedules
@@ -100,6 +101,7 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
       res.status(201).json(schedule);
 
       const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+      emitDomainEvent({ type: "schedule:created", workspaceId, eventName: schedule.eventName ?? undefined, actorId: req.user.id, actorName, payload: { id: schedule.id, eventDate: schedule.eventDate } });
       if (schedule.eventName) {
         getCrewUserIdsForEvent(schedule.eventName, workspaceId)
           .then(crewIds => notifyUsers(crewIds, req.user.id, "schedule_change", "New Schedule Item", `"${schedule.title || schedule.category}" was added to ${schedule.eventName}`, workspaceId, schedule.eventName ?? undefined))
@@ -136,6 +138,7 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
 
       const evName = schedule.eventName ?? record.eventName ?? undefined;
       const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+      emitDomainEvent({ type: "schedule:updated", workspaceId, eventName: evName, actorId: req.user.id, actorName, payload: { id: schedule.id, eventDate: schedule.eventDate } });
       if (evName) {
         getCrewUserIdsForEvent(evName, workspaceId)
           .then(crewIds => notifyUsers(crewIds, req.user.id, "schedule_change", "Schedule Updated", `"${schedule.title || schedule.category}" was updated in ${evName}`, workspaceId, evName ?? undefined))
@@ -166,6 +169,9 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
         completedBy: isCompleting ? req.user.id : null,
       });
       res.json(schedule);
+
+      const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+      emitDomainEvent({ type: "schedule:completed", workspaceId, eventName: record.eventName ?? undefined, actorId: req.user.id, actorName, payload: { id: schedule.id, completed: isCompleting } });
     } catch (err) {
       throw err;
     }
@@ -180,6 +186,9 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
     }).parse(req.body);
     const count = await storage.clearDaySchedules(workspaceId, eventDate, eventName);
     res.json({ success: true, deleted: count });
+
+    const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+    emitDomainEvent({ type: "schedule:day-cleared", workspaceId, eventName, actorId: req.user.id, actorName, payload: { eventDate, deleted: count } });
   });
 
   app.delete(api.schedules.delete.path, isAuthenticated, requireRole("owner", "manager", "admin"), async (req: any, res) => {
@@ -192,6 +201,7 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
     res.status(204).send();
 
     const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+    emitDomainEvent({ type: "schedule:deleted", workspaceId, eventName: record.eventName ?? undefined, actorId: req.user.id, actorName, payload: { id, eventDate: record.eventDate } });
     if (record.eventName) {
       getCrewUserIdsForEvent(record.eventName, workspaceId)
         .then(crewIds => notifyUsers(crewIds, req.user.id, "schedule_change", "Schedule Item Removed", `"${record.title || record.category}" was removed from ${record.eventName}`, workspaceId, record.eventName ?? undefined))
@@ -233,6 +243,9 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
       }
       await storage.reorderSchedules(ids, parsedTimeUpdates);
       res.json({ success: true });
+
+      const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+      emitDomainEvent({ type: "schedule:reordered", workspaceId, actorId: req.user.id, actorName, payload: { count: ids.length } });
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({ message: err.errors[0].message });
@@ -272,6 +285,7 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
       const comment = await storage.createComment(input);
       res.status(201).json(comment);
 
+      emitDomainEvent({ type: "comment:created", workspaceId, eventName: schedule.eventName ?? undefined, actorId: userId, actorName: userName, payload: { scheduleId, commentId: comment.id } });
       if (schedule.eventName) {
         getCrewUserIdsForEvent(schedule.eventName, workspaceId)
           .then(crewIds => notifyUsers(crewIds, userId, "comment", "New Comment", `${userName} commented on "${schedule.title || schedule.category}" in ${schedule.eventName}`, workspaceId, schedule.eventName ?? undefined))
@@ -303,6 +317,9 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
     if (!found) return res.status(404).json({ message: "Comment not found" });
     const updated = await storage.toggleCommentPin(commentId);
     res.json(updated);
+
+    const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+    emitDomainEvent({ type: "comment:pinned", workspaceId, actorId: req.user.id, actorName, payload: { commentId, pinned: updated.pinned } });
   });
 
   app.delete("/api/comments/:id", isAuthenticated, requireRole("owner", "manager", "admin"), async (req: any, res) => {
@@ -321,6 +338,9 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
     if (!found) return res.status(404).json({ message: "Comment not found" });
     await storage.deleteComment(commentId);
     res.status(204).send();
+
+    const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
+    emitDomainEvent({ type: "comment:deleted", workspaceId, actorId: req.user.id, actorName, payload: { commentId } });
   });
 
   // Schedule Templates (user-saved)

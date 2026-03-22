@@ -9,6 +9,7 @@ import { z } from "zod";
 import { CONTACT_ROLES, DEFAULT_TASK_TYPES, DEFAULT_CREW_POSITIONS } from "@shared/constants";
 import { isAuthenticated } from "../replit_integrations/auth";
 import { requireRole, getWorkspaceRole, logActivity } from "./utils";
+import { emitDomainEvent } from "../ws/eventBus";
 
 export function registerCrewRoutes(app: Express, upload: multer.Multer) {
   // Daily Checkins
@@ -44,6 +45,7 @@ export function registerCrewRoutes(app: Express, upload: multer.Multer) {
       workspaceId, eventName
     ).catch(err => console.error("Activity log error:", err));
 
+    emitDomainEvent({ type: "checkin:created", workspaceId, eventName, actorId: req.user.id, actorName, payload: { id: checkin.id, userId: targetUserId, date } });
     res.json(checkin);
   });
 
@@ -72,6 +74,7 @@ export function registerCrewRoutes(app: Express, upload: multer.Multer) {
       workspaceId, existing.eventName
     ).catch(err => console.error("Activity log error:", err));
 
+    emitDomainEvent({ type: "checkin:checkout", workspaceId, eventName: existing.eventName, actorId: req.user.id, actorName, payload: { id, userId: existing.userId } });
     res.json(checkin);
   });
 

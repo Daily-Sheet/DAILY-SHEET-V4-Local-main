@@ -8,6 +8,7 @@ import { ColorSchemeProvider } from "@/components/ColorSchemeProvider";
 import { EventSelectionProvider } from "@/contexts/EventSelectionContext";
 import { useAuth } from "@/hooks/use-auth";
 import { useGlobalShortcuts } from "@/hooks/use-global-shortcuts";
+import { useWebSocket } from "@/hooks/use-websocket";
 import Dashboard from "@/pages/Dashboard";
 import Admin from "@/pages/Admin";
 import Landing from "@/pages/Landing";
@@ -80,6 +81,7 @@ function AdminRoute() {
 function AuthenticatedRouter() {
   const { user, isLoading, isAuthenticated } = useAuth();
   const [location] = useLocation();
+  useWebSocket(); // real-time sync via WebSocket
 
   if (isLoading) {
     return (

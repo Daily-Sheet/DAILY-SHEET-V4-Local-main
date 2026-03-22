@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/components/ui/tooltip";
 import { NotificationBell } from "@/components/NotificationBell";
 import { HeaderUserMenu } from "@/components/dashboard/header/HeaderUserMenu";
+import { PresenceAvatars } from "@/components/PresenceAvatars";
 import { useAuth } from "@/hooks/use-auth";
 
 const ADMIN_ROLES = ["owner", "manager", "admin"];
@@ -46,9 +47,9 @@ export function AppHeader({
           {/* Add margin between Home and ShowSwitcher */}
           {children && <div className="ml-2">{children}</div>}
         </div>
-        {/* Middle: Placeholder for now */}
+        {/* Middle: Online presence */}
         <div className="flex justify-center items-center w-1/3">
-          {/* Placeholder for center content */}
+          <PresenceAvatars className="hidden sm:flex" />
         </div>
         {/* Right: User profile, search, map, etc. */}
         <div className="flex items-center gap-1 sm:gap-2 print:hidden flex-shrink-0 justify-end w-1/3 ml-auto">
