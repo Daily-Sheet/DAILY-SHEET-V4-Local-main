@@ -40,31 +40,44 @@ function stringToColor(str: string): string {
   return `hsl(${Math.abs(hash) % 360}, 65%, 50%)`;
 }
 
-function createPinMarkerContent(category: string, isOwn: boolean): HTMLElement {
+function createPinIcon(category: string, isOwn: boolean): google.maps.Icon {
   const meta = getCategoryMeta(category);
-  const border = isOwn ? "3px solid #facc15" : "2px solid rgba(255,255,255,0.8)";
-  const el = document.createElement("div");
-  el.style.cssText = `width:36px;height:36px;border-radius:50% 50% 50% 0;background:${meta.color};border:${border};display:flex;align-items:center;justify-content:center;font-size:16px;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;`;
-  const span = document.createElement("span");
-  span.style.transform = "rotate(45deg)";
-  span.textContent = meta.emoji;
-  el.appendChild(span);
-  return el;
+  const border = isOwn ? "3px solid %23facc15" : "2px solid rgba(255,255,255,0.8)";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="48" viewBox="0 0 40 48">
+    <path d="M20 47C20 47 38 30 38 18C38 8 30 1 20 1C10 1 2 8 2 18C2 30 20 47 20 47Z" fill="${meta.color}" stroke="${isOwn ? '%23facc15' : 'white'}" stroke-width="${isOwn ? 3 : 2}"/>
+    <circle cx="20" cy="18" r="10" fill="white" fill-opacity="0.3"/>
+    <text x="20" y="23" text-anchor="middle" font-size="14">${meta.emoji}</text>
+  </svg>`;
+  return {
+    url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+    scaledSize: new google.maps.Size(40, 48),
+    anchor: new google.maps.Point(20, 48),
+  };
 }
 
-function createUserMarkerContent(userName: string, isMe: boolean): HTMLElement {
-  const el = document.createElement("div");
+function createUserIcon(userName: string, isMe: boolean): google.maps.Icon {
   if (isMe) {
-    el.innerHTML = `<div style="position:relative;width:20px;height:20px;">
-      <div style="position:absolute;inset:0;border-radius:50%;background:#3b82f6;opacity:0.3;animation:loc-pulse 2s infinite;"></div>
-      <div style="position:absolute;inset:3px;border-radius:50%;background:#3b82f6;border:2px solid white;box-shadow:0 2px 6px rgba(59,130,246,0.6);"></div>
-    </div>`;
-  } else {
-    const initials = userName.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
-    const color = stringToColor(userName);
-    el.innerHTML = `<div style="width:34px;height:34px;border-radius:50%;background:${color};border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;box-shadow:0 2px 8px rgba(0,0,0,0.25);cursor:pointer;">${initials}</div>`;
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="10" fill="%233b82f6" opacity="0.3"/>
+      <circle cx="10" cy="10" r="7" fill="%233b82f6" stroke="white" stroke-width="2"/>
+    </svg>`;
+    return {
+      url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+      scaledSize: new google.maps.Size(20, 20),
+      anchor: new google.maps.Point(10, 10),
+    };
   }
-  return el;
+  const initials = userName.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+  const color = encodeURIComponent(stringToColor(userName));
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34">
+    <circle cx="17" cy="17" r="16" fill="${color}" stroke="white" stroke-width="2"/>
+    <text x="17" y="22" text-anchor="middle" font-size="11" font-weight="700" fill="white">${initials}</text>
+  </svg>`;
+  return {
+    url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+    scaledSize: new google.maps.Size(34, 34),
+    anchor: new google.maps.Point(17, 17),
+  };
 }
 
 type EnrichedPin = {
@@ -123,8 +136,8 @@ export default function MapPage() {
   const queryClient = useQueryClient();
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<google.maps.Map | null>(null);
-  const pinMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
-  const userMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const pinMarkersRef = useRef<google.maps.Marker[]>([]);
+  const userMarkersRef = useRef<google.maps.Marker[]>([]);
   const clustererRef = useRef<MarkerClusterer | null>(null);
   const lastSentRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
 
@@ -242,7 +255,6 @@ export default function MapPage() {
       mapTypeControl: false,
       streetViewControl: false,
       fullscreenControl: false,
-      mapId: "community-map",
     });
 
     mapRef.current = map;
@@ -256,7 +268,7 @@ export default function MapPage() {
     if (!mapRef.current || !mapReady) return;
 
     // Clear old markers
-    for (const m of pinMarkersRef.current) m.map = null;
+    for (const m of pinMarkersRef.current) m.setMap(null);
     pinMarkersRef.current = [];
     if (clustererRef.current) {
       clustererRef.current.clearMarkers();
@@ -265,12 +277,12 @@ export default function MapPage() {
 
     const filteredPins = categoryFilter === "all" ? pins : pins.filter(p => p.category === categoryFilter);
     const currentUserId = user?.id ?? "";
-    const markers: google.maps.marker.AdvancedMarkerElement[] = [];
+    const markers: google.maps.Marker[] = [];
 
     for (const pin of filteredPins) {
-      const marker = new google.maps.marker.AdvancedMarkerElement({
+      const marker = new google.maps.Marker({
         position: { lat: pin.lat, lng: pin.lng },
-        content: createPinMarkerContent(pin.category, pin.userId === currentUserId),
+        icon: createPinIcon(pin.category, pin.userId === currentUserId),
         title: pin.title,
       });
 
@@ -291,17 +303,17 @@ export default function MapPage() {
   useEffect(() => {
     if (!mapRef.current || !mapReady) return;
 
-    for (const m of userMarkersRef.current) m.map = null;
+    for (const m of userMarkersRef.current) m.setMap(null);
     userMarkersRef.current = [];
 
     const currentUserId = user?.id ?? "";
 
     for (const loc of userLocations) {
       const isMe = loc.user_id === currentUserId;
-      const marker = new google.maps.marker.AdvancedMarkerElement({
+      const marker = new google.maps.Marker({
         position: { lat: loc.lat, lng: loc.lng },
         map: mapRef.current,
-        content: createUserMarkerContent(loc.user_name, isMe),
+        icon: createUserIcon(loc.user_name, isMe),
         title: isMe ? "You" : `${loc.user_name} - Last seen ${formatDistanceToNow(new Date(loc.updated_at), { addSuffix: true })}`,
         zIndex: isMe ? 1000 : 500,
       });
