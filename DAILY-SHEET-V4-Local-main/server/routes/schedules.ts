@@ -97,7 +97,7 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
         if (body.endTime) body.endTime = normalizeTimeToEventDate(body.endTime, body.eventDate);
       }
       const input = api.schedules.create.input.parse(body);
-      const schedule = await storage.createSchedule({ ...input, workspaceId });
+      const schedule = await storage.createSchedule({ ...input, workspaceId, isNextDay: !!body.isNextDay });
       res.status(201).json(schedule);
 
       const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
@@ -133,6 +133,7 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
         if (body.endTime) body.endTime = normalizeTimeToEventDate(body.endTime, eventDate);
       }
       const input = api.schedules.update.input.parse(body);
+      if (body.isNextDay !== undefined) (input as any).isNextDay = !!body.isNextDay;
       const schedule = await storage.updateSchedule(id, input);
       res.json(schedule);
 

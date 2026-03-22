@@ -48,22 +48,28 @@ const V_COL_MIN_WIDTH = 60;
 const V_BAR_MARGIN = 2;
 const V_HOUR_HEIGHT = 40;
 
+/** Get effective minutes for a schedule item, accounting for isNextDay (+1440) */
+function effectiveMinutes(item: Schedule): { startMin: number; endMin: number } {
+  const nextDayOffset = (item as any).isNextDay ? 1440 : 0;
+  const startMin = getLocalTimeMinutes(item.startTime) + nextDayOffset;
+  if (item.endTime) {
+    const rawEnd = getLocalTimeMinutes(item.endTime) + nextDayOffset;
+    // If end is before start in clock time it spans midnight — add 24 h
+    const endMin = rawEnd < startMin ? rawEnd + 1440 : rawEnd;
+    return { startMin, endMin };
+  }
+  return { startMin, endMin: startMin + 30 };
+}
+
 function getHourRange(schedules: Schedule[]): [number, number] {
   if (schedules.length === 0) return [6, 24];
   let minH = 24, maxH = 0;
   for (const s of schedules) {
-    const startMin = getLocalTimeMinutes(s.startTime);
+    const { startMin, endMin } = effectiveMinutes(s);
     const startHour = Math.floor(startMin / 60);
     minH = Math.min(minH, startHour);
-    if (s.endTime) {
-      const endMin = getLocalTimeMinutes(s.endTime);
-      // If end is before start in clock time it spans midnight — add 24 h
-      const adjustedEnd = endMin < startMin ? endMin + 1440 : endMin;
-      const endHour = Math.ceil(adjustedEnd / 60);
-      maxH = Math.max(maxH, endHour);
-    } else {
-      maxH = Math.max(maxH, startHour + 1);
-    }
+    const endHour = Math.ceil(endMin / 60);
+    maxH = Math.max(maxH, endHour);
   }
   return [Math.max(0, minH - 1), Math.min(30, maxH + 1)];
 }
@@ -112,14 +118,11 @@ function useLaneAssignments(showGroups: [string, Schedule[]][]) {
     const laneCounts = new Map<string, number>();
 
     for (const [showName, items] of showGroups) {
-      const sorted = [...items].sort((a, b) => getLocalTimeMinutes(a.startTime) - getLocalTimeMinutes(b.startTime));
+      const sorted = [...items].sort((a, b) => effectiveMinutes(a).startMin - effectiveMinutes(b).startMin);
       const lanes: number[][] = [];
 
       for (const item of sorted) {
-        const itemStart = getLocalTimeMinutes(item.startTime);
-        const rawEnd = item.endTime ? getLocalTimeMinutes(item.endTime) : itemStart + 30;
-        // Apply midnight-wrap so lanes correctly account for past-midnight items
-        const itemEnd = rawEnd < itemStart ? rawEnd + 1440 : Math.max(rawEnd, itemStart + 1);
+        const { startMin: itemStart, endMin: itemEnd } = effectiveMinutes(item);
 
         let placed = false;
         for (let i = 0; i < lanes.length; i++) {
@@ -622,14 +625,13 @@ function HorizontalGantt({
 
                   return items.map((item) => {
                     const isDraggingThis = drag?.item.id === item.id;
+                    const eff = effectiveMinutes(item);
                     const startMin = isDraggingThis && preview
                       ? preview.startMin
-                      : getLocalTimeMinutes(item.startTime);
-                    const rawEndMin = isDraggingThis && preview
-                      ? preview.endMin
-                      : (item.endTime ? getLocalTimeMinutes(item.endTime) : startMin + 30);
-                    // Past-midnight: end clock-time is less than start → add 24 h
-                    const endMin = rawEndMin < startMin ? rawEndMin + 1440 : rawEndMin;
+                      : eff.startMin;
+                    const endMin = isDraggingThis && preview
+                      ? (preview.endMin < preview.startMin ? preview.endMin + 1440 : preview.endMin)
+                      : eff.endMin;
                     const x = minutesToX(startMin);
                     const barWidth = Math.max(MIN_BAR_PX, minutesToX(endMin) - x);
                     const lane = laneAssignments.assignments.get(item.id) || 0;
@@ -884,10 +886,9 @@ function VerticalGantt({
                   const laneWidth = (colWidth - V_BAR_MARGIN * 2) / laneCount;
 
                   return items.map((item) => {
-                    const startMin = getLocalTimeMinutes(item.startTime);
-                    const endMin = item.endTime ? getLocalTimeMinutes(item.endTime) : startMin + 30;
-                    const yTop = minutesToY(startMin);
-                    const barHeight = Math.max(MIN_BAR_PX, minutesToY(endMin) - yTop);
+                    const eff = effectiveMinutes(item);
+                    const yTop = minutesToY(eff.startMin);
+                    const barHeight = Math.max(MIN_BAR_PX, minutesToY(eff.endMin) - yTop);
                     const lane = laneAssignments.assignments.get(item.id) || 0;
                     const x = colIdx * colWidth + V_BAR_MARGIN + lane * laneWidth;
                     const isSelected = selectedItem?.id === item.id;
