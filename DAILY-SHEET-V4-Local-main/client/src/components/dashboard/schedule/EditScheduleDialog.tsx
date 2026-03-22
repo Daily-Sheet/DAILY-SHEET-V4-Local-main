@@ -56,6 +56,7 @@ export function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose:
   const [crewDropdownOpen, setCrewDropdownOpen] = useState(false);
   const [crewSearch, setCrewSearch] = useState("");
   const [noEndTime, setNoEndTime] = useState(!item.endTime);
+  const [isNextDay, setIsNextDay] = useState(!!(item as any).isNextDay);
   const categories = useCombinedCategories();
   const { data: crewPositions = [] } = useQuery<any[]>({ queryKey: ["/api/crew-positions"] });
 
@@ -143,7 +144,7 @@ export function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose:
       }
     }
     const crew = ((form.getValues as any)("crew") as CrewMember[] | null) || [];
-    const submitData = { ...data, startTime: normalizedStart, endTime: normalizedEnd, zoneId: data.zoneId || null, sectionId: data.sectionId || null, crew, crewNames: crew.map((m: CrewMember) => m.name) };
+    const submitData = { ...data, startTime: normalizedStart, endTime: normalizedEnd, zoneId: data.zoneId || null, sectionId: data.sectionId || null, crew, crewNames: crew.map((m: CrewMember) => m.name), isNextDay };
     updateSchedule(
       { id: item.id, data: submitData },
       {
@@ -248,6 +249,14 @@ export function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose:
               </FormItem>
             )} />
           </div>
+          <label className="flex items-center gap-2 cursor-pointer">
+            <Checkbox
+              checked={isNextDay}
+              onCheckedChange={(checked) => setIsNextDay(!!checked)}
+              data-testid="checkbox-edit-next-day"
+            />
+            <span className="text-xs text-muted-foreground">After midnight <span className="text-amber-500 font-semibold">+1</span> — this item occurs past 12:00 AM (next calendar day)</span>
+          </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FormField control={form.control} name="eventName" render={({ field }) => (
               <FormItem>

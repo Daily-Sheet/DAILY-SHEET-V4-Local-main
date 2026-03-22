@@ -28,6 +28,7 @@ export const schedules = pgTable("schedules", {
   completed: boolean("completed").default(false),
   completedAt: timestamp("completed_at"),
   completedBy: text("completed_by"),
+  isNextDay: boolean("is_next_day").default(false),
 });
 
 export const contacts = pgTable("contacts", {

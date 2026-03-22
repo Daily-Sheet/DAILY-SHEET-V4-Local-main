@@ -586,7 +586,9 @@ export default function Dashboard() {
 
   const sortedSchedule = useMemo(() => {
     return [...schedules].sort((a, b) => {
-      const diff = getLocalTimeMinutes(a.startTime) - getLocalTimeMinutes(b.startTime);
+      const aMin = getLocalTimeMinutes(a.startTime) + ((a as any).isNextDay ? 24 * 60 : 0);
+      const bMin = getLocalTimeMinutes(b.startTime) + ((b as any).isNextDay ? 24 * 60 : 0);
+      const diff = aMin - bMin;
       if (diff !== 0) return diff;
       return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
     });
@@ -887,7 +889,9 @@ export default function Dashboard() {
       const d = item.eventDate || format(new Date(item.startTime), "yyyy-MM-dd");
       return d === activeDate;
     }).sort((a, b) => {
-      const diff = getLocalTimeMinutes(a.startTime) - getLocalTimeMinutes(b.startTime);
+      const aMin = getLocalTimeMinutes(a.startTime) + ((a as any).isNextDay ? 24 * 60 : 0);
+      const bMin = getLocalTimeMinutes(b.startTime) + ((b as any).isNextDay ? 24 * 60 : 0);
+      const diff = aMin - bMin;
       if (diff !== 0) return diff;
       return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
     });
@@ -1620,7 +1624,7 @@ export default function Dashboard() {
                                             const section = item.sectionId ? (allSections as any[]).find(s => s.id === item.sectionId) : null;
                                             return (
                                               <div key={item.id} className="flex items-center gap-1 text-[11px] leading-tight min-w-0">
-                                                {item.startTime && <span className="font-medium text-foreground/80 flex-shrink-0">{formatTime(item.startTime)}</span>}
+                                                {item.startTime && <span className="font-medium text-foreground/80 flex-shrink-0">{formatTime(item.startTime)}{(item as any).isNextDay && <span className="text-amber-500 font-semibold ml-0.5">+1</span>}</span>}
                                                 <span className="text-muted-foreground truncate">{item.category || item.title}</span>
                                                 {section && <span className="text-[9px] text-primary/70 flex-shrink-0">· {section.name}</span>}
                                                 {zone && <span className="text-[9px] text-primary/70 flex-shrink-0">· {zone.name}</span>}

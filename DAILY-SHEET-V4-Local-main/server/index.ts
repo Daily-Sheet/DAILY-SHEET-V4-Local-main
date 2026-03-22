@@ -152,6 +152,15 @@ app.use((req, res, next) => {
     console.error("Event tags migration error (non-fatal):", err);
   }
 
+  // Schedule isNextDay migration
+  try {
+    const { pool } = await import("./db");
+    await pool.query(`ALTER TABLE schedules ADD COLUMN IF NOT EXISTS is_next_day BOOLEAN DEFAULT FALSE;`);
+    log("Schedule isNextDay migration ready");
+  } catch (err) {
+    console.error("Schedule isNextDay migration error (non-fatal):", err);
+  }
+
   await registerRoutes(httpServer, app);
 
   storage.deduplicateContacts().then(count => {

@@ -226,6 +226,7 @@ export function CreateScheduleDialog({ defaultEventName, defaultDate, trigger }:
   const [crewDropdownOpen, setCrewDropdownOpen] = useState(false);
   const [crewSearch, setCrewSearch] = useState("");
   const [noEndTime, setNoEndTime] = useState(false);
+  const [isNextDay, setIsNextDay] = useState(false);
   const { mutate, isPending } = useCreateSchedule();
   const { toast } = useToast();
   const { data: contacts = [] } = useContacts();
@@ -326,7 +327,7 @@ export function CreateScheduleDialog({ defaultEventName, defaultDate, trigger }:
       }
     }
     const crew = ((form.getValues as any)("crew") as CrewMember[] | null) || [];
-    const submitData = { ...data, startTime: normalizedStart, endTime: normalizedEnd, crew, crewNames: crew.map((m: CrewMember) => m.name) };
+    const submitData = { ...data, startTime: normalizedStart, endTime: normalizedEnd, crew, crewNames: crew.map((m: CrewMember) => m.name), isNextDay };
     mutate({ ...submitData, eventName: defaultEventName || "", zoneId: data.zoneId || null, sectionId: data.sectionId || null }, {
       onSuccess: () => {
         setOpen(false);
@@ -346,6 +347,7 @@ export function CreateScheduleDialog({ defaultEventName, defaultDate, trigger }:
       if (!v) setCrewDropdownOpen(false);
       if (v) {
         setNoEndTime(false);
+        setIsNextDay(false);
         form.reset({
           title: "",
           description: "",
@@ -488,6 +490,15 @@ export function CreateScheduleDialog({ defaultEventName, defaultDate, trigger }:
                 )}
               />
             </div>
+
+            <label className="flex items-center gap-2 cursor-pointer">
+              <Checkbox
+                checked={isNextDay}
+                onCheckedChange={(checked) => setIsNextDay(!!checked)}
+                data-testid="checkbox-next-day"
+              />
+              <span className="text-xs text-muted-foreground">After midnight <span className="text-amber-500 font-semibold">+1</span> — this item occurs past 12:00 AM (next calendar day)</span>
+            </label>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField

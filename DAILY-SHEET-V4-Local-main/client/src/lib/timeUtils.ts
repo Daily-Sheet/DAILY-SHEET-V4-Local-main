@@ -52,14 +52,26 @@ export function getUrgencyStatus(item: {
   endTime?: string | Date | null;
   completed?: boolean | null;
   eventDate?: string | null;
+  isNextDay?: boolean | null;
 }): UrgencyStatus {
   if (item.completed) return "complete";
   if (!item.endTime || !item.eventDate) return "none";
 
   const now = new Date();
   const todayLocal = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(now);
-  if (item.eventDate < todayLocal) return "overdue";
-  if (item.eventDate > todayLocal) return "none";
+
+  if (item.isNextDay) {
+    // Next-day items: eventDate is the logical day, actual time is on eventDate+1
+    // Only overdue if we're past eventDate+1
+    const nextDay = new Date(item.eventDate + "T12:00:00");
+    nextDay.setDate(nextDay.getDate() + 1);
+    const nextDayStr = nextDay.toISOString().split("T")[0];
+    if (nextDayStr < todayLocal) return "overdue";
+    if (nextDayStr > todayLocal) return "none";
+  } else {
+    if (item.eventDate < todayLocal) return "overdue";
+    if (item.eventDate > todayLocal) return "none";
+  }
 
   const nowTime = getLocalTimeOfDay(now);
   const nowMin = nowTime.hour * 60 + nowTime.minute;
