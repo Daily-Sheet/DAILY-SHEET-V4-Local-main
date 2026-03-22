@@ -143,6 +143,15 @@ app.use((req, res, next) => {
     console.error("Legs migration error (non-fatal):", err);
   }
 
+  // Event tags migration
+  try {
+    const { pool } = await import("./db");
+    await pool.query(`ALTER TABLE events ADD COLUMN IF NOT EXISTS tag TEXT;`);
+    log("Event tags migration ready");
+  } catch (err) {
+    console.error("Event tags migration error (non-fatal):", err);
+  }
+
   await registerRoutes(httpServer, app);
 
   storage.deduplicateContacts().then(count => {

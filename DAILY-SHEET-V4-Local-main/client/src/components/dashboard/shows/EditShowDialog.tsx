@@ -1,14 +1,16 @@
-import { useEffect } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useForm } from "react-hook-form";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { DatePicker } from "@/components/ui/date-picker";
 import { ConfirmDelete } from "@/components/ConfirmDelete";
-import { Trash2 } from "lucide-react";
+import { Trash2, ChevronDown, Check, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Event } from "@shared/schema";
@@ -26,12 +28,31 @@ export function EditShowDialog({
 }) {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const { data: allEvents = [] } = useQuery<Event[]>({ queryKey: ["/api/events"] });
+  const [tagOpen, setTagOpen] = useState(false);
+  const [tagSearch, setTagSearch] = useState("");
+
+  const existingTags = useMemo(() => {
+    const tags = new Set<string>();
+    for (const ev of allEvents) {
+      if (ev.tag) tags.add(ev.tag);
+    }
+    return Array.from(tags).sort((a, b) => a.localeCompare(b));
+  }, [allEvents]);
+
+  const filteredTags = useMemo(() => {
+    if (!tagSearch.trim()) return existingTags;
+    const q = tagSearch.toLowerCase();
+    return existingTags.filter(t => t.toLowerCase().includes(q));
+  }, [existingTags, tagSearch]);
+
   const form = useForm({
     defaultValues: {
       name: show.name,
       startDate: show.startDate || "",
       endDate: show.endDate || "",
       notes: show.notes || "",
+      tag: show.tag || "",
     },
   });
 
@@ -41,6 +62,7 @@ export function EditShowDialog({
       startDate: show.startDate || "",
       endDate: show.endDate || "",
       notes: show.notes || "",
+      tag: show.tag || "",
     });
   }, [show, form]);
 
@@ -82,6 +104,7 @@ export function EditShowDialog({
       startDate: values.startDate || null,
       endDate: values.endDate || null,
       notes: values.notes || null,
+      tag: values.tag?.trim() || null,
     };
     updateMutation.mutate(payload);
   };
@@ -144,6 +167,85 @@ export function EditShowDialog({
               <FormItem>
                 <FormLabel>Notes</FormLabel>
                 <FormControl><Textarea {...field} rows={3} data-testid="input-edit-show-notes" /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="tag" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Tag</FormLabel>
+                <div className="flex items-center gap-1.5">
+                  <Popover open={tagOpen} onOpenChange={(v) => { setTagOpen(v); if (!v) setTagSearch(""); }}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        type="button"
+                        className={cn("w-full justify-between font-normal", !field.value && "text-muted-foreground")}
+                        data-testid="input-edit-show-tag"
+                      >
+                        <span className="truncate">{field.value || "Select or type a tag..."}</span>
+                        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                      <div className="p-2">
+                        <Input
+                          value={tagSearch}
+                          onChange={(e) => setTagSearch(e.target.value)}
+                          placeholder="Search or type new tag..."
+                          className="h-8 text-sm"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && tagSearch.trim()) {
+                              e.preventDefault();
+                              field.onChange(tagSearch.trim());
+                              setTagOpen(false);
+                              setTagSearch("");
+                            }
+                          }}
+                        />
+                      </div>
+                      <div className="max-h-40 overflow-y-auto px-1 pb-1">
+                        {tagSearch.trim() && !existingTags.some(t => t.toLowerCase() === tagSearch.trim().toLowerCase()) && (
+                          <button
+                            type="button"
+                            onClick={() => { field.onChange(tagSearch.trim()); setTagOpen(false); setTagSearch(""); }}
+                            className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent cursor-pointer text-primary"
+                          >
+                            + Create "{tagSearch.trim()}"
+                          </button>
+                        )}
+                        {filteredTags.map((tag) => (
+                          <button
+                            key={tag}
+                            type="button"
+                            onClick={() => { field.onChange(tag); setTagOpen(false); setTagSearch(""); }}
+                            className={cn(
+                              "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent cursor-pointer",
+                              tag === field.value && "bg-accent/50 font-medium"
+                            )}
+                          >
+                            {tag === field.value ? <Check className="h-3.5 w-3.5 text-primary shrink-0" /> : <span className="w-3.5 shrink-0" />}
+                            <span className="truncate">{tag}</span>
+                          </button>
+                        ))}
+                        {filteredTags.length === 0 && !tagSearch.trim() && (
+                          <div className="py-3 text-center text-sm text-muted-foreground">No tags yet — type to create one</div>
+                        )}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  {field.value && (
+                    <button
+                      type="button"
+                      onClick={() => field.onChange("")}
+                      className="flex-shrink-0 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
+                      title="Clear tag"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  )}
+                </div>
                 <FormMessage />
               </FormItem>
             )} />

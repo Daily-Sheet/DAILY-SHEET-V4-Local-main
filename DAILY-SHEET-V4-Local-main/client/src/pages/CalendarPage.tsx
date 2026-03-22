@@ -88,7 +88,10 @@ function DayPanel({
             <div key={`show-${event.id}`} className="px-4 py-3 flex items-start gap-2.5">
               <div className={cn("w-2.5 h-2.5 rounded-full mt-[3px] flex-shrink-0", color?.dot || "bg-primary")} />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium leading-snug truncate">{event.name}</p>
+                <p className="text-sm font-medium leading-snug truncate">
+                  {event.name}
+                  {event.tag && <span className="ml-1.5 text-[9px] font-normal text-primary/80 border border-primary/30 rounded px-1 py-px align-middle">{event.tag}</span>}
+                </p>
                 {event.startDate && event.endDate && (
                   <p className="text-[10px] text-muted-foreground mt-0.5">
                     {format(parseISO(event.startDate), "MMM d")}

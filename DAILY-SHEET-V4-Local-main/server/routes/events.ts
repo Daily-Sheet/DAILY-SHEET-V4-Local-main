@@ -83,7 +83,7 @@ export function registerEventRoutes(app: Express, upload: multer.Multer) {
       const existing = allEvents.find((e: any) => e.id === id);
       if (!existing) return res.status(404).json({ message: "Event not found" });
 
-      const { venueForAllDays, ...data } = req.body as Partial<{ name: string; color: string; notes: string; startDate: string; endDate: string; venueId: number | null; projectId: number | null; venueForAllDays: boolean; legId: number | null; eventType: string }>;
+      const { venueForAllDays, ...data } = req.body as Partial<{ name: string; color: string; notes: string; startDate: string; endDate: string; venueId: number | null; projectId: number | null; venueForAllDays: boolean; legId: number | null; eventType: string; tag: string | null }>;
 
       if (data.name && data.name !== existing.name) {
         const duplicate = await storage.getEventByName(data.name, workspaceId);

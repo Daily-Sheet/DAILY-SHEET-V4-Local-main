@@ -2,9 +2,7 @@ import { useState, useMemo, useRef } from "react";
 import { Link } from "wouter";
 import { format } from "date-fns";
 import { MapPin, Check, Pencil, Plus, ExternalLink, Search, Upload, FileText, Globe } from "lucide-react";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import { GoogleMapView } from "@/components/maps/GoogleMapView";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,12 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCreateVenue } from "@/hooks/use-venue";
 import { useQuery } from "@tanstack/react-query";
 import type { Venue, Event, VenueTechPacket } from "@shared/schema";
-
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
+import { PlacesAutocomplete } from "@/components/maps/PlacesAutocomplete";
 
 export function VenueMiniMap({ venue }: { venue: Venue }) {
   if (!venue.latitude || !venue.longitude) return null;
@@ -30,13 +23,15 @@ export function VenueMiniMap({ venue }: { venue: Venue }) {
   const lng = typeof venue.longitude === "string" ? parseFloat(venue.longitude) : venue.longitude;
   if (isNaN(lat) || isNaN(lng)) return null;
   return (
-    <div className="rounded-xl border border-border/30 overflow-hidden" style={{ height: 200 }} data-testid={`venue-mini-map-${venue.id}`}>
-      <MapContainer center={[lat, lng]} zoom={14} style={{ height: "100%", width: "100%" }} scrollWheelZoom={false} attributionControl={false}>
-        <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-        <Marker position={[lat, lng]}>
-          <Popup>{venue.name}</Popup>
-        </Marker>
-      </MapContainer>
+    <div className="rounded-xl border border-border/30 overflow-hidden">
+      <GoogleMapView
+        center={{ lat, lng }}
+        zoom={14}
+        markers={[{ lat, lng, title: venue.name }]}
+        height={200}
+        interactive={false}
+        data-testid={`venue-mini-map-${venue.id}`}
+      />
     </div>
   );
 }
@@ -225,6 +220,8 @@ export function DailySheetNoVenue({ show, canEdit, venuesList, selectedDate, pro
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [newVenueName, setNewVenueName] = useState("");
   const [newVenueAddress, setNewVenueAddress] = useState("");
+  const [newVenueLatitude, setNewVenueLatitude] = useState("");
+  const [newVenueLongitude, setNewVenueLongitude] = useState("");
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const createVenueMutation = useCreateVenue();
@@ -252,12 +249,14 @@ export function DailySheetNoVenue({ show, canEdit, venuesList, selectedDate, pro
   const handleCreateAndLink = () => {
     if (!show || !newVenueName.trim()) return;
     createVenueMutation.mutate(
-      { name: newVenueName.trim(), address: newVenueAddress.trim() || "" },
+      { name: newVenueName.trim(), address: newVenueAddress.trim() || "", latitude: newVenueLatitude || "", longitude: newVenueLongitude || "" },
       {
         onSuccess: (newVenue: Venue) => {
           linkVenueMutation.mutate({ eventId: show.id, venueId: newVenue.id });
           setNewVenueName("");
           setNewVenueAddress("");
+          setNewVenueLatitude("");
+          setNewVenueLongitude("");
           setShowCreateForm(false);
         },
         onError: () => {
@@ -349,11 +348,18 @@ export function DailySheetNoVenue({ show, canEdit, venuesList, selectedDate, pro
                   className="bg-secondary-foreground/10 border-secondary-foreground/20 text-secondary-foreground placeholder:text-secondary-foreground/40"
                   data-testid="input-new-venue-name"
                 />
-                <Input
-                  placeholder="Address (optional)"
+                <PlacesAutocomplete
                   value={newVenueAddress}
-                  onChange={(e) => setNewVenueAddress(e.target.value)}
-                  className="bg-secondary-foreground/10 border-secondary-foreground/20 text-secondary-foreground placeholder:text-secondary-foreground/40"
+                  onChange={setNewVenueAddress}
+                  onPlaceSelect={(place) => {
+                    setNewVenueAddress(place.address);
+                    setNewVenueLatitude(place.lat);
+                    setNewVenueLongitude(place.lng);
+                    if (place.name && !newVenueName.trim()) {
+                      setNewVenueName(place.name);
+                    }
+                  }}
+                  placeholder="Search for a venue or address..."
                   data-testid="input-new-venue-address"
                 />
                 <div className="flex items-center gap-2">
@@ -368,7 +374,7 @@ export function DailySheetNoVenue({ show, canEdit, venuesList, selectedDate, pro
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => { setShowCreateForm(false); setNewVenueName(""); setNewVenueAddress(""); }}
+                    onClick={() => { setShowCreateForm(false); setNewVenueName(""); setNewVenueAddress(""); setNewVenueLatitude(""); setNewVenueLongitude(""); }}
                     className="text-secondary-foreground/60"
                     data-testid="button-cancel-new-venue"
                   >

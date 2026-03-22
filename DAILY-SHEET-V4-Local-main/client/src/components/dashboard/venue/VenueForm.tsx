@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Sparkles, Loader2, FileText, Eye, X, Save } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateVenue } from "@/hooks/use-venue";
+import { PlacesAutocomplete } from "@/components/maps/PlacesAutocomplete";
 import { insertVenueSchema, type InsertVenue, type Venue } from "@shared/schema";
 
 // ── Shared VenueForm ────────────────────────────────────────────────────────
@@ -53,6 +54,8 @@ export function VenueForm({
       meals: venue?.meals || "",
       mealsNotes: venue?.mealsNotes || "",
       techPacketUrl: venue?.techPacketUrl || "",
+      latitude: venue?.latitude || "",
+      longitude: venue?.longitude || "",
     },
   });
 
@@ -154,7 +157,22 @@ export function VenueForm({
           <FormField control={form.control} name="address" render={({ field }) => (
             <FormItem>
               <FormLabel>Address</FormLabel>
-              <FormControl><Input placeholder="Street, City, State, ZIP" {...field} data-testid="input-venue-address" /></FormControl>
+              <FormControl>
+                <PlacesAutocomplete
+                  value={field.value}
+                  onChange={field.onChange}
+                  onPlaceSelect={(place) => {
+                    form.setValue("address", place.address);
+                    form.setValue("latitude", place.lat);
+                    form.setValue("longitude", place.lng);
+                    if (place.name && !form.getValues("name")) {
+                      form.setValue("name", place.name);
+                    }
+                  }}
+                  placeholder="Search for a venue or address..."
+                  data-testid="input-venue-address"
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )} />
@@ -327,6 +345,8 @@ export function VenueForm({
         )} />
 
         <input type="hidden" {...form.register("techPacketUrl")} />
+        <input type="hidden" {...form.register("latitude")} />
+        <input type="hidden" {...form.register("longitude")} />
 
         {form.watch("techPacketUrl") && (
           <div className="flex items-center gap-2 p-2 rounded-md bg-muted/50 text-sm">

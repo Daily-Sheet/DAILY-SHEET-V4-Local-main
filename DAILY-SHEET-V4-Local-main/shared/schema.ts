@@ -142,6 +142,7 @@ export const events = pgTable("events", {
   archived: boolean("archived").default(false),
   legId: integer("leg_id"),
   eventType: text("event_type").default("show"),
+  tag: text("tag"),
 });
 
 export const insertEventSchema = createInsertSchema(events).omit({ id: true });

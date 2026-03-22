@@ -22,16 +22,10 @@ import {
   Plus, Pencil, Trash2, Save, X, Clock, Shield, KeyRound, CalendarPlus, Eye, Sparkles, Loader2, FileText,
   ChevronDown, ChevronRight, Check, UserPlus, Mail, Send, RotateCw, UserCheck, Sun, Moon, Palette, Filter, Layers, Settings, Archive, ArchiveRestore, Headphones, ExternalLink, LogOut, Download, MessageSquare, BarChart3, Map as MapIcon, List, Link2, Copy, MoreHorizontal, Building2, Plane
 } from "lucide-react";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-import markerIcon2x from "leaflet/dist/images/marker-icon-2x.png";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerShadow from "leaflet/dist/images/marker-shadow.png";
-import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import { PlacesAutocomplete } from "@/components/maps/PlacesAutocomplete";
+import { GoogleMapView } from "@/components/maps/GoogleMapView";
 import * as XLSX from "xlsx";
 
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({ iconRetinaUrl: markerIcon2x, iconUrl: markerIcon, shadowUrl: markerShadow });
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -61,7 +55,7 @@ import {
   insertContactSchema, insertVenueSchema, insertEventSchema, insertProjectSchema,
   type InsertContact, type InsertVenue, type InsertEvent, type InsertProject,
   type Schedule, type Contact, type Event, type Venue, type Zone, type Project, type Section,
-  type TimesheetEntry, type DailyCheckin, type Leg
+  type TimesheetEntry, type DailyCheckin, type Leg, type TravelDay
 } from "@shared/schema";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog";
 import { SaveShowAsTemplateButton } from "@/components/CreateScheduleDialog";
@@ -1533,20 +1527,15 @@ function ShowSectionsSection({ eventId }: { eventId: number }) {
   );
 }
 
-function FitBoundsHelper({ venues }: { venues: Venue[] }) {
-  const map = useMap();
-  useEffect(() => {
-    const pins = venues.filter(v => v.latitude && v.longitude);
-    if (pins.length === 0) return;
-    const bounds = L.latLngBounds(pins.map(v => [parseFloat(v.latitude!), parseFloat(v.longitude!)] as [number, number]));
-    map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
-  }, [venues, map]);
-  return null;
-}
-
 function VenueMapView({ venues }: { venues: Venue[] }) {
   const mappable = venues.filter(v => v.latitude && v.longitude);
   const missing = venues.filter(v => !v.latitude || !v.longitude);
+
+  const markers = mappable.map(v => ({
+    lat: parseFloat(v.latitude!),
+    lng: parseFloat(v.longitude!),
+    title: `${v.name}\n${v.address}`,
+  }));
 
   return (
     <div className="space-y-4" data-testid="venue-map-container">
@@ -1558,33 +1547,12 @@ function VenueMapView({ venues }: { venues: Venue[] }) {
           </CardContent>
         </Card>
       ) : (
-        <div className="rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm overflow-hidden" style={{ height: 450 }}>
-          <MapContainer
-            center={[0, 0]}
+        <div className="rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm overflow-hidden">
+          <GoogleMapView
+            markers={markers}
+            height={450}
             zoom={2}
-            style={{ height: "100%", width: "100%" }}
-            scrollWheelZoom={true}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <FitBoundsHelper venues={venues} />
-            {mappable.map(venue => (
-              <Marker
-                key={venue.id}
-                position={[parseFloat(venue.latitude!), parseFloat(venue.longitude!)]}
-              >
-                <Popup>
-                  <div data-testid={`map-popup-venue-${venue.id}`}>
-                    <strong>{venue.name}</strong>
-                    <br />
-                    <span className="text-xs">{venue.address}</span>
-                  </div>
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
+          />
         </div>
       )}
       {missing.length > 0 && (
@@ -2607,6 +2575,8 @@ function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival
   const [inlineVenueMeals, setInlineVenueMeals] = useState("");
   const [inlineVenueMealsNotes, setInlineVenueMealsNotes] = useState("");
   const [inlineVenueTechPacketUrl, setInlineVenueTechPacketUrl] = useState("");
+  const [inlineVenueLatitude, setInlineVenueLatitude] = useState("");
+  const [inlineVenueLongitude, setInlineVenueLongitude] = useState("");
   const [isParsingTechPacket, setIsParsingTechPacket] = useState(false);
   const techPacketFileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -2656,6 +2626,7 @@ function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival
     setInlineVenueCapacity(""); setInlineVenueDressingRooms(false); setInlineVenueDressingRoomsNotes("");
     setInlineVenueShowers(false); setInlineVenueShowersNotes(""); setInlineVenueLaundry(false); setInlineVenueLaundryNotes("");
     setInlineVenueMeals(""); setInlineVenueMealsNotes(""); setInlineVenueTechPacketUrl("");
+    setInlineVenueLatitude(""); setInlineVenueLongitude("");
   };
 
   const hasVenue = venueId !== null;
@@ -2809,7 +2780,20 @@ function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival
                     <span className="text-xs text-muted-foreground">Auto-fill from PDF/image</span>
                   </div>
                   <Input placeholder="Venue name" value={inlineVenueName} onChange={(e) => setInlineVenueName(e.target.value)} data-testid="input-project-venue-name" />
-                  <Input placeholder="Address" value={inlineVenueAddress} onChange={(e) => setInlineVenueAddress(e.target.value)} data-testid="input-project-venue-address" />
+                  <PlacesAutocomplete
+                    value={inlineVenueAddress}
+                    onChange={setInlineVenueAddress}
+                    onPlaceSelect={(place) => {
+                      setInlineVenueAddress(place.address);
+                      setInlineVenueLatitude(place.lat);
+                      setInlineVenueLongitude(place.lng);
+                      if (place.name && !inlineVenueName.trim()) {
+                        setInlineVenueName(place.name);
+                      }
+                    }}
+                    placeholder="Search for a venue or address..."
+                    data-testid="input-project-venue-address"
+                  />
                   <div className="grid grid-cols-2 gap-2">
                     <Input placeholder="Contact name" value={inlineVenueContactName} onChange={(e) => setInlineVenueContactName(e.target.value)} data-testid="input-project-venue-contact-name" />
                     <Input placeholder="Contact phone" value={inlineVenueContactPhone} onChange={(e) => setInlineVenueContactPhone(e.target.value)} data-testid="input-project-venue-contact-phone" />
@@ -2873,6 +2857,8 @@ function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival
                         meals: inlineVenueMeals === "none" ? "" : inlineVenueMeals,
                         mealsNotes: inlineVenueMealsNotes.trim() || "",
                         techPacketUrl: inlineVenueTechPacketUrl || "",
+                        latitude: inlineVenueLatitude || "",
+                        longitude: inlineVenueLongitude || "",
                         notes: "",
                       }, {
                         onSuccess: (newVenue: any) => {
@@ -3394,6 +3380,9 @@ function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { pr
     queryKey: ["/api/projects", projectId, "legs"],
   });
   const { data: allEvents = [] } = useQuery<Event[]>({ queryKey: ["/api/events"] });
+  const { data: travelDays = [] } = useQuery<TravelDay[]>({
+    queryKey: ["/api/projects", projectId, "travel-days"],
+  });
   const projectEvents = useMemo(() => allEvents.filter(e => e.projectId === projectId), [allEvents, projectId]);
   const unassignedShows = useMemo(() => projectEvents.filter((e: any) => !e.legId).sort((a, b) => (a.startDate || "").localeCompare(b.startDate || "")), [projectEvents]);
 
@@ -3503,6 +3492,14 @@ function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { pr
     },
   });
 
+  const deleteTravelDayMutation = useMutation({
+    mutationFn: async (id: number) => { await apiRequest("DELETE", `/api/travel-days/${id}`); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "travel-days"] });
+      toast({ title: "Travel day removed" });
+    },
+  });
+
   return (
     <div className="mt-3 border-t border-blue-500/10 pt-3">
       <div className="flex items-center justify-between mb-2">
@@ -3525,6 +3522,7 @@ function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { pr
           return aDate.localeCompare(bDate);
         }).map(leg => {
           const legShows = projectEvents.filter((e: any) => e.legId === leg.id).sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
+          const legTravelDays = travelDays.filter(td => td.legId === leg.id).sort((a, b) => a.date.localeCompare(b.date));
           const isExpanded = expandedLegs[leg.id] ?? false;
           return (
             <div key={leg.id} className="rounded-lg border border-blue-500/20 bg-blue-500/5">
@@ -3542,7 +3540,10 @@ function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { pr
                         if (areas.length > 0) parts.push(`${areas.length} area${areas.length !== 1 ? "s" : ""}`);
                         return parts.join(" · ") || "empty";
                       }
-                      return `${legShows.length} show${legShows.length !== 1 ? "s" : ""}`;
+                      const parts: string[] = [];
+                      parts.push(`${legShows.length} show${legShows.length !== 1 ? "s" : ""}`);
+                      if (legTravelDays.length > 0) parts.push(`${legTravelDays.length} travel day${legTravelDays.length !== 1 ? "s" : ""}`);
+                      return parts.join(" · ");
                     })()}{(() => {
                       let ds = leg.startDate;
                       let de = leg.endDate;
@@ -3571,39 +3572,71 @@ function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { pr
                   data-testid={`button-delete-leg-${leg.id}`}
                 />
               </div>
-              {isExpanded && legShows.length > 0 && (
+              {isExpanded && (legShows.length > 0 || legTravelDays.length > 0) && (() => {
+                const items: ({ kind: "show"; show: Event; date: string } | { kind: "travel"; td: TravelDay; date: string })[] = [
+                  ...legShows.map(s => ({ kind: "show" as const, show: s, date: s.startDate || "9999" })),
+                  ...legTravelDays.map(td => ({ kind: "travel" as const, td, date: td.date })),
+                ];
+                items.sort((a, b) => a.date.localeCompare(b.date));
+                return (
                 <div className="border-t border-blue-500/10 px-2.5 pb-2 pt-1 space-y-0.5">
-                  {legShows.map(show => (
-                    <div key={show.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 group" data-testid={`row-leg-show-${show.id}`}>
-                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: show.color || "hsl(var(--primary))" }} />
+                  {items.map(item => item.kind === "show" ? (
+                    <div key={item.show.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 group" data-testid={`row-leg-show-${item.show.id}`}>
+                      <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.show.color || "hsl(var(--primary))" }} />
                       <div className="flex-1 min-w-0">
-                        <Link href={`/dashboard?event=${encodeURIComponent(show.name)}${show.startDate ? `&date=${show.startDate}` : ""}`} className="text-sm font-medium truncate hover:underline hover:text-primary block">{show.name}</Link>
-                        {(show.startDate || show.endDate) && (
+                        <Link href={`/dashboard?event=${encodeURIComponent(item.show.name)}${item.show.startDate ? `&date=${item.show.startDate}` : ""}`} className="text-sm font-medium truncate hover:underline hover:text-primary block">{item.show.name}</Link>
+                        {(item.show.startDate || item.show.endDate) && (
                           <p className="text-xs text-muted-foreground truncate">
-                            {show.startDate === show.endDate ? show.startDate : `${show.startDate ?? "?"} → ${show.endDate ?? "?"}`}
-                            {show.venueId && venues.find(v => v.id === show.venueId) && ` · ${venues.find(v => v.id === show.venueId)!.name}`}
+                            {item.show.startDate === item.show.endDate ? item.show.startDate : `${item.show.startDate ?? "?"} → ${item.show.endDate ?? "?"}`}
+                            {item.show.venueId && venues.find(v => v.id === item.show.venueId) && ` · ${venues.find(v => v.id === item.show.venueId)!.name}`}
                           </p>
                         )}
                       </div>
                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Button variant="ghost" size="icon" className="h-6 w-6" title="Remove from leg" onClick={() => moveToLegMutation.mutate({ eventIds: [show.id], legId: null })}>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" title="Remove from leg" onClick={() => moveToLegMutation.mutate({ eventIds: [item.show.id], legId: null })}>
                           <X className="w-3 h-3" />
                         </Button>
                         <ConfirmDelete
-                          onConfirm={() => deleteMutation.mutate(show.id)}
+                          onConfirm={() => deleteMutation.mutate(item.show.id)}
                           title="Delete show?"
-                          description={`Delete "${show.name}"? This cannot be undone.`}
+                          description={`Delete "${item.show.name}"? This cannot be undone.`}
                           triggerVariant="ghost"
                           triggerSize="icon"
                           triggerClassName="h-6 w-6 text-destructive hover:text-destructive"
                           triggerLabel={<Trash2 className="w-3 h-3" />}
-                          data-testid={`button-delete-leg-show-${show.id}`}
+                          data-testid={`button-delete-leg-show-${item.show.id}`}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div key={`td-${item.td.id}`} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-amber-500/5 border border-amber-400/20 group" data-testid={`row-leg-travel-${item.td.id}`}>
+                      <Plane className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Travel Day</span>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {format(new Date(item.td.date + "T00:00:00"), "EEE, MMM d")}
+                          {item.td.airline && ` · ${item.td.airline}`}
+                          {item.td.flightNumber && ` ${item.td.flightNumber}`}
+                          {item.td.departureAirport && item.td.arrivalAirport && ` · ${item.td.departureAirport} → ${item.td.arrivalAirport}`}
+                        </p>
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <ConfirmDelete
+                          onConfirm={() => deleteTravelDayMutation.mutate(item.td.id)}
+                          title="Delete travel day?"
+                          description="This will remove the travel day and all crew travel details."
+                          triggerVariant="ghost"
+                          triggerSize="icon"
+                          triggerClassName="h-6 w-6 text-destructive hover:text-destructive"
+                          triggerLabel={<Trash2 className="w-3 h-3" />}
+                          data-testid={`button-delete-leg-travel-${item.td.id}`}
                         />
                       </div>
                     </div>
                   ))}
                 </div>
-              )}
+                );
+              })()}
               {isExpanded && (
                 <div className={`border-t border-blue-500/10 px-2.5 ${legShows.length === 0 ? "py-2" : "pb-2 pt-1"}`}>
                   {legShows.length === 0 && <p className="text-xs text-muted-foreground italic mb-1">No {entityLabel.toLowerCase()}s in this {containerLabel.toLowerCase()} yet.</p>}
@@ -3622,6 +3655,42 @@ function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { pr
           );
         })}
       </div>
+
+      {(() => {
+        const unassignedTravel = travelDays.filter(td => !td.legId).sort((a, b) => a.date.localeCompare(b.date));
+        if (unassignedTravel.length === 0) return null;
+        return (
+          <div className="mt-3 space-y-0.5">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-1">Unassigned Travel Days</p>
+            {unassignedTravel.map(td => (
+              <div key={`td-${td.id}`} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-amber-500/5 border border-amber-400/20 group">
+                <Plane className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Travel Day</span>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {format(new Date(td.date + "T00:00:00"), "EEE, MMM d")}
+                    {td.airline && ` · ${td.airline}`}
+                    {td.flightNumber && ` ${td.flightNumber}`}
+                    {td.departureAirport && td.arrivalAirport && ` · ${td.departureAirport} → ${td.arrivalAirport}`}
+                  </p>
+                </div>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ConfirmDelete
+                    onConfirm={() => deleteTravelDayMutation.mutate(td.id)}
+                    title="Delete travel day?"
+                    description="This will remove the travel day and all crew travel details."
+                    triggerVariant="ghost"
+                    triggerSize="icon"
+                    triggerClassName="h-6 w-6 text-destructive hover:text-destructive"
+                    triggerLabel={<Trash2 className="w-3 h-3" />}
+                    data-testid={`button-delete-travel-${td.id}`}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Create Leg/Festival Dialog */}
       <Dialog open={addOpen} onOpenChange={(o) => { setAddOpen(o); if (!o) setNewLeg({ name: "", notes: "", showCount: 0, startDate: "", endDate: "", stageCount: 0 }); }}>
@@ -4440,7 +4509,7 @@ function ProjectsAdmin() {
                       </div>
                       )}
 
-                      {expandedCards.has(project.id) && (project.isTour || project.isFestival) && (
+                      {expandedCards.has(project.id) && (
                         <ProjectLegsSection projectId={project.id} projectName={project.name} venues={venuesList} isFestival={project.isFestival ?? false} />
                       )}
 

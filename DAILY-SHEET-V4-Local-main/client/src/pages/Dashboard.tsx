@@ -39,9 +39,6 @@ import { GripVertical, Copy, Bell, Navigation, Wrench, Plane, PlaneTakeoff, Plan
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { MapContainer, TileLayer, Marker, Popup } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
 import { useSchedules, useDeleteSchedule, useUpdateSchedule } from "@/hooks/use-schedules";
 import { useContacts, useDeleteContact, useUpdateContact, useCreateContact } from "@/hooks/use-contacts";
 import type { Contact, Schedule, Event, FileFolder, Venue, EventDayVenue } from "@shared/schema";
@@ -1484,6 +1481,9 @@ export default function Dashboard() {
                                         )}
                                         <div className="text-sm sm:text-base font-display uppercase tracking-wide truncate flex items-center gap-1.5" data-testid={`text-venue-bar-name-${showEvent?.id}`}>
                                           <span className="font-bold" data-testid={`text-venue-bar-show-${showEvent?.id}`}>{showName}</span>
+                                          {show.tag && (
+                                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-normal border-primary/30 text-primary">{show.tag}</Badge>
+                                          )}
                                           {canEdit && showEvent && (
                                             <button
                                               type="button"
@@ -1564,6 +1564,9 @@ export default function Dashboard() {
                                   <h3 className="text-sm font-display uppercase tracking-wide text-foreground" data-testid={`overview-show-label-${showName.replace(/\s+/g, '-')}`}>
                                     {showName}
                                   </h3>
+                                  {show.tag && (
+                                    <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-normal border-primary/30 text-primary">{show.tag}</Badge>
+                                  )}
                                 </div>
                               </CardHeader>
                             )}

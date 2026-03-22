@@ -1,11 +1,7 @@
+/// <reference types="@types/google.maps" />
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { MapContainer, TileLayer, useMap } from "react-leaflet";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
-import "leaflet.markercluster/dist/MarkerCluster.css";
-import "leaflet.markercluster/dist/MarkerCluster.Default.css";
-import "leaflet.markercluster";
+import { MarkerClusterer } from "@googlemaps/markerclusterer";
 import { apiRequest } from "@/lib/queryClient";
 import { useAuth } from "@/hooks/use-auth";
 import { AppHeader } from "@/components/AppHeader";
@@ -23,21 +19,13 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Fix Leaflet default icon paths
-delete (L.Icon.Default.prototype as any)._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
-
 const CATEGORIES = [
-  { id: "all",           label: "All",           emoji: "🗺️",  color: "#94a3b8" },
-  { id: "dining",        label: "Dining",        emoji: "🍽️",  color: "#f97316" },
-  { id: "entertainment", label: "Entertainment", emoji: "🎭",  color: "#a855f7" },
-  { id: "activities",    label: "Activities",    emoji: "🏃",  color: "#22c55e" },
-  { id: "accommodation", label: "Stay",          emoji: "🏨",  color: "#3b82f6" },
-  { id: "other",         label: "Other",         emoji: "📍",  color: "#94a3b8" },
+  { id: "all",           label: "All",           emoji: "\u{1F5FA}\u{FE0F}",  color: "#94a3b8" },
+  { id: "dining",        label: "Dining",        emoji: "\u{1F37D}\u{FE0F}",  color: "#f97316" },
+  { id: "entertainment", label: "Entertainment", emoji: "\u{1F3AD}",  color: "#a855f7" },
+  { id: "activities",    label: "Activities",    emoji: "\u{1F3C3}",  color: "#22c55e" },
+  { id: "accommodation", label: "Stay",          emoji: "\u{1F3E8}",  color: "#3b82f6" },
+  { id: "other",         label: "Other",         emoji: "\u{1F4CD}",  color: "#94a3b8" },
 ] as const;
 
 type CategoryId = typeof CATEGORIES[number]["id"];
@@ -46,44 +34,37 @@ function getCategoryMeta(id: string) {
   return CATEGORIES.find(c => c.id === id) ?? CATEGORIES[CATEGORIES.length - 1];
 }
 
-function createPinIcon(category: string, isOwn: boolean) {
-  const meta = getCategoryMeta(category);
-  const border = isOwn ? "3px solid #facc15" : "2px solid rgba(255,255,255,0.8)";
-  return L.divIcon({
-    className: "",
-    html: `<div style="width:36px;height:36px;border-radius:50% 50% 50% 0;background:${meta.color};border:${border};display:flex;align-items:center;justify-content:center;font-size:16px;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;"><span style="transform:rotate(45deg)">${meta.emoji}</span></div>`,
-    iconSize: [36, 36],
-    iconAnchor: [18, 36],
-    popupAnchor: [0, -36],
-  });
-}
-
 function stringToColor(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) hash = str.charCodeAt(i) + ((hash << 5) - hash);
   return `hsl(${Math.abs(hash) % 360}, 65%, 50%)`;
 }
 
-function createUserIcon(userName: string, isMe: boolean) {
+function createPinMarkerContent(category: string, isOwn: boolean): HTMLElement {
+  const meta = getCategoryMeta(category);
+  const border = isOwn ? "3px solid #facc15" : "2px solid rgba(255,255,255,0.8)";
+  const el = document.createElement("div");
+  el.style.cssText = `width:36px;height:36px;border-radius:50% 50% 50% 0;background:${meta.color};border:${border};display:flex;align-items:center;justify-content:center;font-size:16px;transform:rotate(-45deg);box-shadow:0 2px 8px rgba(0,0,0,0.3);cursor:pointer;`;
+  const span = document.createElement("span");
+  span.style.transform = "rotate(45deg)";
+  span.textContent = meta.emoji;
+  el.appendChild(span);
+  return el;
+}
+
+function createUserMarkerContent(userName: string, isMe: boolean): HTMLElement {
+  const el = document.createElement("div");
   if (isMe) {
-    return L.divIcon({
-      className: "",
-      html: `<div style="position:relative;width:20px;height:20px;">
-        <div style="position:absolute;inset:0;border-radius:50%;background:#3b82f6;opacity:0.3;animation:loc-pulse 2s infinite;"></div>
-        <div style="position:absolute;inset:3px;border-radius:50%;background:#3b82f6;border:2px solid white;box-shadow:0 2px 6px rgba(59,130,246,0.6);"></div>
-      </div>`,
-      iconSize: [20, 20],
-      iconAnchor: [10, 10],
-    });
+    el.innerHTML = `<div style="position:relative;width:20px;height:20px;">
+      <div style="position:absolute;inset:0;border-radius:50%;background:#3b82f6;opacity:0.3;animation:loc-pulse 2s infinite;"></div>
+      <div style="position:absolute;inset:3px;border-radius:50%;background:#3b82f6;border:2px solid white;box-shadow:0 2px 6px rgba(59,130,246,0.6);"></div>
+    </div>`;
+  } else {
+    const initials = userName.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+    const color = stringToColor(userName);
+    el.innerHTML = `<div style="width:34px;height:34px;border-radius:50%;background:${color};border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;box-shadow:0 2px 8px rgba(0,0,0,0.25);cursor:pointer;">${initials}</div>`;
   }
-  const initials = userName.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
-  const color = stringToColor(userName);
-  return L.divIcon({
-    className: "",
-    html: `<div style="width:34px;height:34px;border-radius:50%;background:${color};border:2px solid white;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:white;box-shadow:0 2px 8px rgba(0,0,0,0.25);cursor:pointer;">${initials}</div>`,
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
-  });
+  return el;
 }
 
 type EnrichedPin = {
@@ -103,65 +84,52 @@ type UserLocation = {
   lat: number; lng: number; updated_at: string;
 };
 
-function MapRefCapture({ mapRef }: { mapRef: React.MutableRefObject<L.Map | null> }) {
-  const map = useMap();
-  useEffect(() => { mapRef.current = map; }, [map, mapRef]);
-  return null;
+function useGoogleMapsKey() {
+  return useQuery<{ apiKey: string }>({
+    queryKey: ["/api/config/maps"],
+    staleTime: Infinity,
+  });
 }
 
-function ClusteredMarkers({ pins, currentUserId, onPinClick }: {
-  pins: EnrichedPin[];
-  currentUserId: string;
-  onPinClick: (pin: EnrichedPin) => void;
-}) {
-  const map = useMap();
-  const clusterGroupRef = useRef<L.MarkerClusterGroup | null>(null);
-  useEffect(() => {
-    if (clusterGroupRef.current) map.removeLayer(clusterGroupRef.current);
-    const group = (L as any).markerClusterGroup({ showCoverageOnHover: false, maxClusterRadius: 50, spiderfyOnMaxZoom: true });
-    pins.forEach(pin => {
-      const marker = L.marker([pin.lat, pin.lng], { icon: createPinIcon(pin.category, pin.userId === currentUserId) });
-      marker.on("click", e => { L.DomEvent.stopPropagation(e); onPinClick(pin); });
-      group.addLayer(marker);
-    });
-    map.addLayer(group);
-    clusterGroupRef.current = group;
-    return () => { map.removeLayer(group); };
-  }, [map, pins, currentUserId, onPinClick]);
-  return null;
-}
+let googleMapsPromise: Promise<void> | null = null;
+let googleMapsLoaded = false;
 
-function UserLocationMarkers({ locations, currentUserId, onUserClick }: {
-  locations: UserLocation[];
-  currentUserId: string;
-  onUserClick: (loc: UserLocation) => void;
-}) {
-  const map = useMap();
-  const layerGroupRef = useRef<L.LayerGroup | null>(null);
-  useEffect(() => {
-    if (layerGroupRef.current) map.removeLayer(layerGroupRef.current);
-    const group = L.layerGroup();
-    locations.forEach(loc => {
-      const isMe = loc.user_id === currentUserId;
-      const marker = L.marker([loc.lat, loc.lng], { icon: createUserIcon(loc.user_name, isMe), zIndexOffset: isMe ? 1000 : 500 });
-      const lastSeen = formatDistanceToNow(new Date(loc.updated_at), { addSuffix: true });
-      marker.bindTooltip(isMe ? "You" : `${loc.user_name} · ${lastSeen}`, { direction: "top", offset: [0, -8] });
-      if (!isMe) marker.on("click", e => { L.DomEvent.stopPropagation(e); onUserClick(loc); });
-      group.addLayer(marker);
-    });
-    map.addLayer(group);
-    layerGroupRef.current = group;
-    return () => { map.removeLayer(group); };
-  }, [map, locations, currentUserId, onUserClick]);
-  return null;
+function loadGoogleMaps(apiKey: string): Promise<void> {
+  if (googleMapsLoaded) return Promise.resolve();
+  if (googleMapsPromise) return googleMapsPromise;
+  googleMapsPromise = new Promise((resolve, reject) => {
+    if (typeof google !== "undefined" && google.maps) {
+      googleMapsLoaded = true;
+      return resolve();
+    }
+    const existing = document.querySelector('script[src*="maps.googleapis.com"]');
+    if (existing) {
+      existing.addEventListener("load", () => { googleMapsLoaded = true; resolve(); });
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,marker`;
+    script.async = true;
+    script.onload = () => { googleMapsLoaded = true; resolve(); };
+    script.onerror = reject;
+    document.head.appendChild(script);
+  });
+  return googleMapsPromise;
 }
 
 export default function MapPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const mapRef = useRef<L.Map | null>(null);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const pinMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const userMarkersRef = useRef<google.maps.marker.AdvancedMarkerElement[]>([]);
+  const clustererRef = useRef<MarkerClusterer | null>(null);
   const lastSentRef = useRef<{ lat: number; lng: number; time: number } | null>(null);
+
+  const [mapReady, setMapReady] = useState(false);
+  const { data: config } = useGoogleMapsKey();
 
   const locationConsent = user?.dashboardPreferences?.locationSharingEnabled;
   const [showConsentSheet, setShowConsentSheet] = useState(locationConsent === undefined);
@@ -220,7 +188,7 @@ export default function MapPage() {
       queryClient.invalidateQueries({ queryKey: ["/api/map/pins"] });
       setPendingLatLng(null);
       setForm({ title: "", category: "dining", description: "", address: "", website: "" });
-      toast({ title: "Pin dropped! 📍" });
+      toast({ title: "Pin dropped!" });
     },
     onError: () => toast({ title: "Failed to drop pin", variant: "destructive" }),
   });
@@ -257,6 +225,95 @@ export default function MapPage() {
     },
   });
 
+  // Load Google Maps
+  useEffect(() => {
+    if (!config?.apiKey) return;
+    loadGoogleMaps(config.apiKey).then(() => setMapReady(true)).catch(() => {});
+  }, [config?.apiKey]);
+
+  // Initialize map
+  useEffect(() => {
+    if (!mapReady || !mapContainerRef.current || mapRef.current) return;
+
+    const map = new google.maps.Map(mapContainerRef.current, {
+      center: { lat: 20, lng: 0 },
+      zoom: 3,
+      zoomControl: true,
+      mapTypeControl: false,
+      streetViewControl: false,
+      fullscreenControl: false,
+      mapId: "community-map",
+    });
+
+    mapRef.current = map;
+  }, [mapReady]);
+
+  // Update pin markers
+  const onPinClickRef = useRef<(pin: EnrichedPin) => void>();
+  onPinClickRef.current = (pin: EnrichedPin) => setSelectedPin(pin);
+
+  useEffect(() => {
+    if (!mapRef.current || !mapReady) return;
+
+    // Clear old markers
+    for (const m of pinMarkersRef.current) m.map = null;
+    pinMarkersRef.current = [];
+    if (clustererRef.current) {
+      clustererRef.current.clearMarkers();
+      clustererRef.current = null;
+    }
+
+    const filteredPins = categoryFilter === "all" ? pins : pins.filter(p => p.category === categoryFilter);
+    const currentUserId = user?.id ?? "";
+    const markers: google.maps.marker.AdvancedMarkerElement[] = [];
+
+    for (const pin of filteredPins) {
+      const marker = new google.maps.marker.AdvancedMarkerElement({
+        position: { lat: pin.lat, lng: pin.lng },
+        content: createPinMarkerContent(pin.category, pin.userId === currentUserId),
+        title: pin.title,
+      });
+
+      marker.addListener("click", () => onPinClickRef.current?.(pin));
+      markers.push(marker);
+    }
+
+    pinMarkersRef.current = markers;
+
+    // Create clusterer
+    clustererRef.current = new MarkerClusterer({
+      map: mapRef.current,
+      markers,
+    });
+  }, [pins, categoryFilter, user?.id, mapReady]);
+
+  // Update user location markers
+  useEffect(() => {
+    if (!mapRef.current || !mapReady) return;
+
+    for (const m of userMarkersRef.current) m.map = null;
+    userMarkersRef.current = [];
+
+    const currentUserId = user?.id ?? "";
+
+    for (const loc of userLocations) {
+      const isMe = loc.user_id === currentUserId;
+      const marker = new google.maps.marker.AdvancedMarkerElement({
+        position: { lat: loc.lat, lng: loc.lng },
+        map: mapRef.current,
+        content: createUserMarkerContent(loc.user_name, isMe),
+        title: isMe ? "You" : `${loc.user_name} - Last seen ${formatDistanceToNow(new Date(loc.updated_at), { addSuffix: true })}`,
+        zIndex: isMe ? 1000 : 500,
+      });
+
+      if (!isMe) {
+        marker.addListener("click", () => setSelectedUser(loc));
+      }
+
+      userMarkersRef.current.push(marker);
+    }
+  }, [userLocations, user?.id, mapReady]);
+
   // Location sharing watchPosition
   useEffect(() => {
     if (!locationSharing || !navigator.geolocation) return;
@@ -265,7 +322,6 @@ export default function MapPage() {
         const { latitude: lat, longitude: lng } = pos.coords;
         const now = Date.now();
         const last = lastSentRef.current;
-        // Only send if moved >100m or >3 minutes since last update
         const moved = !last || Math.hypot(lat - last.lat, lng - last.lng) > 0.001;
         const timed = !last || now - last.time > 3 * 60 * 1000;
         if (moved || timed) {
@@ -305,12 +361,10 @@ export default function MapPage() {
   const handleConfirmPinLocation = useCallback(() => {
     if (!mapRef.current) return;
     const c = mapRef.current.getCenter();
-    setPendingLatLng({ lat: c.lat, lng: c.lng });
+    if (!c) return;
+    setPendingLatLng({ lat: c.lat(), lng: c.lng() });
     setPinDropMode(false);
   }, []);
-
-  const handlePinClick = useCallback((pin: EnrichedPin) => setSelectedPin(pin), []);
-  const handleUserClick = useCallback((loc: UserLocation) => setSelectedUser(loc), []);
 
   const filteredPins = categoryFilter === "all" ? pins : pins.filter(p => p.category === categoryFilter);
   const activeCategory = CATEGORIES.find(c => c.id === categoryFilter);
@@ -319,7 +373,6 @@ export default function MapPage() {
   return (
     <>
       <style>{`
-        .leaflet-container { z-index: 1 !important; }
         @keyframes loc-pulse {
           0% { transform: scale(1); opacity: 0.6; }
           100% { transform: scale(3); opacity: 0; }
@@ -354,16 +407,7 @@ export default function MapPage() {
 
         {/* Map */}
         <div className="flex-1 relative overflow-hidden">
-          <MapContainer center={[20, 0]} zoom={3} style={{ height: "100%", width: "100%" }} zoomControl={false}>
-            <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
-              attribution='&copy; <a href="https://carto.com/">CARTO</a>'
-              maxZoom={19}
-            />
-            <MapRefCapture mapRef={mapRef} />
-            <ClusteredMarkers pins={filteredPins} currentUserId={user?.id ?? ""} onPinClick={handlePinClick} />
-            <UserLocationMarkers locations={userLocations} currentUserId={user?.id ?? ""} onUserClick={handleUserClick} />
-          </MapContainer>
+          <div ref={mapContainerRef} style={{ height: "100%", width: "100%" }} />
 
           {/* Pin drop crosshair */}
           {pinDropMode && (
@@ -415,10 +459,10 @@ export default function MapPage() {
                 Daily Sheet can show your live location on the Community Map so crew members on other tours can see when you're nearby — perfect for impromptu dinners, drinks, or catching up.
               </p>
               <div className="bg-muted/50 rounded-lg p-3 space-y-1.5 text-xs text-muted-foreground">
-                <div className="flex items-start gap-2"><span className="text-primary">•</span> Your location is visible to <strong className="text-foreground">all Daily Sheet users worldwide</strong></div>
-                <div className="flex items-start gap-2"><span className="text-primary">•</span> Location updates every few minutes while you have the app open</div>
-                <div className="flex items-start gap-2"><span className="text-primary">•</span> Your dot disappears automatically after <strong className="text-foreground">2 hours</strong> of inactivity</div>
-                <div className="flex items-start gap-2"><span className="text-primary">•</span> You can turn this off at any time from the map header</div>
+                <div className="flex items-start gap-2"><span className="text-primary">&bull;</span> Your location is visible to <strong className="text-foreground">all Daily Sheet users worldwide</strong></div>
+                <div className="flex items-start gap-2"><span className="text-primary">&bull;</span> Location updates every few minutes while you have the app open</div>
+                <div className="flex items-start gap-2"><span className="text-primary">&bull;</span> Your dot disappears automatically after <strong className="text-foreground">2 hours</strong> of inactivity</div>
+                <div className="flex items-start gap-2"><span className="text-primary">&bull;</span> You can turn this off at any time from the map header</div>
               </div>
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" className="flex-1" onClick={handleConsentDecline}>Not Now</Button>
@@ -499,13 +543,13 @@ export default function MapPage() {
                   </button>
                 ))}
               </div>
-              <Textarea placeholder="Tell the crew about it — what's good, pro tips…" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="resize-none" />
+              <Textarea placeholder="Tell the crew about it — what's good, pro tips..." value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={3} className="resize-none" />
               <Input placeholder="Address (optional)" value={form.address} onChange={e => setForm(f => ({ ...f, address: e.target.value }))} />
               <Input placeholder="Website (optional)" value={form.website} onChange={e => setForm(f => ({ ...f, website: e.target.value }))} />
               <div className="flex gap-2 pt-1">
                 <Button variant="outline" className="flex-1" onClick={() => setPendingLatLng(null)}>Cancel</Button>
                 <Button className="flex-1" onClick={() => createPinMutation.mutate({ ...form, ...pendingLatLng })} disabled={!form.title.trim() || createPinMutation.isPending}>
-                  {createPinMutation.isPending ? "Dropping…" : "Drop Pin"}
+                  {createPinMutation.isPending ? "Dropping..." : "Drop Pin"}
                 </Button>
               </div>
             </div>
@@ -555,7 +599,7 @@ export default function MapPage() {
                       <Heart className={cn("h-4 w-4", selectedPin.likedByMe && "fill-rose-500")} />
                       {selectedPin.likeCount} {selectedPin.likeCount === 1 ? "like" : "likes"}
                     </button>
-                    <span className="text-muted-foreground/40">·</span>
+                    <span className="text-muted-foreground/40">&middot;</span>
                     <span className="flex items-center gap-1.5 text-sm text-muted-foreground">
                       <MessageCircle className="h-4 w-4" />{comments.length} {comments.length === 1 ? "comment" : "comments"}
                     </span>
@@ -583,7 +627,7 @@ export default function MapPage() {
                   </div>
                 </div>
                 <div className="flex gap-2 p-3 border-t border-border/30 bg-card/50 shrink-0">
-                  <Textarea placeholder="Add a comment…" value={newComment} onChange={e => setNewComment(e.target.value)} rows={1} className="resize-none text-sm min-h-[36px] py-2"
+                  <Textarea placeholder="Add a comment..." value={newComment} onChange={e => setNewComment(e.target.value)} rows={1} className="resize-none text-sm min-h-[36px] py-2"
                     onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); if (newComment.trim()) addCommentMutation.mutate({ pinId: selectedPin.id, content: newComment }); } }} />
                   <Button size="sm" className="shrink-0 self-end" disabled={!newComment.trim() || addCommentMutation.isPending}
                     onClick={() => { if (newComment.trim()) addCommentMutation.mutate({ pinId: selectedPin.id, content: newComment }); }}>

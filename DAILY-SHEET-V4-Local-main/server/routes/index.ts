@@ -29,6 +29,7 @@ import { registerWeatherRoutes } from "./weather";
 import { registerMapRoutes } from "./map";
 import { registerLegRoutes } from "./legs";
 import { registerBandPortalRoutes } from "./bandPortal";
+import { registerConfigRoutes } from "./config";
 
 const storage_multer = multer.diskStorage({
   destination: (req, file, cb) => {
@@ -71,6 +72,7 @@ export async function registerRoutes(
   registerMapRoutes(app, upload);
   registerLegRoutes(app, upload);
   registerBandPortalRoutes(app, upload);
+  registerConfigRoutes(app);
 
   // Migrate existing users without workspaces
   await migrateExistingUsersToWorkspaces();

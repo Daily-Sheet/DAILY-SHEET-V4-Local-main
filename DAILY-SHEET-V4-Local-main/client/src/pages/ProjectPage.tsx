@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useRoute, Link, useSearch } from "wouter";
 import { AppHeader } from "@/components/AppHeader";
+import { EditShowDialog } from "@/components/dashboard/shows/EditShowDialog";
 import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -858,134 +859,6 @@ function ScheduleItemRow({
         </div>
       </div>
     </div>
-  );
-}
-
-function EditShowDialog({
-  open,
-  onClose,
-  show,
-}: {
-  open: boolean;
-  onClose: () => void;
-  show: Event;
-}) {
-  const { toast } = useToast();
-  const qc = useQueryClient();
-  const form = useForm({
-    defaultValues: {
-      name: show.name,
-      startDate: show.startDate || "",
-      endDate: show.endDate || "",
-      notes: show.notes || "",
-    },
-  });
-
-  useEffect(() => {
-    form.reset({
-      name: show.name,
-      startDate: show.startDate || "",
-      endDate: show.endDate || "",
-      notes: show.notes || "",
-    });
-  }, [show, form]);
-
-  const updateMutation = useMutation({
-    mutationFn: async (data: any) => {
-      const res = await apiRequest("PATCH", `/api/events/${show.id}`, data);
-      return res.json();
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/events"] });
-      toast({ title: "Show Updated" });
-      onClose();
-    },
-    onError: (err: any) => {
-      toast({ title: "Error", description: err.message, variant: "destructive" });
-    },
-  });
-
-  const onSubmit = (values: any) => {
-    const payload: any = {
-      name: values.name.trim(),
-      startDate: values.startDate || null,
-      endDate: values.endDate || null,
-      notes: values.notes || null,
-    };
-    updateMutation.mutate(payload);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="sm:max-w-[440px]">
-        <DialogHeader>
-          <DialogTitle className="font-display uppercase tracking-wide">Edit Show</DialogTitle>
-          <DialogDescription>Update show details.</DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <FormField control={form.control} name="name" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Name</FormLabel>
-                <FormControl><Input {...field} data-testid="input-edit-show-name" /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <div className="grid grid-cols-2 gap-3">
-              <FormField control={form.control} name="startDate" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Start Date</FormLabel>
-                  <FormControl>
-                    <DatePicker
-                      value={field.value}
-                      onChange={(v) => {
-                        field.onChange(v);
-                        const endDate = form.getValues("endDate");
-                        if (endDate && v && endDate < v) form.setValue("endDate", v);
-                      }}
-                      maxDate={form.watch("endDate") || undefined}
-                      data-testid="input-edit-show-start"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-              <FormField control={form.control} name="endDate" render={({ field }) => (
-                <FormItem>
-                  <FormLabel>End Date</FormLabel>
-                  <FormControl>
-                    <DatePicker
-                      value={field.value}
-                      onChange={(v) => {
-                        field.onChange(v);
-                        const startDate = form.getValues("startDate");
-                        if (startDate && v && v < startDate) form.setValue("startDate", v);
-                      }}
-                      minDate={form.watch("startDate") || undefined}
-                      data-testid="input-edit-show-end"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )} />
-            </div>
-            <FormField control={form.control} name="notes" render={({ field }) => (
-              <FormItem>
-                <FormLabel>Notes</FormLabel>
-                <FormControl><Textarea {...field} rows={3} data-testid="input-edit-show-notes" /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-              <Button type="submit" disabled={updateMutation.isPending} data-testid="button-save-edit-show">
-                {updateMutation.isPending ? "Saving..." : "Save"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
   );
 }
 
@@ -3054,9 +2927,12 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <Link href={`/dashboard?event=${encodeURIComponent(show.event.name)}${show.event.startDate ? `&date=${show.event.startDate}` : ""}`} className="font-display font-bold text-base uppercase tracking-wide text-foreground truncate hover:underline hover:text-primary cursor-pointer block" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
-                          {show.event.name}
-                        </Link>
+                        <div className="flex items-center gap-2">
+                          <Link href={`/dashboard?event=${encodeURIComponent(show.event.name)}${show.event.startDate ? `&date=${show.event.startDate}` : ""}`} className="font-display font-bold text-base uppercase tracking-wide text-foreground truncate hover:underline hover:text-primary cursor-pointer" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                            {show.event.name}
+                          </Link>
+                          {show.event.tag && <span className="text-[9px] font-normal text-primary/80 border border-primary/30 rounded px-1.5 py-px flex-shrink-0">{show.event.tag}</span>}
+                        </div>
                         {(show.event.startDate || show.event.endDate) && (
                           <div className="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">
                             <CalendarIcon className="w-3.5 h-3.5 flex-shrink-0" />
@@ -3450,7 +3326,7 @@ export default function ProjectPage() {
         </div>
       </AppHeader>
 
-      <div className="max-w-3xl mx-auto px-4 py-4 space-y-3">
+      <div className="max-w-5xl mx-auto px-4 py-4 space-y-3">
         {isAdmin && (
           <div className="flex justify-end">
             <Button size="sm" onClick={() => setShowCreateDialog(true)} data-testid="button-add-show">
@@ -3533,9 +3409,12 @@ export default function ProjectPage() {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0 flex-1">
-                            <h3 className="font-display font-bold text-base uppercase tracking-wide text-foreground truncate">
-                              {event.name}
-                            </h3>
+                            <div className="flex items-center gap-2">
+                              <h3 className="font-display font-bold text-base uppercase tracking-wide text-foreground truncate">
+                                {event.name}
+                              </h3>
+                              {event.tag && <span className="text-[9px] font-normal text-primary/80 border border-primary/30 rounded px-1.5 py-px flex-shrink-0">{event.tag}</span>}
+                            </div>
                             {(event.startDate || event.endDate) && (
                               <div className="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">
                                 <CalendarIcon className="w-3.5 h-3.5 flex-shrink-0" />
