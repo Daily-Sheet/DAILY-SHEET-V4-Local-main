@@ -96,6 +96,11 @@ function ScrollColumn({
       className="flex flex-col overflow-y-auto h-48 px-1"
       data-datepicker-column
       style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehavior: "contain" }}
+      onWheel={(e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        containerRef.current?.scrollBy({ top: e.deltaY });
+      }}
     >
       {items.map((item) => {
         const isSelected = item === selected;
