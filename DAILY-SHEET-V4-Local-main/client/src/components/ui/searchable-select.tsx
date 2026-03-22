@@ -76,7 +76,7 @@ export function SearchableSelect({
             />
           </div>
         </div>
-        <div className="max-h-56 overflow-y-auto px-1 pb-1">
+        <div className="max-h-56 overflow-y-auto p-1">
           {filtered.length === 0 && (
             <div className="py-4 text-center text-sm text-muted-foreground">{emptyMessage}</div>
           )}
@@ -181,7 +181,7 @@ export function SearchableMultiSelect({
             />
           </div>
         </div>
-        <div className="max-h-56 overflow-y-auto px-1 pb-1">
+        <div className="max-h-56 overflow-y-auto p-1">
           {filtered.length === 0 && (
             <div className="py-4 text-center text-sm text-muted-foreground">{emptyMessage}</div>
           )}

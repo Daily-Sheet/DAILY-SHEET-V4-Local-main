@@ -363,7 +363,7 @@ export function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose:
                       />
                     </div>
                   </div>
-                  <div className="max-h-56 overflow-y-auto">
+                  <div className="max-h-56 overflow-y-auto p-1">
                     {(() => {
                       const q = crewSearch.toLowerCase().trim();
                       const filtered = q ? crewList.filter(opt =>

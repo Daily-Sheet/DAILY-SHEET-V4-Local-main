@@ -205,7 +205,7 @@ export function EditShowDialog({
                           }}
                         />
                       </div>
-                      <div className="max-h-40 overflow-y-auto px-1 pb-1">
+                      <div className="max-h-40 overflow-y-auto p-1">
                         {tagSearch.trim() && !existingTags.some(t => t.toLowerCase() === tagSearch.trim().toLowerCase()) && (
                           <button
                             type="button"
