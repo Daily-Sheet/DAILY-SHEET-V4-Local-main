@@ -24,6 +24,7 @@ class WSClient {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private maxReconnectDelay = 30_000;
   private intentionalClose = false;
+  private _hasEverConnected = false;
 
   private messageHandlers = new Map<string, Set<MessageHandler>>();
   private connectionHandlers = new Set<ConnectionHandler>();
@@ -31,6 +32,11 @@ class WSClient {
 
   get connectionState(): ConnectionState {
     return this._state;
+  }
+
+  /** True only after at least one successful connection */
+  get hasEverConnected(): boolean {
+    return this._hasEverConnected;
   }
 
   connect() {
@@ -52,6 +58,8 @@ class WSClient {
     }
 
     this.ws.onopen = () => {
+      const isReconnection = this._hasEverConnected;
+      this._hasEverConnected = true;
       this.reconnectAttempt = 0;
       this.setState("connected");
 
@@ -62,6 +70,11 @@ class WSClient {
 
       // Start heartbeat
       this.startHeartbeat();
+
+      // On reconnection, invalidate queries to catch up on missed events
+      if (isReconnection && this.onReconnect) {
+        this.onReconnect();
+      }
     };
 
     this.ws.onmessage = (event) => {
@@ -100,6 +113,7 @@ class WSClient {
     }
     this.subscribedRooms.clear();
     this.reconnectAttempt = 0;
+    this._hasEverConnected = false;
     this.setState("disconnected");
   }
 
@@ -159,13 +173,8 @@ class WSClient {
 
   private setState(state: ConnectionState) {
     if (this._state === state) return;
-    const wasDisconnected = this._state === "disconnected" || this._state === "connecting";
     this._state = state;
     this.connectionHandlers.forEach((handler) => handler(state));
-    // If we just reconnected (were disconnected, now connected), trigger reconnect handler
-    if (state === "connected" && wasDisconnected && this.reconnectAttempt === 0 && this.onReconnect) {
-      // Only fire onReconnect for actual reconnections, not initial connect
-    }
   }
 
   private dispatchMessage(msg: WSServerMessage) {
@@ -179,6 +188,11 @@ class WSClient {
 
   private scheduleReconnect() {
     if (this.intentionalClose) return;
+    // Stop retrying after 10 failed attempts if never connected (server may not support WS)
+    if (!this._hasEverConnected && this.reconnectAttempt >= 5) return;
+    // Cap at 20 attempts even after a successful connection (will retry on next page interaction)
+    if (this.reconnectAttempt >= 20) return;
+
     const jitter = 0.8 + Math.random() * 0.4; // ±20%
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempt) * jitter, this.maxReconnectDelay);
     this.reconnectAttempt++;

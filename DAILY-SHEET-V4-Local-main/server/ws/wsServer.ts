@@ -79,7 +79,21 @@ function broadcastToRoom(room: string, msg: WSServerMessage, excludeUserId?: str
   });
 }
 
-// ── Session loading (reuse connect-pg-simple store) ─────────────────────────
+// ── Session loading (shared store instance) ─────────────────────────────────
+
+let sharedSessionStore: any = null;
+
+function getSharedSessionStore() {
+  if (!sharedSessionStore) {
+    const PgStore = connectPg(session);
+    sharedSessionStore = new PgStore({
+      conString: process.env.DATABASE_URL,
+      createTableIfMissing: false,
+      tableName: "sessions",
+    });
+  }
+  return sharedSessionStore;
+}
 
 function loadSessionUser(
   req: IncomingMessage
@@ -90,7 +104,6 @@ function loadSessionUser(
       if (!cookieHeader) return resolve(null);
 
       const cookies = parseCookies(cookieHeader);
-      // express-session stores the sid in connect.sid, signed with "s:"
       let rawSid = cookies["connect.sid"];
       if (!rawSid) return resolve(null);
 
@@ -100,17 +113,10 @@ function loadSessionUser(
         rawSid = rawSid.split(".")[0]; // strip signature
       }
 
-      const pgStore = connectPg(session);
-      const store = new pgStore({
-        conString: process.env.DATABASE_URL,
-        createTableIfMissing: false,
-        tableName: "sessions",
-      });
-
-      store.get(rawSid, async (err, sess) => {
-        store.close?.();
+      const store = getSharedSessionStore();
+      store.get(rawSid, async (err: any, sess: any) => {
         if (err || !sess) return resolve(null);
-        const userId = (sess as any).userId;
+        const userId = sess.userId;
         if (!userId) return resolve(null);
 
         try {
@@ -158,6 +164,7 @@ export function initWebSocketServer(httpServer: Server) {
 
     loadSessionUser(request).then((session) => {
       if (!session) {
+        log("WS upgrade rejected: no valid session", "ws");
         socket.write("HTTP/1.1 401 Unauthorized\r\n\r\n");
         socket.destroy();
         return;
