@@ -1,4 +1,4 @@
-import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, CloudFog } from "lucide-react";
+import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, CloudFog, Wind, Droplets } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 export function getWeatherIcon(code: number) {
@@ -44,22 +44,42 @@ export function WeatherWidget({ venueId, date }: { venueId: number; date: string
   const dateIdx = weather.daily?.dates?.indexOf(date) ?? -1;
   const currentTemp = weather.current?.temperature;
   const currentCode = weather.current?.weathercode ?? 0;
+  const windSpeed = weather.current?.windSpeed;
+  const humidity = weather.current?.humidity;
   const high = dateIdx >= 0 ? weather.daily.maxTemps[dateIdx] : null;
   const low = dateIdx >= 0 ? weather.daily.minTemps[dateIdx] : null;
   const dayCode = dateIdx >= 0 ? weather.daily.weatherCodes[dateIdx] : currentCode;
 
   return (
-    <div className="flex items-center gap-2 text-secondary-foreground/80" data-testid={`weather-widget-${venueId}`}>
-      {getWeatherIcon(dayCode)}
-      <div className="text-xs leading-tight">
-        {currentTemp != null && (
-          <div className="font-bold text-sm">{Math.round(currentTemp)}°F</div>
-        )}
-        {high != null && low != null && (
-          <div className="text-[10px] opacity-70">H:{Math.round(high)}° L:{Math.round(low)}°</div>
-        )}
-        <div className="text-[10px] opacity-60">{getWeatherLabel(dayCode)}</div>
+    <div className="flex items-center gap-3 sm:gap-4 text-secondary-foreground/80 w-full" data-testid={`weather-widget-${venueId}`}>
+      <div className="flex items-center gap-2 min-w-0">
+        {getWeatherIcon(dayCode)}
+        <div className="text-xs leading-tight">
+          {currentTemp != null && (
+            <div className="font-bold text-sm">{Math.round(currentTemp)}°F</div>
+          )}
+          {high != null && low != null && (
+            <div className="text-[10px] opacity-70">H:{Math.round(high)}° L:{Math.round(low)}°</div>
+          )}
+          <div className="text-[10px] opacity-60">{getWeatherLabel(dayCode)}</div>
+        </div>
       </div>
+      {(windSpeed != null || humidity != null) && (
+        <div className="flex items-center gap-3 text-[11px] opacity-70">
+          {windSpeed != null && (
+            <div className="flex items-center gap-1">
+              <Wind className="h-3.5 w-3.5" />
+              <span>{Math.round(windSpeed)} mph</span>
+            </div>
+          )}
+          {humidity != null && (
+            <div className="flex items-center gap-1">
+              <Droplets className="h-3.5 w-3.5" />
+              <span>{humidity}%</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

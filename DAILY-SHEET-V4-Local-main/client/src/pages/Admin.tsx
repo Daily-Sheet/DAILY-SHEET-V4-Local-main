@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useCallback, useEffect, lazy, Suspense } from "react";
 import { cn } from "@/lib/utils";
+import { getProjectTypeColors } from "@/lib/projectColors";
 import { AppHeader } from "@/components/AppHeader";
 import { motion, AnimatePresence } from "framer-motion";
 const PdfPreview = lazy(() => import("@/components/PdfPreview"));
@@ -3273,6 +3274,14 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
     [eventsList, projectId, isTour]
   );
 
+  type ListItem = { type: "show"; show: Event; date: string } | { type: "travel"; td: TravelDay; date: string };
+  const mergedItems = useMemo((): ListItem[] => {
+    const showItems: ListItem[] = shows.map(s => ({ type: "show" as const, show: s, date: s.startDate || "9999" }));
+    const filteredTravel = isTour ? travelDays.filter(td => !td.legId) : travelDays;
+    const travelItems: ListItem[] = filteredTravel.map(td => ({ type: "travel" as const, td, date: td.date }));
+    return [...showItems, ...travelItems].sort((a, b) => a.date.localeCompare(b.date));
+  }, [shows, travelDays]);
+
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: any }) => {
       const res = await apiRequest("PATCH", `/api/events/${id}`, data);
@@ -3308,16 +3317,51 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
     <div className="mt-3 pt-3 border-t border-border/20">
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          {isTour ? "Unassigned " : ""}{entityLabel}s {shows.length > 0 ? `(${shows.length})` : ""}
+          {isTour ? "Unassigned " : ""}{entityLabel}s{travelDays.length > 0 ? " & Travel" : ""} {mergedItems.length > 0 ? `(${mergedItems.length})` : ""}
         </span>
-        <CreateShowForProjectDialog projectId={projectId} projectName={projectName} venues={venues} isFestival={isFestival} />
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={() => setAddTravelOpen(true)} data-testid={`button-add-travel-day-${projectId}`}>
+            <Plane className="w-3.5 h-3.5 mr-1" /> Travel Day
+          </Button>
+          <CreateShowForProjectDialog projectId={projectId} projectName={projectName} venues={venues} isFestival={isFestival} />
+        </div>
       </div>
       <div className="space-y-1">
-        {shows.length === 0 && (
+        {mergedItems.length === 0 && (
           <p className="text-xs text-muted-foreground italic px-1">No {entityLabel.toLowerCase()}s yet. Add one above.</p>
         )}
-        {shows.map(show => (
-          editingId === show.id ? (
+        {mergedItems.map(item => {
+          if (item.type === "travel") {
+            const td = item.td;
+            return (
+              <div key={`td-${td.id}`} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-amber-500/5 border border-amber-400/20 group" data-testid={`travel-day-${td.id}`}>
+                <Plane className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <span className="text-sm font-medium text-amber-700 dark:text-amber-300">{td.date}</span>
+                  {td.airline && td.flightNumber && (
+                    <span className="text-xs text-muted-foreground ml-2">{td.airline} {td.flightNumber}</span>
+                  )}
+                  {td.departureAirport && td.arrivalAirport && (
+                    <span className="text-xs text-muted-foreground ml-2">{td.departureAirport} → {td.arrivalAirport}</span>
+                  )}
+                  {td.notes && <span className="text-xs text-muted-foreground ml-2">· {td.notes}</span>}
+                </div>
+                <div className="opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ConfirmDelete
+                    onConfirm={() => deleteTravelDayMutation.mutate(td.id)}
+                    title="Delete travel day?"
+                    description="This will remove the travel day and all crew travel details."
+                    triggerVariant="ghost"
+                    triggerSize="icon"
+                    triggerClassName="h-7 w-7 text-destructive hover:text-destructive"
+                    triggerLabel={<Trash2 className="w-3 h-3" />}
+                  />
+                </div>
+              </div>
+            );
+          }
+          const show = item.show;
+          return editingId === show.id ? (
             <div key={show.id} className="border border-border/30 rounded-lg p-3 bg-muted/30">
               <form
                 onSubmit={(e) => {
@@ -3384,49 +3428,9 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
                 />
               </div>
             </div>
-          )
-        ))}
+          );
+        })}
       </div>
-
-      {/* Travel Days (non-tour projects) */}
-      {!isTour && (
-        <>
-          {travelDays.length > 0 && (
-            <div className="space-y-1 mt-3 pt-3 border-t border-amber-400/20">
-              <p className="text-xs font-medium text-amber-600 dark:text-amber-400 uppercase tracking-wider mb-2">Travel Days</p>
-              {[...travelDays].sort((a, b) => a.date.localeCompare(b.date)).map(td => (
-                <div key={td.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-amber-500/5 border border-amber-400/20 group" data-testid={`travel-day-${td.id}`}>
-                  <Plane className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-amber-700 dark:text-amber-300">{td.date}</span>
-                    {td.airline && td.flightNumber && (
-                      <span className="text-xs text-muted-foreground ml-2">{td.airline} {td.flightNumber}</span>
-                    )}
-                    {td.departureAirport && td.arrivalAirport && (
-                      <span className="text-xs text-muted-foreground ml-2">{td.departureAirport} → {td.arrivalAirport}</span>
-                    )}
-                    {td.notes && <span className="text-xs text-muted-foreground ml-2">· {td.notes}</span>}
-                  </div>
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ConfirmDelete
-                      onConfirm={() => deleteTravelDayMutation.mutate(td.id)}
-                      title="Delete travel day?"
-                      description="This will remove the travel day and all crew travel details."
-                      triggerVariant="ghost"
-                      triggerSize="icon"
-                      triggerClassName="h-7 w-7 text-destructive hover:text-destructive"
-                      triggerLabel={<Trash2 className="w-3 h-3" />}
-                    />
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          <div className="mt-2">
-            <Button variant="ghost" size="sm" onClick={() => setAddTravelOpen(true)} data-testid={`button-add-travel-day-${projectId}`}>
-              <Plane className="w-4 h-4 mr-1" /> Add Travel Day
-            </Button>
-          </div>
 
           {/* Add Travel Day Dialog */}
           <Dialog open={addTravelOpen} onOpenChange={(o) => { if (!o) { setAddTravelOpen(false); resetTravelForm(); } }}>
@@ -3498,8 +3502,6 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
               </Button>
             </DialogContent>
           </Dialog>
-        </>
-      )}
     </div>
   );
 }
@@ -4205,9 +4207,9 @@ function ProjectsAdmin() {
 
   const activeProjects = useMemo(() => projectsList.filter((p: Project) => !p.archived), [projectsList]);
   const archivedProjects = useMemo(() => projectsList.filter((p: Project) => p.archived), [projectsList]);
-  const tourProjects = useMemo(() => activeProjects.filter((p: Project) => p.isTour), [activeProjects]);
-  const festivalProjects = useMemo(() => activeProjects.filter((p: Project) => p.isFestival), [activeProjects]);
-  const regularProjects = useMemo(() => activeProjects.filter((p: Project) => !p.isTour && !p.isFestival), [activeProjects]);
+  const tourProjects = useMemo(() => activeProjects.filter((p: Project) => p.isTour).sort((a, b) => (a.startDate || "9999").localeCompare(b.startDate || "9999")), [activeProjects]);
+  const festivalProjects = useMemo(() => activeProjects.filter((p: Project) => p.isFestival).sort((a, b) => (a.startDate || "9999").localeCompare(b.startDate || "9999")), [activeProjects]);
+  const regularProjects = useMemo(() => activeProjects.filter((p: Project) => !p.isTour && !p.isFestival).sort((a, b) => (a.startDate || "9999").localeCompare(b.startDate || "9999")), [activeProjects]);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
 
   const eventsForProject = (projectId: number) =>
@@ -4589,12 +4591,10 @@ function ProjectsAdmin() {
                           {project.projectNumber && (
                             <Badge variant="outline" className="text-[10px] uppercase tracking-wide">#{project.projectNumber}</Badge>
                           )}
-                          {project.isFestival && (
-                            <Badge variant="secondary" className="text-[10px] uppercase tracking-wide">Festival</Badge>
-                          )}
-                          {project.isTour && (
-                            <Badge variant="secondary" className="text-[10px] uppercase tracking-wide bg-blue-500/10 text-blue-600 dark:text-blue-400">Tour</Badge>
-                          )}
+                          {(project.isFestival || project.isTour) && (() => {
+                            const pc = getProjectTypeColors(project);
+                            return <Badge variant="secondary" className={cn("text-[10px] uppercase tracking-wide", pc.bg, pc.text, pc.darkText)}>{project.isTour ? "Tour" : "Festival"}</Badge>;
+                          })()}
                         </div>
                       </button>
 

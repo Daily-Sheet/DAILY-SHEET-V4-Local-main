@@ -6,7 +6,7 @@ import { isAuthenticated } from "../replit_integrations/auth";
 // ─── Shared result shape ──────────────────────────────────────────────────────
 // All providers normalize to this format so the client never changes on swap.
 interface WeatherResult {
-  current: { temperature: number; weathercode: number } | null;
+  current: { temperature: number; weathercode: number; windSpeed: number | null; humidity: number | null } | null;
   daily: {
     dates: string[];
     maxTemps: number[];
@@ -21,14 +21,15 @@ interface WeatherResult {
 
 async function fetchWeatherOpenMeteo(lat: string, lng: string, venueName: string, address: string): Promise<WeatherResult> {
   const res = await fetch(
-    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weathercode&current_weather=true&temperature_unit=fahrenheit&timezone=auto`
+    `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&daily=temperature_2m_max,temperature_2m_min,weathercode&current=temperature_2m,weathercode,windspeed_10m,relativehumidity_2m&temperature_unit=fahrenheit&windspeed_unit=mph&timezone=auto`
   );
   if (!res.ok) throw new Error(`Open-Meteo returned ${res.status}`);
   const data = await res.json() as any;
 
+  const cur = data.current;
   return {
-    current: data.current_weather
-      ? { temperature: data.current_weather.temperature, weathercode: data.current_weather.weathercode }
+    current: cur
+      ? { temperature: cur.temperature_2m, weathercode: cur.weathercode, windSpeed: cur.windspeed_10m ?? null, humidity: cur.relativehumidity_2m ?? null }
       : null,
     daily: {
       dates: data.daily?.time || [],
@@ -92,6 +93,8 @@ async function fetchWeatherWttr(location: string, venueName: string, address: st
       ? {
           temperature: parseFloat(current.temp_F),
           weathercode: wttrCodeToWMO(parseInt(current.weatherCode, 10)),
+          windSpeed: current.windspeedMiles ? parseFloat(current.windspeedMiles) : null,
+          humidity: current.humidity ? parseInt(current.humidity, 10) : null,
         }
       : null,
     daily: {

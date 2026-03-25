@@ -13,6 +13,7 @@ export function registerLegRoutes(app: Express, upload: multer.Multer) {
       const projectId = parseInt(req.params.id);
       const project = await storage.getProject(projectId);
       if (!project || project.workspaceId !== workspaceId) return res.status(404).json({ message: "Project not found" });
+      if (project.archived) return res.json([]);
       const result = await storage.getLegs(projectId);
       res.json(result);
     } catch (err: any) {
@@ -29,6 +30,7 @@ export function registerLegRoutes(app: Express, upload: multer.Multer) {
       const project = await storage.getProject(projectId);
       if (!project) return res.status(404).json({ message: "Project not found" });
       if (project.workspaceId !== workspaceId) return res.status(403).json({ message: "Forbidden" });
+      if (project.archived) return res.status(400).json({ message: "Cannot add legs to an archived project" });
       if (!project.isTour && !project.isFestival) return res.status(400).json({ message: "Legs are only available for tour or festival projects" });
 
       const { name, notes, sortOrder, showCount, startDate, endDate, stageCount, eventType } = req.body;

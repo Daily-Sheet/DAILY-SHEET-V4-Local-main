@@ -11,6 +11,8 @@ import { useVenues } from "@/hooks/use-venue";
 import { useProjects } from "@/hooks/use-projects";
 import { useQuery } from "@tanstack/react-query";
 import type { Event, Venue, Project } from "@shared/schema";
+import { cn } from "@/lib/utils";
+import { getProjectTypeColors } from "@/lib/projectColors";
 
 export default function Shows() {
   const [, setLocation] = useLocation();
@@ -140,16 +142,20 @@ export default function Shows() {
                       <h3 className="font-display text-base font-semibold uppercase tracking-wide text-foreground truncate">
                         {event.name}
                       </h3>
-                      {isTour && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 whitespace-nowrap flex-shrink-0">All Shows</span>
-                      )}
+                      {isTour && (() => {
+                        const pc = getProjectTypeColors(eventProject);
+                        return <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full border whitespace-nowrap flex-shrink-0", pc.bg, pc.text, pc.darkText, pc.border)}>All Shows</span>;
+                      })()}
                     </div>
-                    {isFestival && eventProject && (
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <Badge variant="secondary" className="text-[10px]">Stage</Badge>
-                        <span className="text-xs text-muted-foreground">{eventProject.name}</span>
-                      </div>
-                    )}
+                    {isFestival && eventProject && (() => {
+                      const pc = getProjectTypeColors(eventProject);
+                      return (
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span className={cn("text-[10px] px-1.5 py-0.5 rounded border", pc.bg, pc.text, pc.darkText, pc.border)}>Stage</span>
+                          <span className="text-xs text-muted-foreground">{eventProject.name}</span>
+                        </div>
+                      );
+                    })()}
                     {dateRange && (
                       <div className="flex items-center gap-1.5 mt-1.5 text-sm text-muted-foreground">
                         <CalendarIcon className="h-3.5 w-3.5 flex-shrink-0" />

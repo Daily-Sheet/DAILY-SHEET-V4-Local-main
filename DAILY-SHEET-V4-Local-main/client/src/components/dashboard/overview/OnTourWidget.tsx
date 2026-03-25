@@ -158,11 +158,11 @@ function OnTourCard({ info, selectedDate, travelDays }: {
 export function OnTourWidget({ events, projects, venues, allDayVenues, selectedDate }: {
   events: Event[]; projects: Project[]; venues: Venue[]; allDayVenues: EventDayVenue[]; selectedDate: string;
 }) {
-  const tourProjects = useMemo(() => projects.filter(p => p.isTour && !p.archived), [projects]);
+  const activeProjects = useMemo(() => projects.filter(p => !p.archived), [projects]);
 
   const activeTours = useMemo(() => {
     const results: TourInfoItem[] = [];
-    for (const tp of tourProjects) {
+    for (const tp of activeProjects) {
       const tourEvents = events
         .filter(e => e.projectId === tp.id)
         .sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
@@ -189,7 +189,7 @@ export function OnTourWidget({ events, projects, venues, allDayVenues, selectedD
       }
     }
     return results;
-  }, [tourProjects, events, venues, allDayVenues, selectedDate]);
+  }, [activeProjects, events, venues, allDayVenues, selectedDate]);
 
   const travelDayQueries = useQueries({
     queries: activeTours.map(t => ({

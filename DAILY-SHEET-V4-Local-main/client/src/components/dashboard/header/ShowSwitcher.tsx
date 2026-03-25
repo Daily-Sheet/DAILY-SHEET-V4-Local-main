@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
+import { getProjectTypeColors } from "@/lib/projectColors";
 import type { Event } from "@shared/schema";
 import type { Project } from "@shared/schema";
 
@@ -251,9 +252,10 @@ export function ShowSwitcher({
           <div className="flex items-center gap-1">
             {isActiveToday && <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />}
             <span className="truncate">{name}</span>
-            {isViaProject && (
-              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 whitespace-nowrap flex-shrink-0">{evProject?.isTour ? "All Shows" : "All Stages"}</span>
-            )}
+            {isViaProject && (() => {
+              const pc = getProjectTypeColors(evProject);
+              return <span className={cn("text-[9px] px-1.5 py-0.5 rounded-full border whitespace-nowrap flex-shrink-0", pc.bg, pc.text, pc.darkText, pc.border)}>{evProject?.isTour ? "All Shows" : "All Stages"}</span>;
+            })()}
           </div>
           {dateLabel && (
             <span className="text-[10px] text-muted-foreground block">{dateLabel}</span>
@@ -295,8 +297,10 @@ export function ShowSwitcher({
           <span className="text-xs font-semibold flex-1 text-left truncate" data-testid={`label-project-group-${groupId}`}>
             {group.project?.name ?? "Other Shows"}
           </span>
-          {isTour && <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 shrink-0">Tour</span>}
-          {isFestival && <span className="text-[8px] px-1 py-0.5 rounded bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20 shrink-0">Festival</span>}
+          {(isTour || isFestival) && (() => {
+            const pc = getProjectTypeColors(group.project);
+            return <span className={cn("text-[8px] px-1 py-0.5 rounded border shrink-0", pc.bg, pc.text, pc.darkText, pc.border)}>{isTour ? "Tour" : "Festival"}</span>;
+          })()}
           <span className="text-[9px] text-muted-foreground/60 shrink-0">
             {selectedCount}/{group.events.length}
           </span>

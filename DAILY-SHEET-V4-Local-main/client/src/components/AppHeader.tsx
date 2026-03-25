@@ -27,10 +27,10 @@ export function AppHeader({
   return (
     <header className="bg-card border-b border-border sticky top-0 z-50 shadow-sm print:static print:border-none print:hidden">
       <div className="container mx-auto px-2 sm:px-4 py-2 sm:py-0 sm:h-16 flex flex-row items-center gap-1 sm:gap-2">
-        {/* Left: Home Button */}
-        <div className="flex items-center min-w-0 flex-shrink-0 w-1/3">
+        {/* Left: Home Button + Filter Pill */}
+        <div className="flex items-center min-w-0 flex-1 sm:flex-none sm:w-1/3">
           <button
-            className="flex items-center gap-2 h-9 sm:h-10 px-3 rounded-lg shadow-lg transition-transform cursor-pointer hover-elevate active-elevate-2 bg-primary shadow-primary/25 flex-shrink-0 hover:bg-primary/80 focus:bg-primary/90 active:bg-primary/70"
+            className="flex items-center justify-center gap-2 h-9 w-9 sm:w-auto sm:h-10 px-0 sm:px-3 rounded-lg shadow-lg transition-transform cursor-pointer hover-elevate active-elevate-2 bg-primary shadow-primary/25 flex-shrink-0 hover:bg-primary/80 focus:bg-primary/90 active:bg-primary/70"
             data-testid="button-header-home"
             onClick={() => {
               // Toggle between /dashboard and /calendar
@@ -42,17 +42,17 @@ export function AppHeader({
             }}
           >
             <CalendarIcon className="h-5 w-5 text-primary-foreground" />
-            <h1 className="text-sm sm:text-xl font-display uppercase tracking-wide text-foreground truncate cursor-pointer transition-colors hover:text-foreground/80 focus:text-foreground/70 active:text-foreground/60">Daily Sheet</h1>
+            <h1 className="hidden sm:inline text-sm sm:text-xl font-display uppercase tracking-wide text-foreground truncate cursor-pointer transition-colors hover:text-foreground/80 focus:text-foreground/70 active:text-foreground/60">Daily Sheet</h1>
           </button>
           {/* Add margin between Home and ShowSwitcher */}
           {children && <div className="ml-2">{children}</div>}
         </div>
-        {/* Middle: Online presence */}
-        <div className="flex justify-center items-center w-1/3">
+        {/* Middle: Online presence (hidden on mobile) */}
+        <div className="hidden sm:flex justify-center items-center sm:w-1/3">
           <PresenceAvatars className="hidden sm:flex" />
         </div>
         {/* Right: User profile, search, map, etc. */}
-        <div className="flex items-center gap-1 sm:gap-2 print:hidden flex-shrink-0 justify-end w-1/3 ml-auto">
+        <div className="flex items-center gap-1 sm:gap-2 print:hidden flex-shrink-0 justify-end sm:w-1/3 ml-auto">
           {actions}
           <Tooltip>
             <TooltipTrigger asChild>

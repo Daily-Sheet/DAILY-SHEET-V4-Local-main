@@ -209,14 +209,14 @@ export default function CalendarPage() {
 
   const { data: allEventAssignments = [] } = useQuery<any[]>({ queryKey: ["/api/event-assignments"] });
 
-  // Fetch travel days for all tour projects
-  const tourProjects = useMemo(
-    () => (allProjects as any[]).filter(p => p.isTour),
+  // Fetch travel days for all active projects
+  const activeProjects = useMemo(
+    () => (allProjects as any[]).filter(p => !p.archived),
     [allProjects],
   );
 
   const travelDayResults = useQueries({
-    queries: tourProjects.map((p: any) => ({
+    queries: activeProjects.map((p: any) => ({
       queryKey: ["/api/projects", p.id, "travel-days"],
       queryFn: async () => {
         const res = await fetch(`/api/projects/${p.id}/travel-days`, { credentials: "include" });
@@ -228,14 +228,14 @@ export default function CalendarPage() {
 
   const allTravelDays = useMemo<TravelDayOnDay[]>(() => {
     return travelDayResults.flatMap((result, idx) => {
-      const project = tourProjects[idx];
+      const project = activeProjects[idx];
       return ((result.data as any[]) || []).map((td: any) => ({
         ...td,
-        projectName: project?.name || "Tour",
+        projectName: project?.name || "Project",
         projectId: project?.id,
       }));
     });
-  }, [travelDayResults, tourProjects]);
+  }, [travelDayResults, activeProjects]);
 
   const crewByEvent = useMemo(() => {
     const map = new Map<string, number>();

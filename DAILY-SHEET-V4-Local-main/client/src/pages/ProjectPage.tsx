@@ -20,6 +20,7 @@ import { useForm } from "react-hook-form";
 import { TimePicker } from "@/components/ui/time-picker";
 import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
+import { getProjectTypeColors } from "@/lib/projectColors";
 import { formatTime, toTimeInputValue } from "@/lib/timeUtils";
 import {
   ArrowLeft, Calendar as CalendarIcon, MapPin, Users, ChevronDown, ChevronUp,
@@ -3320,8 +3321,11 @@ export default function ProjectPage() {
           </div>
           <div className="text-xs text-muted-foreground flex items-center gap-1 flex-wrap">
             <span>{projectEvents.length} {project.isFestival ? "stage" : "show"}{projectEvents.length !== 1 ? "s" : ""}</span>
-            {project.isFestival && <Badge variant="secondary" className="text-[10px]">Festival</Badge>}
-            {project.isTour && <Badge variant="secondary" className="text-[10px] bg-blue-500/10 text-blue-600 dark:text-blue-400">Tour</Badge>}
+            {(() => {
+              const pc = getProjectTypeColors(project);
+              const label = project.isTour ? "Tour" : project.isFestival ? "Festival" : null;
+              return label ? <Badge variant="secondary" className={cn("text-[10px]", pc.bg, pc.text, pc.darkText)}>{label}</Badge> : null;
+            })()}
           </div>
         </div>
       </AppHeader>
@@ -3346,7 +3350,7 @@ export default function ProjectPage() {
           />
         )}
 
-        {project.isTour ? (
+        {projectEvents.length > 0 || travelDays.length > 0 ? (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
             <TourItinerary
               project={project}
@@ -3373,233 +3377,10 @@ export default function ProjectPage() {
               />
             )}
           </motion.div>
-        ) : projectEvents.length === 0 ? (
+        ) : (
           <div className="text-center py-12 text-muted-foreground" data-testid="text-no-shows">
             No {project.isFestival ? "stages" : "shows"} in this project yet.
           </div>
-        ) : (
-          projectEvents.map((event, i) => {
-            const crewUserIds = new Set(allEventAssignments.filter((a: any) => a.eventName === event.name).map((a: any) => a.userId));
-            const crewCount = contacts.filter(c => c.userId && crewUserIds.has(c.userId)).length;
-            const isExpanded = expandedShows[event.id] || false;
-            const selectedDate = showDates[event.id] || getDefaultDate(event);
-            const dayVenue = allDayVenues.find(dv => dv.eventId === event.id && dv.date === selectedDate);
-            const resolvedVenueId = dayVenue ? dayVenue.venueId : event.venueId;
-            const venue = resolvedVenueId ? venues.find(v => v.id === resolvedVenueId) : null;
-            const activeTab = showTabs[event.id] || "schedule";
-            const dateRange = getDateRange(event);
-
-            return (
-              <motion.div
-                key={event.id}
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.04 }}
-              >
-                <Card
-                  className="border border-border"
-                  data-testid={`card-project-show-${event.id}`}
-                >
-                  <CardContent className="p-0">
-                    <div className="flex items-start">
-                      <button
-                        className="flex-1 text-left p-4 hover-elevate rounded-md min-w-0"
-                        onClick={() => toggleExpand(event.id, event)}
-                        data-testid={`btn-expand-show-${event.id}`}
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-display font-bold text-base uppercase tracking-wide text-foreground truncate">
-                                {event.name}
-                              </h3>
-                              {event.tag && <span className="text-[9px] font-normal text-primary/80 border border-primary/30 rounded px-1.5 py-px flex-shrink-0">{event.tag}</span>}
-                            </div>
-                            {(event.startDate || event.endDate) && (
-                              <div className="flex items-center gap-1.5 mt-1 text-sm text-muted-foreground">
-                                <CalendarIcon className="w-3.5 h-3.5 flex-shrink-0" />
-                                <span>
-                                  {event.startDate && format(parseISO(event.startDate), "MMM d, yyyy")}
-                                  {event.startDate && event.endDate && event.startDate !== event.endDate && (
-                                    <> — {format(parseISO(event.endDate), "MMM d, yyyy")}</>
-                                  )}
-                                </span>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                              {venue && (
-                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <MapPin className="w-3 h-3 flex-shrink-0" />
-                                  <span>{venue.name}</span>
-                                </span>
-                              )}
-                              {crewCount > 0 && (
-                                <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <Users className="w-3 h-3 flex-shrink-0" />
-                                  <span>{crewCount} crew</span>
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            {event.startDate && (
-                              <div className="text-right">
-                                <div className="text-2xl font-display font-bold text-yellow-400 leading-none">
-                                  {format(parseISO(event.startDate), "d")}
-                                </div>
-                                <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                                  {format(parseISO(event.startDate), "MMM")}
-                                </div>
-                              </div>
-                            )}
-                            {isExpanded ? (
-                              <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                            ) : (
-                              <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                            )}
-                          </div>
-                        </div>
-                      </button>
-                      {isAdmin && (
-                        <div className="flex items-center flex-shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="m-1 flex-shrink-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setEditShowDialogId(event.id);
-                            }}
-                            data-testid={`button-edit-show-${event.id}`}
-                          >
-                            <Pencil className="w-4 h-4" />
-                          </Button>
-                          <ConfirmDelete
-                            onConfirm={() => deleteShowMutation.mutate(event.id)}
-                            title={`Delete ${project.isFestival ? "Stage" : "Show"}`}
-                            description={`Are you sure you want to delete "${event.name}"? This will remove all schedules, crew assignments, and files for this ${project.isFestival ? "stage" : "show"}.`}
-                            triggerClassName="m-1 text-muted-foreground hover:text-destructive"
-                            data-testid={`button-delete-show-${event.id}`}
-                          />
-                        </div>
-                      )}
-                    </div>
-
-                    {editShowDialogId === event.id && (
-                      <EditShowDialog
-                        open={true}
-                        onClose={() => setEditShowDialogId(null)}
-                        show={event}
-                      />
-                    )}
-
-                    <AnimatePresence>
-                      {isExpanded && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.2 }}
-                          className="overflow-hidden"
-                        >
-                          <Separator />
-                          <div className="p-4 space-y-3">
-                            {dateRange.length > 1 && (
-                              <div className="flex gap-1.5 flex-wrap">
-                                {dateRange.map(date => {
-                                  const isSelected = date === selectedDate;
-                                  const isTodayDate = isToday(parseISO(date));
-                                  return (
-                                    <button
-                                      key={date}
-                                      onClick={() => setShowDates(sd => ({ ...sd, [event.id]: date }))}
-                                      className={`px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
-                                        isSelected
-                                          ? "bg-primary text-primary-foreground"
-                                          : isTodayDate
-                                          ? "bg-muted text-foreground"
-                                          : "bg-muted/50 text-muted-foreground hover-elevate"
-                                      }`}
-                                      data-testid={`date-pill-${event.id}-${date}`}
-                                    >
-                                      {format(parseISO(date), "EEE d")}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            )}
-
-                            <Tabs
-                              value={activeTab}
-                              onValueChange={(val) => setShowTabs(st => ({ ...st, [event.id]: val }))}
-                            >
-                              <TabsList className="w-full">
-                                <TabsTrigger value="schedule" className="flex-1" data-testid={`tab-schedule-${event.id}`}>
-                                  Schedule
-                                </TabsTrigger>
-                                <TabsTrigger value="crew" className="flex-1" data-testid={`tab-crew-${event.id}`}>
-                                  Crew
-                                </TabsTrigger>
-                                <TabsTrigger value="venue" className="flex-1" data-testid={`tab-venue-${event.id}`}>
-                                  Venue
-                                </TabsTrigger>
-                                <TabsTrigger value="files" className="flex-1" data-testid={`tab-files-${event.id}`}>
-                                  Files
-                                </TabsTrigger>
-                              </TabsList>
-
-                              <TabsContent value="schedule" className="mt-3">
-                                <ScheduleTab
-                                  eventName={event.name}
-                                  selectedDate={selectedDate}
-                                  schedules={schedules}
-                                  isAdmin={isAdmin}
-                                  zones={zones}
-                                  sections={sections}
-                                />
-                              </TabsContent>
-
-                              <TabsContent value="crew" className="mt-3">
-                                <CrewTab
-                                  eventName={event.name}
-                                  contacts={contacts}
-                                  allEventAssignments={allEventAssignments}
-                                  isAdmin={isAdmin}
-                                  selectedDate={selectedDate}
-                                  projectAssignments={projectAssignments}
-                                  projectId={projectId}
-                                />
-                              </TabsContent>
-
-                              <TabsContent value="venue" className="mt-3">
-                                <VenueTab
-                                  venue={venue}
-                                  event={event}
-                                  venues={venues}
-                                  isAdmin={isAdmin}
-                                  resolvedVenueId={resolvedVenueId ?? null}
-                                  selectedDate={selectedDate}
-                                />
-                              </TabsContent>
-
-                              <TabsContent value="files" className="mt-3">
-                                <FilesTab
-                                  eventName={event.name}
-                                  files={allFiles}
-                                  folders={fileFolders}
-                                  isAdmin={isAdmin}
-                                />
-                              </TabsContent>
-                            </Tabs>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            );
-          })
         )}
       </div>
     </div>

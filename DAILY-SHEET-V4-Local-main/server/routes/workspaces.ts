@@ -14,13 +14,17 @@ export function registerWorkspaceRoutes(app: Express, upload: multer.Multer) {
     const workspaceId = req.user.workspaceId;
     if (!workspaceId) return res.json([]);
     const assignments = await storage.getAllProjectAssignments(workspaceId);
-    res.json(assignments);
+    const projectList = await storage.getProjects(workspaceId);
+    const archivedIds = new Set(projectList.filter((p: any) => p.archived).map((p: any) => p.id));
+    res.json(assignments.filter((a: any) => !archivedIds.has(a.projectId)));
   });
 
   app.get("/api/project-assignments/:projectId", isAuthenticated, async (req: any, res) => {
     const projectId = parseInt(req.params.projectId);
     const workspaceId = req.user.workspaceId;
     if (!workspaceId) return res.json([]);
+    const project = await storage.getProject(projectId);
+    if (project?.archived) return res.json([]);
     const assignments = await storage.getProjectAssignments(projectId, workspaceId);
     res.json(assignments);
   });
@@ -33,6 +37,8 @@ export function registerWorkspaceRoutes(app: Express, upload: multer.Multer) {
       if (!userId || !projectId) {
         return res.status(400).json({ message: "userId and projectId are required" });
       }
+      const project = await storage.getProject(projectId);
+      if (project?.archived) return res.status(400).json({ message: "Cannot assign crew to an archived project" });
       const existing = await storage.getProjectAssignments(projectId, workspaceId);
       if (existing.some((a: any) => a.userId === userId)) {
         return res.status(409).json({ message: "User already assigned to this project" });
@@ -41,7 +47,6 @@ export function registerWorkspaceRoutes(app: Express, upload: multer.Multer) {
         userId, projectId, workspaceId, position: position || null,
       });
 
-      const project = await storage.getProject(projectId);
       if (project && project.isTour) {
         const tourEvents = await storage.getEvents(workspaceId);
         const projectEvents = tourEvents.filter((e: any) => e.projectId === projectId);

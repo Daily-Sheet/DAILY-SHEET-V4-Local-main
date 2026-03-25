@@ -64,6 +64,7 @@ export function registerProjectRoutes(app: Express, upload: multer.Multer) {
       const project = await storage.getProject(projectId);
       if (!project) return res.status(404).json({ message: "Project not found" });
       if (project.workspaceId !== workspaceId) return res.status(403).json({ message: "Forbidden" });
+      if (project.archived) return res.status(400).json({ message: "Cannot generate shows for an archived project" });
 
       const { count, startDate } = req.body;
       if (!count || count < 1 || count > 100) return res.status(400).json({ message: "Count must be between 1 and 100" });
@@ -144,6 +145,7 @@ export function registerProjectRoutes(app: Express, upload: multer.Multer) {
     const workspaceId = req.user.workspaceId;
     const project = await storage.getProject(projectId);
     if (!project || project.workspaceId !== workspaceId) return res.status(403).json({ message: "Forbidden" });
+    if (project.archived) return res.json([]);
     const days = await storage.getTravelDays(projectId);
     res.json(days);
   });
@@ -155,7 +157,7 @@ export function registerProjectRoutes(app: Express, upload: multer.Multer) {
     if (!date) return res.status(400).json({ message: "Date is required" });
     const project = await storage.getProject(projectId);
     if (!project || project.workspaceId !== workspaceId) return res.status(403).json({ message: "Forbidden" });
-    if (!project.isTour) return res.status(400).json({ message: "Project is not a tour" });
+    if (project.archived) return res.status(400).json({ message: "Cannot add travel days to an archived project" });
     const day = await storage.createTravelDay({
       projectId, date, workspaceId,
       notes: notes || null,

@@ -4,6 +4,7 @@ import { useState, useRef, useMemo, useEffect, useCallback, useSyncExternalStore
 
 import { DEPARTMENTS } from "@shared/constants";
 import { cn } from "@/lib/utils";
+import { getProjectTypeColors } from "@/lib/projectColors";
 import { AppHeader } from "@/components/AppHeader";
 const PdfPreview = lazy(() => import("@/components/PdfPreview"));
 import { Link, useSearch, useLocation } from "wouter";
@@ -194,14 +195,16 @@ export default function Dashboard() {
 
   const defaultTab = (prefs?.defaultTab as TabId | undefined) ?? "overview";
 
-  const [activeTab, setActiveTab] = useState(() => {
+  const [activeTab, setActiveTabRaw] = useState<TabId>(() => {
+    const stored = localStorage.getItem("dashboard_activeTab");
+    if (stored) return stored as TabId;
     return (prefs?.defaultTab as TabId | undefined) ?? "overview";
   });
 
-  // Apply default tab from prefs on load
-  useEffect(() => {
-    if (prefs?.defaultTab) setActiveTab(prefs.defaultTab as TabId);
-  }, [prefs?.defaultTab]);
+  const setActiveTab = useCallback((tab: TabId | string) => {
+    setActiveTabRaw(tab as TabId);
+    localStorage.setItem("dashboard_activeTab", tab);
+  }, []);
 
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -224,7 +227,16 @@ export default function Dashboard() {
       setActiveTab(visibleTabs[currentIndex - 1]);
     }
   }, [activeTab, visibleTabs]);
-  const [scheduleViewMode, setScheduleViewMode] = useState<"list" | "timeline">("list");
+  const [scheduleViewMode, setScheduleViewModeRaw] = useState<"list" | "timeline">(() => {
+    const stored = localStorage.getItem("dashboard_scheduleViewMode");
+    if (stored === "list" || stored === "timeline") return stored;
+    return "list";
+  });
+
+  const setScheduleViewMode = useCallback((mode: "list" | "timeline") => {
+    setScheduleViewModeRaw(mode);
+    localStorage.setItem("dashboard_scheduleViewMode", mode);
+  }, []);
 
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
   const [travelExpanded, setTravelExpanded] = useState(false);
@@ -252,7 +264,7 @@ export default function Dashboard() {
         e.preventDefault();
         handleDateSelectRef.current?.(format(addDays(parseISO(selectedDateRef.current), 1), "yyyy-MM-dd"));
       } else if (e.key === "g" || e.key === "G") {
-        setScheduleViewMode(prev => prev === "list" ? "timeline" : "list");
+        setScheduleViewMode(scheduleViewMode === "list" ? "timeline" : "list");
       } else if (e.key >= "1" && e.key <= "9") {
         const idx = parseInt(e.key) - 1;
         if (idx < visibleTabs.length) setActiveTab(visibleTabs[idx]);
@@ -390,10 +402,10 @@ export default function Dashboard() {
   const { data: allDayVenues = [] } = useQuery<EventDayVenue[]>({ queryKey: ["/api/event-day-venues"] });
   const { data: allEventAssignments = [] } = useQuery<any[]>({ queryKey: ["/api/event-assignments"], refetchInterval: 30_000, refetchOnWindowFocus: true });
 
-  const activeTourProjectIds = useMemo(() => allProjects.filter((p: Project) => p.isTour && !p.archived).map((p: Project) => p.id), [allProjects]);
-  const firstTourProjectId = activeTourProjectIds[0] ?? null;
+  const activeProjectIds = useMemo(() => allProjects.filter((p: Project) => !p.archived).map((p: Project) => p.id), [allProjects]);
+  const firstActiveProjectId = activeProjectIds[0] ?? null;
   const travelDayQueries = useQueries({
-    queries: activeTourProjectIds.map(id => ({
+    queries: activeProjectIds.map(id => ({
       queryKey: ["/api/projects", id, "travel-days"],
       enabled: true,
     })),
@@ -497,7 +509,7 @@ export default function Dashboard() {
   const [newTravelForm, setNewTravelForm] = useState({ notes: "", flightNumber: "", airline: "", departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: "" });
   const emptyTravelForm = { notes: "", flightNumber: "", airline: "", departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: "" };
 
-  const activeTourProjects = useMemo(() => allProjects.filter((p: Project) => p.isTour && !p.archived), [allProjects]);
+  const activeProjects = useMemo(() => allProjects.filter((p: Project) => !p.archived), [allProjects]);
 
   const openTravelDayDialog = (projectId: number) => {
     setAddTravelProjectId(projectId);
@@ -511,7 +523,7 @@ export default function Dashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects", addTravelProjectId, "travel-days"] });
-      activeTourProjectIds.forEach(id => queryClient.invalidateQueries({ queryKey: ["/api/projects", id, "travel-days"] }));
+      activeProjectIds.forEach(id => queryClient.invalidateQueries({ queryKey: ["/api/projects", id, "travel-days"] }));
       setTravelDayDialogOpen(false);
       setNewTravelForm(emptyTravelForm);
       toast({ title: "Travel day added" });
@@ -524,7 +536,7 @@ export default function Dashboard() {
       await apiRequest("DELETE", `/api/travel-days/${id}`);
     },
     onSuccess: () => {
-      activeTourProjectIds.forEach(id => queryClient.invalidateQueries({ queryKey: ["/api/projects", id, "travel-days"] }));
+      activeProjectIds.forEach(id => queryClient.invalidateQueries({ queryKey: ["/api/projects", id, "travel-days"] }));
       toast({ title: "Travel day removed" });
     },
   });
@@ -753,7 +765,19 @@ export default function Dashboard() {
       defaultsApplied.current = true;
       return;
     }
-    const hasValidSelection = selectedEvents.length > 0 && selectedEvents.some(n => availableEvents.includes(n));
+    // Check both context state AND localStorage directly to avoid race condition
+    // on initial app load where context may not have loaded from storage yet.
+    let eventsToCheck = selectedEvents;
+    if (eventsToCheck.length === 0 && user?.workspaceId) {
+      try {
+        const stored = localStorage.getItem(`dailysheet_selected_events_ws${user.workspaceId}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) eventsToCheck = parsed;
+        }
+      } catch {}
+    }
+    const hasValidSelection = eventsToCheck.length > 0 && eventsToCheck.some(n => availableEvents.includes(n));
     if (!hasValidSelection) {
       if (isManager && closestFutureEvent) {
         eventSelection.setSelectedEvents([closestFutureEvent.name]);
@@ -773,6 +797,23 @@ export default function Dashboard() {
     if (!user || availableEvents.length === 0) return;
     const role = user.role as string;
     if (role !== "commenter" && role !== "client") return;
+    // Only apply role defaults if there's no valid persisted selection
+    // Check localStorage directly as fallback to avoid race with context state
+    let eventsToCheck = selectedEvents;
+    if (eventsToCheck.length === 0 && user.workspaceId) {
+      try {
+        const stored = localStorage.getItem(`dailysheet_selected_events_ws${user.workspaceId}`);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) eventsToCheck = parsed;
+        }
+      } catch {}
+    }
+    const hasValidSelection = eventsToCheck.length > 0 && eventsToCheck.some(n => availableEvents.includes(n));
+    if (hasValidSelection) {
+      roleDefaultsApplied.current = true;
+      return;
+    }
     const today = format(new Date(), "yyyy-MM-dd");
     const nearestEvent = eventsList
       .filter((e: Event) => availableEvents.includes(e.name))
@@ -919,7 +960,8 @@ export default function Dashboard() {
   // Map show names to their tour project + next stop (for inline tour banner on show cards)
   const showTourMap = useMemo(() => {
     const map = new Map<string, { project: Project; nextStop: { event: Event; venue: Venue | null } | null }>();
-    for (const tp of activeTourProjects) {
+    for (const tp of activeProjects) {
+      if (!tp.isTour) continue;
       const tourEvents = (eventsList as Event[])
         .filter(e => e.projectId === tp.id)
         .sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
@@ -939,7 +981,7 @@ export default function Dashboard() {
       }
     }
     return map;
-  }, [activeTourProjects, eventsList, activeDate, allDayVenues, venuesList]);
+  }, [activeProjects, eventsList, activeDate, allDayVenues, venuesList]);
 
   const dailySheetContacts = useMemo(() => {
     const dateShowNames = new Set(showsForSelectedDate.map(s => s.name));
@@ -1446,6 +1488,7 @@ export default function Dashboard() {
                         const showVenue = resolvedVenueId ? venuesList.find(v => v.id === resolvedVenueId) || null : null;
                         const showProject = showEvent?.projectId ? allProjects.find(p => p.id === showEvent.projectId) : null;
                         const tourInfo = showTourMap.get(showName);
+                        const pc = getProjectTypeColors(showProject);
                         return (
                           <motion.div
                             key={showName}
@@ -1453,16 +1496,18 @@ export default function Dashboard() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.3, delay: showIdx * 0.05 }}
                           >
-                          <Card className={cn("shadow-sm bg-card/50 backdrop-blur-sm rounded-xl flex flex-col overflow-hidden h-full", tourInfo ? "border border-blue-500/30" : "border border-border/30")} data-testid={`overview-card-${showName.replace(/\s+/g, '-')}`}>
-                            {tourInfo && (
-                              <div className="flex items-center justify-between px-3 py-1.5 bg-blue-500/10 border-b border-blue-500/20">
+                          <Card className={cn("shadow-sm bg-card/50 backdrop-blur-sm rounded-xl flex flex-col overflow-hidden h-full border", showProject ? pc.border : "border-border/30")} data-testid={`overview-card-${showName.replace(/\s+/g, '-')}`}>
+                            {showProject && (
+                              <div className={cn("flex items-center justify-between px-3 py-1.5 border-b", pc.bg, pc.border)}>
                                 <div className="flex items-center gap-1.5">
-                                  <Navigation className="w-3 h-3 text-blue-500" />
-                                  <span className="text-[10px] font-display uppercase tracking-wider text-blue-600 dark:text-blue-400 font-semibold">On Tour · {tourInfo.project.name}</span>
+                                  <Navigation className={cn("w-3 h-3", pc.text)} />
+                                  <span className={cn("text-[10px] font-display uppercase tracking-wider font-semibold", pc.text, pc.darkText)}>
+                                    {tourInfo ? `On Tour · ${showProject.name}` : showProject.name}
+                                  </span>
                                 </div>
-                                <Link href={`/project/${tourInfo.project.id}`}>
-                                  <Button variant="ghost" size="sm" className="h-5 px-1.5 text-[9px] text-blue-600 dark:text-blue-400 hover:text-blue-700" data-testid={`button-view-itinerary-${tourInfo.project.id}`}>
-                                    Itinerary
+                                <Link href={`/project/${showProject.id}`}>
+                                  <Button variant="ghost" size="sm" className={cn("h-5 px-1.5 text-[9px]", pc.text, pc.darkText)} data-testid={`button-view-itinerary-${showProject.id}`}>
+                                    {tourInfo ? "Itinerary" : "Project"}
                                   </Button>
                                 </Link>
                               </div>
@@ -1470,49 +1515,38 @@ export default function Dashboard() {
                             {showVenue ? (
                               <div className="bg-secondary/70 backdrop-blur-sm text-secondary-foreground rounded-t-xl">
                                 <div className="p-3 sm:p-4">
-                                  <div className="flex items-center justify-between gap-3">
-                                    <div className="flex items-center gap-3 min-w-0">
-                                      <div className="min-w-0">
-                                        {showProject && (
-                                          <div className="flex items-center gap-1.5">
-                                            <span className="text-sm font-bold text-accent truncate" data-testid={`text-venue-bar-project-${showEvent?.id}`}>{showProject.name}</span>
-                                            {showProject.driveUrl && (
-                                              <a href={showProject.driveUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:text-accent/80 flex-shrink-0" data-testid={`link-drive-venue-bar-${showEvent?.id}`} title="Open Google Drive">
-                                                <ExternalLink className="w-3.5 h-3.5" />
-                                              </a>
-                                            )}
-                                          </div>
+                                  <div className="flex items-start justify-between gap-2 sm:gap-3">
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex items-center gap-1.5 text-sm sm:text-base font-display uppercase tracking-wide" data-testid={`text-venue-bar-name-${showEvent?.id}`}>
+                                        <span className="font-bold truncate" data-testid={`text-venue-bar-show-${showEvent?.id}`}>{showName}</span>
+                                        {show.tag && (
+                                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-normal border-primary/30 text-primary flex-shrink-0">{show.tag}</Badge>
                                         )}
-                                        <div className="text-sm sm:text-base font-display uppercase tracking-wide truncate flex items-center gap-1.5" data-testid={`text-venue-bar-name-${showEvent?.id}`}>
-                                          <span className="font-bold" data-testid={`text-venue-bar-show-${showEvent?.id}`}>{showName}</span>
-                                          {show.tag && (
-                                            <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-normal border-primary/30 text-primary">{show.tag}</Badge>
-                                          )}
-                                          {canEdit && showEvent && (
-                                            <button
-                                              type="button"
-                                              onClick={() => setEditingShow(showEvent)}
-                                              className="opacity-50 hover:opacity-100 transition-opacity flex-shrink-0 print:hidden"
-                                              data-testid={`button-edit-show-${showEvent.id}`}
-                                            >
-                                              <Pencil className="w-3 h-3" />
-                                            </button>
-                                          )}
-                                          <span className="mx-1.5 opacity-50">|</span>
-                                          {showVenue.name}
-                                        </div>
-                                        {showVenue.address && (
-                                          <a
-                                            href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(showVenue.address)}`}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            className="text-xs text-secondary-foreground/70 underline underline-offset-2 hover:text-secondary-foreground transition-colors truncate block max-w-full"
-                                            data-testid={`link-venue-bar-address-${showEvent?.id}`}
+                                        {canEdit && showEvent && (
+                                          <button
+                                            type="button"
+                                            onClick={() => setEditingShow(showEvent)}
+                                            className="opacity-50 hover:opacity-100 transition-opacity flex-shrink-0 print:hidden"
+                                            data-testid={`button-edit-show-${showEvent.id}`}
                                           >
-                                            {showVenue.address}
-                                          </a>
+                                            <Pencil className="w-3 h-3" />
+                                          </button>
                                         )}
                                       </div>
+                                      <p className="text-sm sm:text-base font-display uppercase tracking-wide font-bold opacity-80 line-clamp-2" data-testid={`text-venue-bar-venue-${showEvent?.id}`}>
+                                        {showVenue.name}
+                                      </p>
+                                      {showVenue.address && (
+                                        <a
+                                          href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(showVenue.address)}`}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-xs text-secondary-foreground/70 underline underline-offset-2 hover:text-secondary-foreground transition-colors line-clamp-1 block max-w-full"
+                                          data-testid={`link-venue-bar-address-${showEvent?.id}`}
+                                        >
+                                          {showVenue.address}
+                                        </a>
+                                      )}
                                     </div>
                                     <div className="text-right flex-shrink-0 flex flex-col items-center">
                                       <div className="text-2xl font-display font-bold text-yellow-400 leading-none">
@@ -1534,9 +1568,9 @@ export default function Dashboard() {
                                   </div>
                                   {resolvedVenueId && (
                                     <div className="mt-2 pt-2 border-t border-secondary-foreground/10">
-                                      <div className="flex items-center justify-between gap-2">
+                                      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                                         {showVenue.parking && (
-                                          <span className="text-[11px] text-secondary-foreground/70 flex-1" data-testid={`venue-bar-parking-${showEvent?.id}`}><span className="font-semibold">Parking:</span> {showVenue.parking}</span>
+                                          <span className="text-[11px] text-secondary-foreground/70" data-testid={`venue-bar-parking-${showEvent?.id}`}><span className="font-semibold">Parking:</span> {showVenue.parking}</span>
                                         )}
                                         <WeatherWidget venueId={resolvedVenueId} date={activeDate} />
                                       </div>
@@ -2393,18 +2427,18 @@ export default function Dashboard() {
             <DialogDescription>{format(parseISO(activeDate + "T12:00:00"), "MMMM d, yyyy")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1" style={{ WebkitOverflowScrolling: "touch" }}>
-            {activeTourProjects.length > 1 && (
+            {activeProjects.length > 1 && (
               <div>
-                <Label className="text-xs">Tour</Label>
+                <Label className="text-xs">Project</Label>
                 <Select
                   value={addTravelProjectId ? String(addTravelProjectId) : ""}
                   onValueChange={(v) => setAddTravelProjectId(Number(v))}
                 >
                   <SelectTrigger className="mt-1 h-8 text-sm" data-testid="select-travel-day-project">
-                    <SelectValue placeholder="Select a tour..." />
+                    <SelectValue placeholder="Select a project..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {activeTourProjects.map((tp: Project) => (
+                    {activeProjects.map((tp: Project) => (
                       <SelectItem key={tp.id} value={String(tp.id)}>{tp.name}</SelectItem>
                     ))}
                   </SelectContent>

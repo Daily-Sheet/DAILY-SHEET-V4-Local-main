@@ -5,6 +5,7 @@ import { workspaces, workspaceMembers, users } from "@shared/models/auth";
 import { eq } from "drizzle-orm";
 import { Resend } from "resend";
 import crypto from "crypto";
+import { emitDomainEvent } from "../ws/eventBus";
 
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "Daily Sheet <noreply@daily-sheet.app>";
 
@@ -146,15 +147,17 @@ export async function logActivity(
 ) {
   try {
     await storage.createActivityEntry({ actorId, actorName, type, action, title, message, eventName: eventName ?? null, workspaceId, details: details ?? null });
+    emitDomainEvent({ type: "activity:new", workspaceId, eventName, actorId, actorName, payload: { activityType: type, action } });
   } catch (err) {
     console.error("Failed to log activity:", err);
   }
 }
 
+/** Preserve raw ISO string for client-side timezone formatting */
 export function formatTimeForLog(t: Date | string | null | undefined): string {
   if (!t) return "";
-  const d = typeof t === "string" ? new Date(t) : t;
-  return d.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+  if (typeof t === "string") return t;
+  return t.toISOString();
 }
 
 export function buildScheduleDiff(before: any, after: any): string | undefined {

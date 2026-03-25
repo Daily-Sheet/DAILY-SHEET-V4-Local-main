@@ -32,7 +32,6 @@ export function ActivityFeed({ filterEvents = [] }: { filterEvents?: string[] })
       if (!res.ok) throw new Error("Failed to fetch activity");
       return res.json();
     },
-    refetchInterval: 60_000,
     refetchOnWindowFocus: true,
   });
 
@@ -83,6 +82,27 @@ export function ActivityFeed({ filterEvents = [] }: { filterEvents?: string[] })
     try { return JSON.parse(details); } catch { return null; }
   }
 
+  const TIME_FIELDS = new Set(["Start Time", "End Time"]);
+
+  /** Format a time value in the user's local timezone.
+   *  Handles both new raw ISO strings and legacy pre-formatted values ("3:00 PM"). */
+  function formatTimeLocal(val: string): string {
+    if (!val) return "(empty)";
+    // If it looks like an ISO string or parseable date, format it locally
+    const parsed = new Date(val);
+    if (!isNaN(parsed.getTime()) && (val.includes("T") || val.includes("Z") || val.includes("-"))) {
+      return parsed.toLocaleTimeString([], { hour: "numeric", minute: "2-digit", hour12: true });
+    }
+    // Legacy pre-formatted value — return as-is
+    return val;
+  }
+
+  function formatDetailValue(field: string, val: string): string {
+    if (!val) return "(empty)";
+    if (TIME_FIELDS.has(field)) return formatTimeLocal(val);
+    return val;
+  }
+
   function renderDetails(entry: typeof entries[0]) {
     const items = parseDetails(entry.details);
     if (!items || items.length === 0) return null;
@@ -94,15 +114,15 @@ export function ActivityFeed({ filterEvents = [] }: { filterEvents?: string[] })
             <span className="text-muted-foreground font-medium shrink-0 w-20 text-right">{item.field}:</span>
             {"from" in item ? (
               <div className="flex items-center gap-1.5 flex-wrap min-w-0">
-                <span className="bg-red-500/15 text-red-600 dark:text-red-400 line-through px-1.5 py-0.5 rounded text-[11px]">{item.from || "(empty)"}</span>
+                <span className="bg-red-500/15 text-red-600 dark:text-red-400 line-through px-1.5 py-0.5 rounded text-[11px]">{formatDetailValue(item.field, item.from) || "(empty)"}</span>
                 <span className="text-muted-foreground">→</span>
-                <span className="bg-green-500/15 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded text-[11px]">{item.to || "(empty)"}</span>
+                <span className="bg-green-500/15 text-green-600 dark:text-green-400 px-1.5 py-0.5 rounded text-[11px]">{formatDetailValue(item.field, item.to) || "(empty)"}</span>
               </div>
             ) : (
               <span className={cn(
                 "px-1.5 py-0.5 rounded text-[11px]",
                 entry.action === "deleted" ? "bg-red-500/15 text-red-600 dark:text-red-400 line-through" : "bg-green-500/15 text-green-600 dark:text-green-400"
-              )}>{item.value}</span>
+              )}>{formatDetailValue(item.field, item.value)}</span>
             )}
           </div>
         ))}
