@@ -3237,6 +3237,8 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
   const [addTravelOpen, setAddTravelOpen] = useState(false);
   const [newTravel, setNewTravel] = useState({ date: "", notes: "", flightNumber: "", airline: "", departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: "" });
   const resetTravelForm = () => setNewTravel({ date: "", notes: "", flightNumber: "", airline: "", departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: "" });
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [assignSelectedIds, setAssignSelectedIds] = useState<Set<number>>(new Set());
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: eventsList = [] } = useQuery<Event[]>({ queryKey: ["/api/events"] });
@@ -3304,6 +3306,33 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
   });
 
+  const standaloneShows = useMemo(() =>
+    (eventsList as Event[]).filter((e: Event) => !e.projectId).sort((a, b) => (a.startDate || "9999").localeCompare(b.startDate || "9999")),
+    [eventsList]
+  );
+
+  const assignToProjectMutation = useMutation({
+    mutationFn: async (eventIds: number[]) => {
+      await Promise.all(eventIds.map(id => apiRequest("PATCH", `/api/events/${id}`, { projectId })));
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      setAssignDialogOpen(false);
+      setAssignSelectedIds(new Set());
+      toast({ title: `${entityLabel}s assigned to ${projectName}` });
+    },
+  });
+
+  const unassignFromProjectMutation = useMutation({
+    mutationFn: async (eventId: number) => {
+      await apiRequest("PATCH", `/api/events/${eventId}`, { projectId: null, legId: null });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+      toast({ title: `${entityLabel} unassigned` });
+    },
+  });
+
   const startEdit = (show: Event) => {
     setEditingId(show.id);
     setEditName(show.name);
@@ -3320,6 +3349,11 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
           {isTour ? "Unassigned " : ""}{entityLabel}s{travelDays.length > 0 ? " & Travel" : ""} {mergedItems.length > 0 ? `(${mergedItems.length})` : ""}
         </span>
         <div className="flex items-center gap-1">
+          {standaloneShows.length > 0 && (
+            <Button variant="ghost" size="sm" onClick={() => { setAssignDialogOpen(true); setAssignSelectedIds(new Set()); }} data-testid={`button-assign-shows-${projectId}`}>
+              <Link2 className="w-3.5 h-3.5 mr-1" /> Assign Existing
+            </Button>
+          )}
           <Button variant="ghost" size="sm" onClick={() => setAddTravelOpen(true)} data-testid={`button-add-travel-day-${projectId}`}>
             <Plane className="w-3.5 h-3.5 mr-1" /> Travel Day
           </Button>
@@ -3337,14 +3371,14 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
               <div key={`td-${td.id}`} className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-amber-500/5 border border-amber-400/20 group" data-testid={`travel-day-${td.id}`}>
                 <Plane className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <span className="text-sm font-medium text-amber-700 dark:text-amber-300">{td.date}</span>
-                  {td.airline && td.flightNumber && (
-                    <span className="text-xs text-muted-foreground ml-2">{td.airline} {td.flightNumber}</span>
-                  )}
-                  {td.departureAirport && td.arrivalAirport && (
-                    <span className="text-xs text-muted-foreground ml-2">{td.departureAirport} → {td.arrivalAirport}</span>
-                  )}
-                  {td.notes && <span className="text-xs text-muted-foreground ml-2">· {td.notes}</span>}
+                  <span className="text-sm font-medium text-amber-600 dark:text-amber-400">Travel Day</span>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {format(new Date(td.date + "T00:00:00"), "EEE, MMM d")}
+                    {td.airline && ` · ${td.airline}`}
+                    {td.flightNumber && ` ${td.flightNumber}`}
+                    {td.departureAirport && td.arrivalAirport && ` · ${td.departureAirport} → ${td.arrivalAirport}`}
+                    {td.notes && ` · ${td.notes}`}
+                  </p>
                 </div>
                 <div className="opacity-0 group-hover:opacity-100 transition-opacity">
                   <ConfirmDelete
@@ -3413,6 +3447,9 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
                 )}
               </div>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <Button variant="ghost" size="icon" className="h-7 w-7" title={`Unassign from ${projectName}`} onClick={() => unassignFromProjectMutation.mutate(show.id)} data-testid={`button-unassign-show-${show.id}`}>
+                  <X className="w-3 h-3" />
+                </Button>
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => startEdit(show)} data-testid={`button-edit-show-${show.id}`}>
                   <Pencil className="w-3 h-3" />
                 </Button>
@@ -3502,6 +3539,62 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
               </Button>
             </DialogContent>
           </Dialog>
+
+      {/* Assign Existing Shows/Stages Dialog */}
+      <Dialog open={assignDialogOpen} onOpenChange={(o) => { if (!o) { setAssignDialogOpen(false); setAssignSelectedIds(new Set()); } }}>
+        <DialogContent className="sm:max-w-[420px] font-body max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl uppercase tracking-wide text-primary">
+              Assign {entityLabel}s to {projectName}
+            </DialogTitle>
+            <DialogDescription className="sr-only">Select unassigned {entityLabel.toLowerCase()}s to add to this project</DialogDescription>
+          </DialogHeader>
+          {standaloneShows.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">No unassigned {entityLabel.toLowerCase()}s available.</p>
+          ) : (
+            <>
+              <label className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer border-b border-border mb-1">
+                <Checkbox
+                  checked={assignSelectedIds.size === standaloneShows.length && standaloneShows.length > 0}
+                  onCheckedChange={(checked) => {
+                    if (checked) setAssignSelectedIds(new Set(standaloneShows.map(e => e.id)));
+                    else setAssignSelectedIds(new Set());
+                  }}
+                />
+                <p className="text-sm font-medium">Select All ({standaloneShows.length})</p>
+              </label>
+              <div className="overflow-y-auto flex-1 min-h-0 space-y-1 pr-1" style={{ WebkitOverflowScrolling: "touch" }}>
+                {standaloneShows.map(event => (
+                  <label key={event.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer">
+                    <Checkbox
+                      checked={assignSelectedIds.has(event.id)}
+                      onCheckedChange={(checked) => {
+                        setAssignSelectedIds(prev => {
+                          const next = new Set(prev);
+                          if (checked) next.add(event.id);
+                          else next.delete(event.id);
+                          return next;
+                        });
+                      }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{event.name}</p>
+                      {event.startDate && <p className="text-xs text-muted-foreground">{format(new Date(event.startDate + "T00:00:00"), "MMM d, yyyy")}</p>}
+                    </div>
+                  </label>
+                ))}
+              </div>
+              <Button
+                className="w-full flex-shrink-0 mt-3"
+                onClick={() => assignSelectedIds.size > 0 && assignToProjectMutation.mutate(Array.from(assignSelectedIds))}
+                disabled={assignSelectedIds.size === 0 || assignToProjectMutation.isPending}
+              >
+                {assignToProjectMutation.isPending ? "Assigning..." : `Assign ${assignSelectedIds.size} ${entityLabel.toLowerCase()}${assignSelectedIds.size !== 1 ? "s" : ""} to ${projectName}`}
+              </Button>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

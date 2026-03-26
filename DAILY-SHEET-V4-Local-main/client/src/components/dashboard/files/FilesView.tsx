@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Eye, FileText, File, Download, Upload, X, Plus, Check,
   FolderOpen, ChevronDown, ChevronRight, Search, Loader2,
-  Mic2, List, BarChart3,
+  Mic2, List, BarChart3, Briefcase,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -339,7 +339,10 @@ function FolderTreeNode({
 }) {
   const folderKey = `${showName}__folder_${folder.id}`;
   const childFolders = allFolders.filter(f => f.parentId === folder.id);
-  const folderFiles = allFiles.filter((f: any) => f.folderName === folder.name && f.eventName === showName);
+  const isProjectFolder = showName.startsWith("project-");
+  const folderFiles = allFiles.filter((f: any) =>
+    f.folderName === folder.name && (isProjectFolder ? !f.eventName && f.projectId === (folder as any).projectId : f.eventName === showName)
+  );
   const isFolderExpanded = expandedFolders[folderKey] !== false;
   const isRenaming = renamingFolderId === folder.id;
   const newFolderKey = `subfolder_${folder.id}`;
@@ -438,7 +441,7 @@ function FolderTreeNode({
                     onChange={(e) => setNewFolderName(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && newFolderName.trim()) {
-                        createFolder.mutate({ name: newFolderName.trim(), eventName: showName, parentId: folder.id });
+                        createFolder.mutate({ name: newFolderName.trim(), ...(isProjectFolder ? { projectId: (folder as any).projectId } : { eventName: showName }), parentId: folder.id });
                       }
                       if (e.key === "Escape") { setNewFolderParent(null); setNewFolderName(""); }
                     }}
@@ -449,7 +452,7 @@ function FolderTreeNode({
                   <Button
                     size="sm"
                     onClick={() => {
-                      if (newFolderName.trim()) createFolder.mutate({ name: newFolderName.trim(), eventName: showName, parentId: folder.id });
+                      if (newFolderName.trim()) createFolder.mutate({ name: newFolderName.trim(), ...(isProjectFolder ? { projectId: (folder as any).projectId } : { eventName: showName }), parentId: folder.id });
                     }}
                     disabled={!newFolderName.trim() || createFolder.isPending}
                     data-testid={`button-create-subfolder-${folder.id}`}
@@ -529,7 +532,7 @@ function FolderTreeNode({
   );
 }
 
-export function FilesView({ selectedEvents }: { selectedEvents: string[] }) {
+export function FilesView({ selectedEvents, projects = [] }: { selectedEvents: string[]; projects?: Array<{ id: number; name: string }> }) {
   const { data: files = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/files"],
     queryFn: async () => {
@@ -612,11 +615,11 @@ export function FilesView({ selectedEvents }: { selectedEvents: string[] }) {
 
   const [isMultiUploading, setIsMultiUploading] = useState(false);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, eventName: string, folderName?: string) => {
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, eventName: string, folderName?: string, projectId?: number) => {
     const fileList = e.target.files;
     if (!fileList || fileList.length === 0) return;
     const totalFiles = fileList.length;
-    const uploadKey = `${eventName}__${folderName || "root"}`;
+    const uploadKey = `${projectId ? `project-${projectId}` : eventName}__${folderName || "root"}`;
     setUploadTarget(uploadKey);
     setIsMultiUploading(true);
 
@@ -626,8 +629,9 @@ export function FilesView({ selectedEvents }: { selectedEvents: string[] }) {
       const formData = new FormData();
       formData.append("file", file);
       formData.append("name", file.name);
-      formData.append("eventName", eventName);
+      if (eventName) formData.append("eventName", eventName);
       if (folderName) formData.append("folderName", folderName);
+      if (projectId) formData.append("projectId", String(projectId));
       try {
         const res = await fetch((import.meta.env.VITE_API_URL ?? "") + "/api/files", {
           method: "POST",
@@ -648,9 +652,11 @@ export function FilesView({ selectedEvents }: { selectedEvents: string[] }) {
   };
 
   const createFolder = useMutation({
-    mutationFn: async ({ name, eventName, parentId }: { name: string; eventName: string; parentId?: number }) => {
-      const body: any = { name, eventName };
+    mutationFn: async ({ name, eventName, parentId, projectId }: { name: string; eventName?: string; parentId?: number; projectId?: number }) => {
+      const body: any = { name };
+      if (eventName) body.eventName = eventName;
       if (parentId) body.parentId = parentId;
+      if (projectId) body.projectId = projectId;
       const res = await fetch((import.meta.env.VITE_API_URL ?? "") + "/api/file-folders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -698,14 +704,16 @@ export function FilesView({ selectedEvents }: { selectedEvents: string[] }) {
     setExpandedShows(prev => ({ ...prev, [name]: prev[name] === false ? true : prev[name] === undefined ? false : !prev[name] }));
   };
 
+  const projectIds = useMemo(() => new Set(projects.map(p => p.id)), [projects]);
+
   const searchFilteredFiles = useMemo(() => {
     if (!fileSearch.trim()) return null;
     const q = fileSearch.toLowerCase();
     return files.filter((f: any) =>
-      selectedEvents.includes(f.eventName) &&
+      (selectedEvents.includes(f.eventName) || (f.projectId && projectIds.has(f.projectId) && !f.eventName)) &&
       f.name?.toLowerCase().includes(q)
     );
-  }, [fileSearch, files, selectedEvents]);
+  }, [fileSearch, files, selectedEvents, projectIds]);
 
   if (isLoading) return (
     <div className="flex flex-col items-center justify-center py-16 gap-3">
@@ -784,7 +792,170 @@ export function FilesView({ selectedEvents }: { selectedEvents: string[] }) {
           )}
         </div>
       ) : (
-        selectedEvents.map((showName) => {
+        <>
+        {/* Project-level file sections */}
+        {projects.map((project) => {
+          const projFolders = foldersList.filter((f: FileFolder) => (f as any).projectId === project.id && !f.eventName);
+          const projRootFolders = projFolders.filter(f => !f.parentId);
+          const projFiles = files.filter((f: any) => f.projectId === project.id && !f.eventName);
+          const projKey = `project-${project.id}`;
+          const isProjExpanded = expandedShows[projKey] !== false;
+
+          return (
+            <motion.div
+              key={projKey}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+              className="rounded-xl border border-primary/20 bg-primary/5 backdrop-blur-sm"
+              data-testid={`project-files-${project.id}`}
+            >
+              <div
+                className="flex items-center gap-3 p-4 cursor-pointer active:scale-[0.99] transition-transform"
+                onClick={() => toggleShow(projKey)}
+              >
+                <div className="w-9 h-9 rounded-xl bg-primary/15 flex items-center justify-center flex-shrink-0">
+                  <Briefcase className="h-4.5 w-4.5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-display text-sm uppercase tracking-wide font-semibold truncate">{project.name}</p>
+                  <p className="text-[11px] text-muted-foreground">
+                    Project Files · {projFolders.length} folder{projFolders.length !== 1 ? "s" : ""}, {projFiles.length} file{projFiles.length !== 1 ? "s" : ""}
+                  </p>
+                </div>
+                <motion.div animate={{ rotate: isProjExpanded ? 180 : 0 }} transition={{ duration: 0.2 }}>
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                </motion.div>
+              </div>
+
+              <AnimatePresence initial={false}>
+                {isProjExpanded && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: "auto", opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="px-4 pb-4 space-y-3">
+                      {canEdit && (
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {newFolderShow === projKey ? (
+                            <div className="flex items-center gap-2 flex-1">
+                              <Input
+                                placeholder="Folder name"
+                                value={newFolderName}
+                                onChange={(e) => setNewFolderName(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter" && newFolderName.trim()) {
+                                    createFolder.mutate({ name: newFolderName.trim(), projectId: project.id });
+                                  }
+                                  if (e.key === "Escape") { setNewFolderShow(null); setNewFolderName(""); }
+                                }}
+                                className="flex-1"
+                                autoFocus
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  if (newFolderName.trim()) createFolder.mutate({ name: newFolderName.trim(), projectId: project.id });
+                                }}
+                                disabled={!newFolderName.trim() || createFolder.isPending}
+                              >
+                                {createFolder.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => { setNewFolderShow(null); setNewFolderName(""); }}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="text-xs"
+                              onClick={() => setNewFolderShow(projKey)}
+                            >
+                              <Plus className="h-3 w-3 mr-1" />
+                              New Folder
+                            </Button>
+                          )}
+                        </div>
+                      )}
+
+                      {projRootFolders.map((folder: FileFolder) => (
+                        <FolderTreeNode
+                          key={folder.id}
+                          folder={folder}
+                          allFolders={projFolders}
+                          allFiles={projFiles}
+                          canEdit={canEdit}
+                          expandedFolders={expandedFolders}
+                          toggleFolder={toggleFolder}
+                          deleteFile={deleteFile}
+                          renameFile={renameFile}
+                          deleteFolder={deleteFolder}
+                          renameFolder={renameFolder}
+                          createFolder={createFolder}
+                          handleFileUpload={(e: any, _: string, folderName?: string) => handleFileUpload(e, "", folderName, project.id)}
+                          uploadTarget={uploadTarget}
+                          isUploading={isMultiUploading}
+                          uploadProgressText={multiUploadProgress}
+                          showName={projKey}
+                          depth={0}
+                          renamingFolderId={renamingFolderId}
+                          setRenamingFolderId={setRenamingFolderId}
+                          editFolderName={editFolderName}
+                          setEditFolderName={setEditFolderName}
+                          newFolderParent={newFolderParent}
+                          setNewFolderParent={setNewFolderParent}
+                          newFolderName={newFolderName}
+                          setNewFolderName={setNewFolderName}
+                          onPreview={setPreviewFile}
+                        />
+                      ))}
+
+                      {(() => {
+                        const looseFiles = projFiles.filter((f: any) => !f.folderName);
+                        return (
+                          <div className="space-y-1.5">
+                            {looseFiles.map((file: any, idx: number) => (
+                              <FileRow
+                                key={file.id}
+                                file={file}
+                                canEdit={canEdit}
+                                onDelete={() => deleteFile.mutate(file.id)}
+                                onRename={(name) => renameFile.mutate({ id: file.id, name })}
+                                onPreview={() => setPreviewFile(file)}
+                                index={idx}
+                              />
+                            ))}
+                            {canEdit && (
+                              <UploadZone
+                                onUpload={(e) => handleFileUpload(e, "", undefined, project.id)}
+                                uploading={isMultiUploading}
+                                uploadKey={`project-${project.id}__root`}
+                                activeKey={uploadTarget}
+                                testId={`button-upload-project-${project.id}`}
+                                progressText={multiUploadProgress}
+                              />
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          );
+        })}
+
+        {/* Per-show file sections */}
+        {selectedEvents.map((showName) => {
           const showFolders = foldersList.filter((f: FileFolder) => f.eventName === showName);
           const rootFolders = showFolders.filter(f => !f.parentId);
           const showFiles = files.filter((f: any) => f.eventName === showName);
@@ -954,7 +1125,8 @@ export function FilesView({ selectedEvents }: { selectedEvents: string[] }) {
               </AnimatePresence>
             </motion.div>
           );
-        })
+        })}
+        </>
       )}
 
       <AnimatePresence>

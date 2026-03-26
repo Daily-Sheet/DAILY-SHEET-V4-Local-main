@@ -36,7 +36,7 @@ import { useTheme } from "@/components/ThemeProvider";
 import { motion, AnimatePresence } from "framer-motion";
 
 import { CommandPalette } from "@/components/CommandPalette";
-import { GripVertical, Copy, Bell, Navigation, Wrench, Plane, PlaneTakeoff, PlaneLanding, Hotel, CarFront, SlidersHorizontal, EyeOff, Star } from "lucide-react";
+import { GripVertical, Copy, Bell, Navigation, Wrench, Plane, PlaneTakeoff, PlaneLanding, Hotel, CarFront, SlidersHorizontal, EyeOff, Star, ClipboardCheck } from "lucide-react";
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
@@ -95,6 +95,7 @@ import { FilesView, FilePreviewPanel } from "@/components/dashboard/files/FilesV
 import { AssignedCrewView, getContactShowNames, NoAssignmentState } from "@/components/dashboard/crew/AssignedCrewView";
 import { ContactsView } from "@/components/dashboard/contacts/ContactsView";
 import { SendDailyDialog } from "@/components/dashboard/pdf/SendDailyDialog";
+import { AfterJobReportDialog } from "@/components/dashboard/pdf/AfterJobReportDialog";
 import { CrewDirectoryDialog } from "@/components/dashboard/crew/CrewDirectoryDialog";
 import { TimesheetTab } from "@/components/dashboard/timesheet/TimesheetTab";
 
@@ -502,6 +503,7 @@ export default function Dashboard() {
   }, []);
 
   const [showSendDialog, setShowSendDialog] = useState(false);
+  const [showAfterJobReport, setShowAfterJobReport] = useState(false);
   const [editingShow, setEditingShow] = useState<Event | null>(null);
 
   const [travelDayDialogOpen, setTravelDayDialogOpen] = useState(false);
@@ -1057,6 +1059,9 @@ export default function Dashboard() {
               <Button variant="outline" size="sm" className="hidden sm:flex" onClick={() => setShowSendDialog(true)} data-testid="button-send-daily">
                 <Send className="mr-2 h-4 w-4" /> Send Daily
               </Button>
+              <Button variant="outline" size="sm" className="hidden sm:flex" onClick={() => setShowAfterJobReport(true)} data-testid="button-after-job-report">
+                <ClipboardCheck className="mr-2 h-4 w-4" /> After Job Report
+              </Button>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button variant="outline" size="icon" className="sm:hidden bg-card/50 backdrop-blur-sm border-border/30" onClick={() => setShowSendDialog(true)} data-testid="button-send-daily-mobile">
@@ -1064,6 +1069,14 @@ export default function Dashboard() {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>Send Daily</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="outline" size="icon" className="sm:hidden bg-card/50 backdrop-blur-sm border-border/30" onClick={() => setShowAfterJobReport(true)} data-testid="button-after-job-report-mobile">
+                    <ClipboardCheck className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>After Job Report</TooltipContent>
               </Tooltip>
             </>
           )}
@@ -2193,7 +2206,18 @@ export default function Dashboard() {
                     }
                     return null;
                   })()}
-                  <FilesView selectedEvents={effectiveSelectedEvents} />
+                  <FilesView
+                    selectedEvents={effectiveSelectedEvents}
+                    projects={(() => {
+                      const seen = new Set<number>();
+                      return effectiveSelectedEvents
+                        .map(name => eventsList.find((e: Event) => e.name === name))
+                        .filter(Boolean)
+                        .map(ev => ev!.projectId ? allProjects.find(p => p.id === ev!.projectId) : null)
+                        .filter((p): p is NonNullable<typeof p> => !!p && !seen.has(p.id) && (seen.add(p.id), true))
+                        .map(p => ({ id: p.id, name: p.name }));
+                    })()}
+                  />
                   {(() => {
                     const selectedEventIds = effectiveSelectedEvents
                       .map(name => eventsList.find((e: Event) => e.name === name))
@@ -2408,6 +2432,14 @@ export default function Dashboard() {
         contacts={contacts}
         workspaceName={currentWorkspace?.name}
         showColorMap={showColorMap}
+        allEventAssignments={allEventAssignments}
+      />
+
+      <AfterJobReportDialog
+        open={showAfterJobReport}
+        onClose={() => setShowAfterJobReport(false)}
+        showsForSelectedDate={showsForSelectedDate.length > 0 ? showsForSelectedDate : (eventsList as Event[])}
+        contacts={contacts}
         allEventAssignments={allEventAssignments}
       />
 

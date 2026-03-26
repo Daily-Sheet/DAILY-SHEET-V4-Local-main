@@ -22,8 +22,9 @@ export function registerFileRoutes(app: Express, upload: multer.Multer) {
     if (allowed !== null) {
       if (allowed.length === 0) return res.json([]);
       const allowedSet = new Set(allowed);
+      // Allow project-level files (no eventName) + show-level files the user can access
       filesList = filesList.filter((f: any) =>
-        f.eventName && allowedSet.has(f.eventName)
+        f.projectId && !f.eventName ? true : f.eventName && allowedSet.has(f.eventName)
       );
     }
     res.json(filesList);
@@ -37,9 +38,10 @@ export function registerFileRoutes(app: Express, upload: multer.Multer) {
       }
       const eventName = req.body.eventName || null;
       const folderName = req.body.folderName || null;
+      const projectId = req.body.projectId ? Number(req.body.projectId) : null;
       const diskPath = req.file.path;
       const url = await saveFileFromDisk(diskPath, req.file.filename);
-      const fileData = {
+      const fileData: any = {
         name: req.body.name || req.file.originalname,
         url,
         type: req.file.mimetype,
@@ -47,6 +49,7 @@ export function registerFileRoutes(app: Express, upload: multer.Multer) {
         eventName,
         folderName,
         workspaceId,
+        projectId,
       };
       const file = await storage.createFile(fileData);
       res.status(201).json(file);
@@ -123,13 +126,14 @@ export function registerFileRoutes(app: Express, upload: multer.Multer) {
         const existing = folders.find((f: any) =>
           f.name.toLowerCase() === input.name.trim().toLowerCase() &&
           f.eventName === (input.eventName || null) &&
-          f.parentId === (input.parentId || null)
+          f.parentId === (input.parentId || null) &&
+          f.projectId === (input.projectId || null)
         );
         if (existing) {
           return res.status(409).json({ message: "A folder with that name already exists" });
         }
       }
-      const folder = await storage.createFileFolder({ name: input.name.trim(), eventName: input.eventName || null, parentId: input.parentId || null, workspaceId });
+      const folder = await storage.createFileFolder({ name: input.name.trim(), eventName: input.eventName || null, parentId: input.parentId || null, workspaceId, projectId: input.projectId || null });
       res.status(201).json(folder);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -155,7 +159,7 @@ export function registerFileRoutes(app: Express, upload: multer.Multer) {
       const updated = await storage.updateFileFolder(folderId, { name: newName });
       if (workspaceId && oldName !== newName) {
         const allFiles = await storage.getFiles(workspaceId);
-        const folderFiles = allFiles.filter((f: any) => f.folderName === oldName && f.eventName === record.eventName);
+        const folderFiles = allFiles.filter((f: any) => f.folderName === oldName && f.eventName === record.eventName && (f.projectId || null) === (record.projectId || null));
         for (const f of folderFiles) {
           await storage.updateFile(f.id, { name: f.name });
           await db.update(files).set({ folderName: newName }).where(eq(files.id, f.id));
@@ -190,7 +194,7 @@ export function registerFileRoutes(app: Express, upload: multer.Multer) {
       if (workspaceId) {
         const allFiles = await storage.getFiles(workspaceId);
         for (const folder of foldersToDelete) {
-          const folderFiles = allFiles.filter((f: any) => f.folderName === folder.name && f.eventName === folder.eventName);
+          const folderFiles = allFiles.filter((f: any) => f.folderName === folder.name && f.eventName === folder.eventName && (f.projectId || null) === (folder.projectId || null));
           for (const f of folderFiles) {
             const diskPath = path.join(process.cwd(), f.url);
             if (fs.existsSync(diskPath)) {

@@ -54,6 +54,7 @@ export const files = pgTable("files", {
   folderName: text("folder_name"),
   uploadedAt: timestamp("uploaded_at").defaultNow().notNull(),
   workspaceId: integer("workspace_id"),
+  projectId: integer("project_id"),
 });
 
 export const venues = pgTable("venues", {
@@ -138,7 +139,7 @@ export const events = pgTable("events", {
   startDate: text("start_date"),
   endDate: text("end_date"),
   venueId: integer("venue_id"),
-  projectId: integer("project_id").notNull(),
+  projectId: integer("project_id"),
   workspaceId: integer("workspace_id"),
   archived: boolean("archived").default(false),
   legId: integer("leg_id"),
@@ -156,6 +157,7 @@ export const fileFolders = pgTable("file_folders", {
   eventName: text("event_name"),
   parentId: integer("parent_id"),
   workspaceId: integer("workspace_id"),
+  projectId: integer("project_id"),
 });
 
 export const insertFileFolderSchema = createInsertSchema(fileFolders).omit({ id: true });
@@ -519,3 +521,35 @@ export const bandPortalLinks = pgTable("band_portal_links", {
 export const insertBandPortalLinkSchema = createInsertSchema(bandPortalLinks).omit({ id: true, createdAt: true });
 export type BandPortalLink = typeof bandPortalLinks.$inferSelect;
 export type InsertBandPortalLink = z.infer<typeof insertBandPortalLinkSchema>;
+
+// After Job Reports
+export const afterJobReports = pgTable("after_job_reports", {
+  id: serial("id").primaryKey(),
+  eventId: integer("event_id").notNull(),
+  projectId: integer("project_id"),
+  workspaceId: integer("workspace_id").notNull(),
+  submittedBy: varchar("submitted_by").notNull(),
+  submittedByName: text("submitted_by_name"),
+  rating: integer("rating"),
+  wentAsPlanned: boolean("went_as_planned"),
+  summary: text("summary"),
+  issueCategory: text("issue_category"),
+  issueDescription: text("issue_description"),
+  hadInjuries: boolean("had_injuries").default(false),
+  injuryDescription: text("injury_description"),
+  hadEquipmentIssues: boolean("had_equipment_issues").default(false),
+  equipmentDescription: text("equipment_description"),
+  hadUnplannedExpenses: boolean("had_unplanned_expenses").default(false),
+  expenseAmount: text("expense_amount"),
+  expenseDescription: text("expense_description"),
+  expenseReceiptUrl: text("expense_receipt_url"),
+  attendanceEstimate: integer("attendance_estimate"),
+  clientNotes: text("client_notes"),
+  venueNotes: text("venue_notes"),
+  pdfUrl: text("pdf_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertAfterJobReportSchema = createInsertSchema(afterJobReports).omit({ id: true, createdAt: true });
+export type AfterJobReport = typeof afterJobReports.$inferSelect;
+export type InsertAfterJobReport = z.infer<typeof insertAfterJobReportSchema>;

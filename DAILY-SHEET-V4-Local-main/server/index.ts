@@ -161,6 +161,63 @@ app.use((req, res, next) => {
     console.error("Schedule isNextDay migration error (non-fatal):", err);
   }
 
+  // Project-level files migration
+  try {
+    const { pool } = await import("./db");
+    await pool.query(`
+      ALTER TABLE files ADD COLUMN IF NOT EXISTS project_id INTEGER;
+      ALTER TABLE file_folders ADD COLUMN IF NOT EXISTS project_id INTEGER;
+    `);
+    log("Project files migration ready");
+  } catch (err) {
+    console.error("Project files migration error (non-fatal):", err);
+  }
+
+  // After job reports table
+  try {
+    const { pool } = await import("./db");
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS after_job_reports (
+        id SERIAL PRIMARY KEY,
+        event_id INTEGER NOT NULL,
+        project_id INTEGER,
+        workspace_id INTEGER NOT NULL,
+        submitted_by VARCHAR NOT NULL,
+        submitted_by_name TEXT,
+        rating INTEGER,
+        went_as_planned BOOLEAN,
+        summary TEXT,
+        issue_category TEXT,
+        issue_description TEXT,
+        had_injuries BOOLEAN DEFAULT FALSE,
+        injury_description TEXT,
+        had_equipment_issues BOOLEAN DEFAULT FALSE,
+        equipment_description TEXT,
+        had_unplanned_expenses BOOLEAN DEFAULT FALSE,
+        expense_amount TEXT,
+        expense_description TEXT,
+        expense_receipt_url TEXT,
+        attendance_estimate INTEGER,
+        client_notes TEXT,
+        venue_notes TEXT,
+        pdf_url TEXT,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+    `);
+    log("After job reports table ready");
+  } catch (err) {
+    console.error("After job reports migration error (non-fatal):", err);
+  }
+
+  // Make events.project_id nullable (allows unassigned shows)
+  try {
+    const { pool } = await import("./db");
+    await pool.query(`ALTER TABLE events ALTER COLUMN project_id DROP NOT NULL;`);
+    log("Events projectId nullable migration ready");
+  } catch (err) {
+    console.error("Events projectId nullable migration error (non-fatal):", err);
+  }
+
   await registerRoutes(httpServer, app);
 
   storage.deduplicateContacts().then(count => {

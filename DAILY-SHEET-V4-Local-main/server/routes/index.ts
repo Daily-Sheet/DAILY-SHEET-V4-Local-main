@@ -30,6 +30,7 @@ import { registerMapRoutes } from "./map";
 import { registerLegRoutes } from "./legs";
 import { registerBandPortalRoutes } from "./bandPortal";
 import { registerConfigRoutes } from "./config";
+import { registerAfterJobReportRoutes } from "./afterJobReports";
 import { initWebSocketServer } from "../ws/wsServer";
 
 const storage_multer = multer.diskStorage({
@@ -74,6 +75,7 @@ export async function registerRoutes(
   registerLegRoutes(app, upload);
   registerBandPortalRoutes(app, upload);
   registerConfigRoutes(app);
+  registerAfterJobReportRoutes(app, upload);
 
   // Initialize WebSocket server for real-time sync
   initWebSocketServer(httpServer);

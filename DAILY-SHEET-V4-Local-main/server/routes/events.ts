@@ -92,7 +92,7 @@ export function registerEventRoutes(app: Express, upload: multer.Multer) {
         await storage.renameEvent(existing.name, data.name, workspaceId);
       }
 
-      const updated = await storage.updateEvent(id, { ...data, projectId: data.projectId ?? undefined });
+      const updated = await storage.updateEvent(id, { ...data, projectId: "projectId" in data ? data.projectId : undefined });
 
       const effectiveStartDate = data.startDate ?? existing.startDate;
       const effectiveEndDate = data.endDate ?? existing.endDate;
