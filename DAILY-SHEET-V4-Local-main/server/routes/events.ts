@@ -60,6 +60,7 @@ export function registerEventRoutes(app: Express, upload: multer.Multer) {
             await storage.createAssignment({
               userId: pa.userId,
               eventName: event.name,
+              eventId: event.id,
               workspaceId,
               position: pa.position || null,
             });

@@ -136,11 +136,11 @@ async function migrateEventIdColumns() {
         "daily_checkins", "band_portal_links", "access_links",
       ];
       for (const t of tables) {
+        const exists = await client.query(
+          `SELECT 1 FROM information_schema.tables WHERE table_name = $1 LIMIT 1`, [t]
+        );
+        if (exists.rows.length === 0) continue;
         await client.query(`ALTER TABLE ${t} ADD COLUMN IF NOT EXISTS event_id INTEGER`);
-      }
-
-      // Create indexes
-      for (const t of tables) {
         await client.query(`CREATE INDEX IF NOT EXISTS idx_${t}_event_id ON ${t}(event_id)`);
       }
 
@@ -166,6 +166,18 @@ async function backfillEventIds(client: any) {
     { table: "access_links", alias: "al" },
   ];
   for (const { table, alias } of tableSets) {
+    const exists = await client.query(
+      `SELECT 1 FROM information_schema.tables WHERE table_name = $1 LIMIT 1`, [table]
+    );
+    if (exists.rows.length === 0) continue;
+    // Ensure the event_id column exists (may not if a prior run crashed mid-way)
+    const colCheck = await client.query(
+      `SELECT 1 FROM information_schema.columns WHERE table_name = $1 AND column_name = 'event_id' LIMIT 1`, [table]
+    );
+    if (colCheck.rows.length === 0) {
+      await client.query(`ALTER TABLE ${table} ADD COLUMN IF NOT EXISTS event_id INTEGER`);
+      await client.query(`CREATE INDEX IF NOT EXISTS idx_${table}_event_id ON ${table}(event_id)`);
+    }
     const result = await client.query(`
       UPDATE ${table} ${alias}
       SET event_id = e.id
