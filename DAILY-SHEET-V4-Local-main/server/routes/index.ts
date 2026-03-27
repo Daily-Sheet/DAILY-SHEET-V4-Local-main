@@ -7,7 +7,7 @@ import { setupAuth } from "../replit_integrations/auth";
 import { db } from "../db";
 import { users, workspaces, workspaceMembers } from "@shared/models/auth";
 import { schedules, contacts, files, venues, events, fileFolders, comments, settings as settingsTable, eventAssignments } from "@shared/schema";
-import { eq, and, isNull, isNotNull } from "drizzle-orm";
+import { eq, and, isNull, isNotNull, sql } from "drizzle-orm";
 
 import { registerAuthRoutes } from "./auth";
 import { registerScheduleRoutes } from "./schedules";
@@ -156,6 +156,9 @@ async function migrateExistingUsersToWorkspaces() {
 
 async function migrateScheduleEventIds() {
   try {
+    // Ensure the column exists in the database
+    await db.execute(sql`ALTER TABLE schedules ADD COLUMN IF NOT EXISTS event_id INTEGER`);
+
     // Find schedules that have eventName but no eventId
     const orphans = await db.select({ id: schedules.id, eventName: schedules.eventName, workspaceId: schedules.workspaceId })
       .from(schedules)
