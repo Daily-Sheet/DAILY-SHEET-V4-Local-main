@@ -38,12 +38,21 @@ export function registerAccessRoutes(app: Express, upload: multer.Multer) {
         if (!project || project.workspaceId !== workspaceId) return res.status(404).json({ message: "Project not found in your workspace" });
       }
 
+      // Resolve eventId from eventName
+      let eventId = req.body.eventId || null;
+      if (!eventId && eventName) {
+        const wsEvents = await storage.getEvents(workspaceId);
+        const event = wsEvents.find(e => e.name === eventName);
+        eventId = event?.id || null;
+      }
+
       const token = crypto.randomBytes(24).toString("hex");
       const link = await storage.createAccessLink({
         token,
         contactId,
         workspaceId,
         eventName: eventName || null,
+        eventId,
         projectId: projectId || null,
         expiresAt: new Date(expiresAt),
         createdBy: req.user.id,
@@ -100,13 +109,19 @@ export function registerAccessRoutes(app: Express, upload: multer.Multer) {
       let scopedEvents: typeof allEvents = [];
       if (link.projectId) {
         scopedEvents = allEvents.filter(e => e.projectId === link.projectId);
+      } else if (link.eventId) {
+        const ev = allEvents.find(e => e.id === link.eventId);
+        if (ev) scopedEvents = [ev];
       } else if (link.eventName) {
         const ev = allEvents.find(e => e.name === link.eventName);
         if (ev) scopedEvents = [ev];
       }
 
+      const scopedEventIds = new Set(scopedEvents.map(e => e.id));
       const scopedEventNames = new Set(scopedEvents.map(e => e.name));
-      const eventSchedules = allSchedules.filter(s => s.eventName != null && scopedEventNames.has(s.eventName));
+      // When a schedule has both eventId and eventName, we intentionally prefer matching by eventId.
+      // Matching by eventName is only used as a fallback when eventId is not present.
+      const eventSchedules = allSchedules.filter(s => s.eventId != null ? scopedEventIds.has(s.eventId) : (s.eventName != null && scopedEventNames.has(s.eventName)));
 
       let venue = null;
       const primaryEvent = scopedEvents[0];
@@ -125,11 +140,11 @@ export function registerAccessRoutes(app: Express, upload: multer.Multer) {
       if (contact?.userId) {
         const allAssignments = await db.select().from(eventAssignments)
           .where(and(eq(eventAssignments.userId, contact.userId), eq(eventAssignments.workspaceId, link.workspaceId)));
-        assignments = allAssignments.filter(a => scopedEventNames.has(a.eventName));
+        assignments = allAssignments.filter(a => a.eventId != null ? scopedEventIds.has(a.eventId) : scopedEventNames.has(a.eventName));
 
-        for (const eName of Array.from(scopedEventNames)) {
+        for (const ev of scopedEvents) {
           const dailyCheckinRecords = await db.select().from(dailyCheckins)
-            .where(and(eq(dailyCheckins.userId, contact.userId), eq(dailyCheckins.eventName, eName), eq(dailyCheckins.workspaceId, link.workspaceId)));
+            .where(and(eq(dailyCheckins.userId, contact.userId), eq(dailyCheckins.eventId, ev.id), eq(dailyCheckins.workspaceId, link.workspaceId)));
           checkins.push(...dailyCheckinRecords);
         }
       }
@@ -172,22 +187,38 @@ export function registerAccessRoutes(app: Express, upload: multer.Multer) {
 
       const allEvents = await storage.getEvents(link.workspaceId);
       let scopedEventNames: Set<string>;
+      let scopedEventIds: Set<number>;
       if (link.projectId) {
-        scopedEventNames = new Set(allEvents.filter(e => e.projectId === link.projectId).map(e => e.name));
+        const scoped = allEvents.filter(e => e.projectId === link.projectId);
+        scopedEventNames = new Set(scoped.map(e => e.name));
+        scopedEventIds = new Set(scoped.map(e => e.id));
+      } else if (link.eventId) {
+        const ev = allEvents.find(e => e.id === link.eventId);
+        scopedEventNames = ev ? new Set([ev.name]) : new Set<string>();
+        scopedEventIds = ev ? new Set([ev.id]) : new Set<number>();
       } else if (link.eventName) {
+        const ev = allEvents.find(e => e.name === link.eventName);
         scopedEventNames = new Set([link.eventName]);
+        scopedEventIds = ev ? new Set([ev.id]) : new Set<number>();
       } else {
         return res.status(400).json({ message: "Invalid link scope" });
       }
 
       if (!scopedEventNames.has(eventName)) return res.status(403).json({ message: "Event not in link scope" });
 
+      // Resolve eventId for checkin
+      const matchedEvent = allEvents.find(e => e.name === eventName && scopedEventIds.has(e.id));
+      const eventId = matchedEvent?.id || null;
+
       const userAssignments = await db.select().from(eventAssignments)
-        .where(and(eq(eventAssignments.userId, contact.userId), eq(eventAssignments.eventName, eventName), eq(eventAssignments.workspaceId, link.workspaceId)));
-      const hasAssignment = userAssignments.some(a => !a.date || a.date === date);
+        .where(and(eq(eventAssignments.userId, contact.userId), eq(eventAssignments.workspaceId, link.workspaceId)));
+      const hasAssignment = userAssignments.some(a => {
+        const matchesEvent = eventId ? a.eventId === eventId : a.eventName === eventName;
+        return matchesEvent && (!a.date || a.date === date);
+      });
       if (!hasAssignment) return res.status(403).json({ message: "Not assigned to this event" });
 
-      const checkin = await storage.upsertDailyCheckin({ userId: contact.userId, eventName, date, workspaceId: link.workspaceId });
+      const checkin = await storage.upsertDailyCheckin({ userId: contact.userId, eventName, eventId: eventId ?? undefined, date, workspaceId: link.workspaceId });
       res.json(checkin);
     } catch (err) {
       console.error("Failed to check in via access link:", err);

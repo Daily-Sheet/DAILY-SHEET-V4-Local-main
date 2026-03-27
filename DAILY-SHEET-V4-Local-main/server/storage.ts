@@ -33,7 +33,7 @@ export interface IStorage {
   createSchedule(schedule: InsertSchedule): Promise<Schedule>;
   updateSchedule(id: number, schedule: Partial<InsertSchedule>): Promise<Schedule>;
   deleteSchedule(id: number): Promise<void>;
-  clearDaySchedules(workspaceId: number, eventDate: string, eventName?: string): Promise<number>;
+  clearDaySchedules(workspaceId: number, eventDate: string, eventName?: string, eventId?: number): Promise<number>;
 
   reorderSchedules(ids: number[], timeUpdates?: { id: number; startTime: Date; endTime: Date | null }[]): Promise<void>;
 
@@ -103,6 +103,7 @@ export interface IStorage {
   // Event Assignments
   getAssignmentsByUser(userId: string): Promise<EventAssignment[]>;
   getAssignmentsByEventName(eventName: string): Promise<EventAssignment[]>;
+  getAssignmentsByEventId(eventId: number): Promise<EventAssignment[]>;
   getAllAssignments(workspaceId: number): Promise<EventAssignment[]>;
   getAssignment(id: number): Promise<EventAssignment | undefined>;
   createAssignment(assignment: InsertEventAssignment): Promise<EventAssignment>;
@@ -238,7 +239,8 @@ export interface IStorage {
 
   // Daily Checkins
   getDailyCheckins(eventName: string, date: string, workspaceId: number): Promise<DailyCheckin[]>;
-  upsertDailyCheckin(data: { userId: string; eventName: string; date: string; workspaceId: number }): Promise<DailyCheckin>;
+  getDailyCheckinsByEventId(eventId: number, date: string, workspaceId: number): Promise<DailyCheckin[]>;
+  upsertDailyCheckin(data: { userId: string; eventName: string; eventId?: number; date: string; workspaceId: number }): Promise<DailyCheckin>;
   checkOutDaily(id: number): Promise<DailyCheckin>;
   lunchOutDaily(id: number): Promise<DailyCheckin>;
   lunchInDaily(id: number): Promise<DailyCheckin>;
@@ -306,12 +308,14 @@ export class DatabaseStorage implements IStorage {
     await db.delete(schedules).where(eq(schedules.id, id));
   }
 
-  async clearDaySchedules(workspaceId: number, eventDate: string, eventName?: string): Promise<number> {
+  async clearDaySchedules(workspaceId: number, eventDate: string, eventName?: string, eventId?: number): Promise<number> {
     const conditions = [
       eq(schedules.workspaceId, workspaceId),
       eq(schedules.eventDate, eventDate),
     ];
-    if (eventName) {
+    if (eventId) {
+      conditions.push(eq(schedules.eventId, eventId));
+    } else if (eventName) {
       conditions.push(eq(schedules.eventName, eventName));
     }
     const result = await db.delete(schedules).where(and(...conditions)).returning();
@@ -463,12 +467,16 @@ export class DatabaseStorage implements IStorage {
   async deleteFileFolder(id: number, workspaceId?: number): Promise<void> {
     const [folder] = await db.select().from(fileFolders).where(eq(fileFolders.id, id));
     if (folder && workspaceId) {
-      await db.delete(files)
-        .where(and(
-          eq(files.folderName, folder.name),
-          eq(files.eventName, folder.eventName ?? ''),
-          eq(files.workspaceId, workspaceId)
-        ));
+      const conditions = [
+        eq(files.folderName, folder.name),
+        eq(files.workspaceId, workspaceId),
+      ];
+      if (folder.eventId) {
+        conditions.push(eq(files.eventId, folder.eventId));
+      } else if (folder.eventName) {
+        conditions.push(eq(files.eventName, folder.eventName));
+      }
+      await db.delete(files).where(and(...conditions));
     }
     await db.delete(fileFolders).where(eq(fileFolders.id, id));
   }
@@ -659,42 +667,20 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteEvent(id: number, workspaceId?: number): Promise<void> {
-    const [event] = await db.select().from(events).where(eq(events.id, id));
-    if (event) {
-      if (workspaceId) {
-        await db.delete(schedules).where(and(eq(schedules.eventName, event.name), eq(schedules.workspaceId, workspaceId)));
-        await db.delete(eventAssignments).where(and(eq(eventAssignments.eventName, event.name), eq(eventAssignments.workspaceId, workspaceId)));
-        await db.delete(files).where(and(eq(files.eventName, event.name), eq(files.workspaceId, workspaceId)));
-        await db.delete(fileFolders).where(and(eq(fileFolders.eventName, event.name), eq(fileFolders.workspaceId, workspaceId)));
-      } else {
-        await db.delete(schedules).where(eq(schedules.eventName, event.name));
-        await db.delete(eventAssignments).where(eq(eventAssignments.eventName, event.name));
-        await db.delete(files).where(eq(files.eventName, event.name));
-        await db.delete(fileFolders).where(eq(fileFolders.eventName, event.name));
-      }
-      await db.delete(sections).where(eq(sections.eventId, id));
-    }
+    // Use eventId for cascade deletes instead of eventName
+    await db.delete(schedules).where(eq(schedules.eventId, id));
+    await db.delete(eventAssignments).where(eq(eventAssignments.eventId, id));
+    await db.delete(files).where(eq(files.eventId, id));
+    await db.delete(fileFolders).where(eq(fileFolders.eventId, id));
+    await db.delete(dailyCheckins).where(eq(dailyCheckins.eventId, id));
+    await db.delete(sections).where(eq(sections.eventId, id));
     await db.delete(events).where(eq(events.id, id));
   }
 
   async renameEvent(oldName: string, newName: string, workspaceId?: number): Promise<void> {
-    await db.transaction(async (tx) => {
-      if (workspaceId) {
-        await tx.update(schedules).set({ eventName: newName })
-          .where(and(eq(schedules.eventName, oldName), eq(schedules.workspaceId, workspaceId)));
-        await tx.update(eventAssignments).set({ eventName: newName })
-          .where(and(eq(eventAssignments.eventName, oldName), eq(eventAssignments.workspaceId, workspaceId)));
-        await tx.update(files).set({ eventName: newName })
-          .where(and(eq(files.eventName, oldName), eq(files.workspaceId, workspaceId)));
-        await tx.update(fileFolders).set({ eventName: newName })
-          .where(and(eq(fileFolders.eventName, oldName), eq(fileFolders.workspaceId, workspaceId)));
-      } else {
-        await tx.update(schedules).set({ eventName: newName }).where(eq(schedules.eventName, oldName));
-        await tx.update(eventAssignments).set({ eventName: newName }).where(eq(eventAssignments.eventName, oldName));
-        await tx.update(files).set({ eventName: newName }).where(eq(files.eventName, oldName));
-        await tx.update(fileFolders).set({ eventName: newName }).where(eq(fileFolders.eventName, oldName));
-      }
-    });
+    // With eventId-based relationships, renaming only needs to update denormalized eventName fields
+    // for display purposes. The actual relationships are maintained via eventId.
+    // No-op for relationship tables since they use eventId now.
   }
 
   // Event Assignments
@@ -704,6 +690,10 @@ export class DatabaseStorage implements IStorage {
 
   async getAssignmentsByEventName(eventName: string): Promise<EventAssignment[]> {
     return await db.select().from(eventAssignments).where(eq(eventAssignments.eventName, eventName));
+  }
+
+  async getAssignmentsByEventId(eventId: number): Promise<EventAssignment[]> {
+    return await db.select().from(eventAssignments).where(eq(eventAssignments.eventId, eventId));
   }
 
   async getAllAssignments(workspaceId: number): Promise<EventAssignment[]> {
@@ -716,11 +706,14 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAssignment(assignment: InsertEventAssignment): Promise<EventAssignment> {
-    const existing = await db.select().from(eventAssignments)
-      .where(and(
-        eq(eventAssignments.userId, assignment.userId),
-        eq(eventAssignments.eventName, assignment.eventName)
-      ));
+    // Check for duplicates using eventId if available, falling back to eventName
+    const conditions = [eq(eventAssignments.userId, assignment.userId)];
+    if (assignment.eventId) {
+      conditions.push(eq(eventAssignments.eventId, assignment.eventId));
+    } else {
+      conditions.push(eq(eventAssignments.eventName, assignment.eventName));
+    }
+    const existing = await db.select().from(eventAssignments).where(and(...conditions));
     if (existing.length > 0) return existing[0];
     const [created] = await db.insert(eventAssignments).values(assignment).returning();
     return created;
@@ -1044,12 +1037,16 @@ export class DatabaseStorage implements IStorage {
   async deleteProject(id: number): Promise<void> {
     // Get all events for this project to cascade delete related records
     const projectEvents = await db.select().from(events).where(eq(events.projectId, id));
-    const eventNames = projectEvents.map(e => e.name);
+    const eventIds = projectEvents.map(e => e.id);
 
-    // Delete files associated with project events
-    if (eventNames.length > 0) {
-      await db.delete(files).where(inArray(files.eventName, eventNames));
-      await db.delete(eventAssignments).where(inArray(eventAssignments.eventName, eventNames));
+    // Delete records associated with project events using eventId
+    if (eventIds.length > 0) {
+      await db.delete(files).where(inArray(files.eventId, eventIds));
+      await db.delete(eventAssignments).where(inArray(eventAssignments.eventId, eventIds));
+      await db.delete(schedules).where(inArray(schedules.eventId, eventIds));
+      await db.delete(fileFolders).where(inArray(fileFolders.eventId, eventIds));
+      await db.delete(dailyCheckins).where(inArray(dailyCheckins.eventId, eventIds));
+      await db.delete(sections).where(inArray(sections.eventId, eventIds));
     }
 
     // Delete crew travel for travel days in this project
@@ -1352,14 +1349,28 @@ export class DatabaseStorage implements IStorage {
       ));
   }
 
-  async upsertDailyCheckin(data: { userId: string; eventName: string; date: string; workspaceId: number }): Promise<DailyCheckin> {
-    const existing = await db.select().from(dailyCheckins)
+  async getDailyCheckinsByEventId(eventId: number, date: string, workspaceId: number): Promise<DailyCheckin[]> {
+    return await db.select().from(dailyCheckins)
       .where(and(
-        eq(dailyCheckins.userId, data.userId),
-        eq(dailyCheckins.eventName, data.eventName),
-        eq(dailyCheckins.date, data.date),
-        eq(dailyCheckins.workspaceId, data.workspaceId)
+        eq(dailyCheckins.eventId, eventId),
+        eq(dailyCheckins.date, date),
+        eq(dailyCheckins.workspaceId, workspaceId)
       ));
+  }
+
+  async upsertDailyCheckin(data: { userId: string; eventName: string; eventId?: number; date: string; workspaceId: number }): Promise<DailyCheckin> {
+    // Check for existing using eventId if provided, otherwise fall back to eventName
+    const conditions = [
+      eq(dailyCheckins.userId, data.userId),
+      eq(dailyCheckins.date, data.date),
+      eq(dailyCheckins.workspaceId, data.workspaceId),
+    ];
+    if (data.eventId) {
+      conditions.push(eq(dailyCheckins.eventId, data.eventId));
+    } else {
+      conditions.push(eq(dailyCheckins.eventName, data.eventName));
+    }
+    const existing = await db.select().from(dailyCheckins).where(and(...conditions));
     if (existing.length > 0) {
       const [updated] = await db.update(dailyCheckins)
         .set({ checkedInAt: new Date(), checkedOutAt: null })

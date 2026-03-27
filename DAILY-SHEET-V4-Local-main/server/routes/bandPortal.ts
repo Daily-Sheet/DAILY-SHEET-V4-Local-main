@@ -36,6 +36,13 @@ export function registerBandPortalRoutes(app: Express, upload: multer.Multer) {
         return res.status(400).json({ message: "Event, folder, and band name are required" });
       }
 
+      // Resolve eventId from eventName
+      let eventId = req.body.eventId || null;
+      if (!eventId && eventName) {
+        const event = await storage.getEventByName(eventName, workspaceId);
+        eventId = event?.id || null;
+      }
+
       const token = randomUUID();
       const expiresAt = expiresInDays
         ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
@@ -44,6 +51,7 @@ export function registerBandPortalRoutes(app: Express, upload: multer.Multer) {
       const link = await storage.createBandPortalLink({
         token,
         eventName,
+        eventId,
         folderName,
         workspaceId,
         bandName: bandName.trim(),

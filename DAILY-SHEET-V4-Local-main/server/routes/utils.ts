@@ -106,6 +106,30 @@ export async function getUserAllowedEventNames(userId: string, workspaceId: numb
   return Array.from(nameSet);
 }
 
+export async function getUserAllowedEventIds(userId: string, workspaceId: number): Promise<number[] | null> {
+  const allowedNames = await getUserAllowedEventNames(userId, workspaceId);
+  // If the user has unrestricted access, propagate null.
+  if (allowedNames === null) {
+    return null;
+  }
+  // If there are no allowed event names, there are no allowed event IDs.
+  if (allowedNames.length === 0) {
+    return [];
+  }
+
+  const allEvents = await storage.getEvents(workspaceId);
+  const idSet = new Set<number>();
+
+  for (const ev of allEvents) {
+    // Support either `name` or `eventName` as the event's name property.
+    const eventName = (ev as any).name ?? (ev as any).eventName;
+    if (eventName && allowedNames.includes(eventName)) {
+      idSet.add(ev.id);
+    }
+  }
+  return Array.from(idSet);
+}
+
 export async function notifyUsers(
   userIds: string[],
   actorId: string,

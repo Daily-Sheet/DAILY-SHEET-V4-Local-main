@@ -32,9 +32,13 @@ export function registerEventRoutes(app: Express, upload: multer.Multer) {
       if (!input.projectId) {
         return res.status(400).json({ message: "A project is required to create a show" });
       }
-      const existing = await storage.getEventByName(input.name, workspaceId);
-      if (existing) {
-        return res.status(409).json({ message: "An event with that name already exists" });
+      // Prevent creation of events with duplicate names within the same workspace
+      if (input.name) {
+        const existingEvents = await storage.getEvents(workspaceId);
+        const hasDuplicateName = existingEvents.some((e: any) => e.name === input.name);
+        if (hasDuplicateName) {
+          return res.status(400).json({ message: "An event with this name already exists in this workspace" });
+        }
       }
       const event = await storage.createEvent({ ...input, workspaceId });
 
@@ -84,9 +88,7 @@ export function registerEventRoutes(app: Express, upload: multer.Multer) {
       const { venueForAllDays, ...data } = req.body as Partial<{ name: string; color: string; notes: string; startDate: string; endDate: string; venueId: number | null; projectId: number | null; venueForAllDays: boolean; legId: number | null; eventType: string; tag: string | null }>;
 
       if (data.name && data.name !== existing.name) {
-        const duplicate = await storage.getEventByName(data.name, workspaceId);
-        if (duplicate) return res.status(409).json({ message: "An event with that name already exists" });
-        await storage.renameEvent(existing.name, data.name, workspaceId);
+        // No need to cascade rename since relationships use eventId now
       }
 
       const updated = await storage.updateEvent(id, { ...data, projectId: "projectId" in data ? data.projectId : undefined });
@@ -217,9 +219,13 @@ export function registerEventRoutes(app: Express, upload: multer.Multer) {
       if (!eventName || typeof eventName !== "string" || eventName.trim().length === 0) {
         return res.status(400).json({ message: "Event name is required" });
       }
+      // Look up event to get eventId
+      const event = await storage.getEventByName(eventName.trim(), workspaceId);
+      const eventId = (req.body.eventId as number) || event?.id || null;
       const assignment = await storage.createAssignment({
         userId: req.params.id,
         eventName: eventName.trim(),
+        eventId,
         workspaceId,
         date: date && typeof date === "string" ? date : null,
       });
@@ -353,7 +359,8 @@ export function registerEventRoutes(app: Express, upload: multer.Multer) {
       const assignments = [];
       for (const name of eventNames) {
         if (typeof name === "string" && name.trim().length > 0) {
-          const a = await storage.createAssignment({ userId: req.params.id, eventName: name.trim(), workspaceId });
+          const ev = await storage.getEventByName(name.trim(), workspaceId);
+          const a = await storage.createAssignment({ userId: req.params.id, eventName: name.trim(), eventId: ev?.id ?? null, workspaceId });
           assignments.push(a);
         }
       }

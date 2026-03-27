@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useGlobalShortcuts } from "@/hooks/use-global-shortcuts";
 import { useWebSocket } from "@/hooks/use-websocket";
 import Dashboard from "@/pages/Dashboard";
+import DesktopDashboard from "@/pages/DesktopDashboard";
 import Admin from "@/pages/Admin";
 import Landing from "@/pages/Landing";
 import Register from "@/pages/Register";
@@ -103,6 +104,7 @@ function AuthenticatedRouter() {
     <Switch>
       <Route path="/select-org" component={OrgSelectorPage} />
       <Route path="/dashboard" component={Dashboard} />
+      <Route path="/desktop" component={DesktopDashboard} />
       <Route path="/shows" component={Shows} />
       <Route path="/calendar" component={CalendarPage} />
       <Route path="/map" component={MapPage} />

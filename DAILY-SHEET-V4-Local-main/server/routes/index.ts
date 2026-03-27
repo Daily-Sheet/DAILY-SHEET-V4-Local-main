@@ -5,6 +5,7 @@ import path from "path";
 import fs from "fs";
 import { setupAuth } from "../replit_integrations/auth";
 import { db } from "../db";
+import { pool } from "../db";
 import { users, workspaces, workspaceMembers } from "@shared/models/auth";
 import { schedules, contacts, files, venues, events, fileFolders, comments, settings as settingsTable, eventAssignments } from "@shared/schema";
 import { eq, isNull } from "drizzle-orm";
@@ -80,10 +81,103 @@ export async function registerRoutes(
   // Initialize WebSocket server for real-time sync
   initWebSocketServer(httpServer);
 
-  // Migrate existing users without workspaces
+  // Run migrations
+  await migrateEventIdColumns();
   await migrateExistingUsersToWorkspaces();
 
   return httpServer;
+}
+
+/**
+ * Runtime safeguard for event_id column and index creation/backfill.
+ *
+ * NOTE:
+ * This logic intentionally duplicates the corresponding SQL migration
+ * that adds `event_id` columns and indexes to several tables
+ * (e.g. schedules, event_assignments, files, file_folders, daily_checkins,
+ * band_portal_links, access_links) and backfills values based on
+ * existing data.
+ *
+ * Why this exists in code:
+ * - Some deployment environments (for example ephemeral or
+ *   development instances) may not have run the full SQL migration
+ *   pipeline before the server starts.
+ * - To avoid hard failures in those cases, we run this lightweight
+ *   migration at startup as a safety net.
+ *
+ * Maintenance implications:
+ * - If the SQL migration that manages `event_id` columns/indexes is
+ *   changed (new tables, different types, constraints, or index names),
+ *   this function MUST be reviewed and updated to match.
+ * - If the project later standardises on running only SQL migrations
+ *   in all environments, this function should be removed along with
+ *   the call site in `registerRoutes` to avoid duplicate migration
+ *   logic.
+ */
+async function migrateEventIdColumns() {
+  try {
+    const client = await pool.connect();
+    try {
+      // Check if the column already exists on the schedules table
+      const check = await client.query(`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_name = 'schedules' AND column_name = 'event_id'
+      `);
+      if (check.rows.length > 0) {
+        // Columns exist — just backfill any rows that are still NULL
+        await backfillEventIds(client);
+        return;
+      }
+
+      console.log("Adding event_id columns to tables...");
+
+      const tables = [
+        "schedules", "event_assignments", "files", "file_folders",
+        "daily_checkins", "band_portal_links", "access_links",
+      ];
+      for (const t of tables) {
+        await client.query(`ALTER TABLE ${t} ADD COLUMN IF NOT EXISTS event_id INTEGER`);
+      }
+
+      // Create indexes
+      for (const t of tables) {
+        await client.query(`CREATE INDEX IF NOT EXISTS idx_${t}_event_id ON ${t}(event_id)`);
+      }
+
+      console.log("event_id columns added. Backfilling from event_name...");
+      await backfillEventIds(client);
+      console.log("event_id backfill complete.");
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error("Event ID migration error (non-fatal):", error);
+  }
+}
+
+async function backfillEventIds(client: any) {
+  const tableSets = [
+    { table: "schedules", alias: "s" },
+    { table: "event_assignments", alias: "ea" },
+    { table: "files", alias: "f" },
+    { table: "file_folders", alias: "ff" },
+    { table: "daily_checkins", alias: "dc" },
+    { table: "band_portal_links", alias: "bpl" },
+    { table: "access_links", alias: "al" },
+  ];
+  for (const { table, alias } of tableSets) {
+    const result = await client.query(`
+      UPDATE ${table} ${alias}
+      SET event_id = e.id
+      FROM events e
+      WHERE ${alias}.event_name = e.name
+        AND ${alias}.workspace_id = e.workspace_id
+        AND ${alias}.event_id IS NULL
+    `);
+    if (result.rowCount > 0) {
+      console.log(`  Backfilled ${result.rowCount} rows in ${table}`);
+    }
+  }
 }
 
 async function migrateExistingUsersToWorkspaces() {
