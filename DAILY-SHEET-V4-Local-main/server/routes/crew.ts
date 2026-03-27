@@ -22,7 +22,7 @@ export function registerCrewRoutes(app: Express, upload: multer.Multer) {
   });
 
   app.post("/api/daily-checkins", isAuthenticated, async (req: any, res) => {
-    const { userId, eventName, date } = req.body;
+    const { userId, eventName, eventId, date } = req.body;
     const workspaceId = req.user.workspaceId;
     const targetUserId = userId || req.user.id;
     if (targetUserId !== req.user.id) {
@@ -32,7 +32,15 @@ export function registerCrewRoutes(app: Express, upload: multer.Multer) {
       }
     }
     if (!eventName || !date) return res.status(400).json({ message: "eventName and date are required" });
-    const checkin = await storage.upsertDailyCheckin({ userId: targetUserId, eventName, date, workspaceId });
+
+    // Resolve eventId if not provided
+    let resolvedEventId = eventId;
+    if (!resolvedEventId && eventName) {
+      const event = await storage.getEventByName(eventName, workspaceId);
+      resolvedEventId = event?.id || null;
+    }
+
+    const checkin = await storage.upsertDailyCheckin({ userId: targetUserId, eventName, eventId: resolvedEventId ?? undefined, date, workspaceId });
 
     const targetUser = await storage.getUser(targetUserId);
     const targetName = targetUser?.firstName || "Unknown";

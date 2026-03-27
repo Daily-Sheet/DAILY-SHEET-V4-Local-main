@@ -20,11 +20,12 @@ export function registerAuthRoutes(app: Express, upload: multer.Multer) {
       const workspaceId = user.workspaceId;
       const workspaceRole = await getWorkspaceRole(user.id, workspaceId);
       let eventAssignments: string[] = [];
+      let eventAssignmentIds: number[] = [];
       if (workspaceId) {
         const allAssignments = await storage.getAllAssignments(workspaceId);
-        eventAssignments = allAssignments
-          .filter((a: any) => a.userId === user.id)
-          .map((a: any) => a.eventName);
+        const userAssignments = allAssignments.filter((a: any) => a.userId === user.id);
+        eventAssignments = userAssignments.map((a: any) => a.eventName);
+        eventAssignmentIds = userAssignments.map((a: any) => a.eventId).filter(Boolean);
       }
       res.json({
         id: user.id,
@@ -39,6 +40,7 @@ export function registerAuthRoutes(app: Express, upload: multer.Multer) {
         workspaceId: user.workspaceId,
         workspaceRole,
         eventAssignments,
+        eventAssignmentIds,
         dashboardPreferences: user.dashboardPreferences ?? null,
       });
     } catch (error) {
@@ -84,11 +86,12 @@ export function registerAuthRoutes(app: Express, upload: multer.Multer) {
       const workspaceId = user.workspaceId;
       const workspaceRole = await getWorkspaceRole(user.id, workspaceId);
       let eventAssignments: string[] = [];
+      let eventAssignmentIds: number[] = [];
       if (workspaceId) {
         const allAssignments = await storage.getAllAssignments(workspaceId);
-        eventAssignments = allAssignments
-          .filter((a: any) => a.userId === user.id)
-          .map((a: any) => a.eventName);
+        const userAssignments = allAssignments.filter((a: any) => a.userId === user.id);
+        eventAssignments = userAssignments.map((a: any) => a.eventName);
+        eventAssignmentIds = userAssignments.map((a: any) => a.eventId).filter(Boolean);
       }
 
       res.json({
@@ -104,6 +107,7 @@ export function registerAuthRoutes(app: Express, upload: multer.Multer) {
         workspaceId: user.workspaceId,
         workspaceRole,
         eventAssignments,
+        eventAssignmentIds,
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to update profile" });

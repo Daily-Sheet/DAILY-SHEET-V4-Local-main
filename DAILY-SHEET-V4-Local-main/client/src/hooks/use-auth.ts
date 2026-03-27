@@ -4,7 +4,7 @@ import { api } from "@shared/routes";
 import { buildApiUrl } from "@/lib/api";
 import { queryClient as globalQueryClient } from "@/lib/queryClient";
 
-export type AuthUser = User & { eventAssignments?: string[]; projectAssignments?: { projectId: number; position?: string | null }[]; workspaceRole?: string; workspaceCount?: number };
+export type AuthUser = User & { eventAssignments?: string[]; eventAssignmentIds?: number[]; projectAssignments?: { projectId: number; position?: string | null }[]; workspaceRole?: string; workspaceCount?: number };
 
 interface BootstrapResponse {
   user: AuthUser;

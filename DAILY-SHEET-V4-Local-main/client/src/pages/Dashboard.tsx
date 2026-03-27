@@ -384,6 +384,7 @@ export default function Dashboard() {
 
   const eventSelection = useEventSelection();
   const selectedEvents = eventSelection.selectedEvents;
+  const selectedEventIds = eventSelection.selectedEventIds;
 
   useEffect(() => {
     if (user?.workspaceId) {
@@ -441,6 +442,13 @@ export default function Dashboard() {
 
   const { mutate: deleteSchedule } = useDeleteSchedule();
   const { mutate: deleteContact } = useDeleteContact();
+
+  // Keep event name⇄ID resolver in sync
+  useEffect(() => {
+    if (eventsList.length > 0) {
+      eventSelection.setEventResolver(eventsList);
+    }
+  }, [eventsList]);
 
   const isManager = user?.role === "owner" || user?.role === "manager";
   const isAdmin = ["owner", "manager", "admin"].includes(user?.role || "");
@@ -610,12 +618,13 @@ export default function Dashboard() {
     const dateSet = new Set<string>();
     const todayStr = format(new Date(), "yyyy-MM-dd");
     const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-    const hasSelection = selectedEvents.length > 0;
-    const selectedSet = new Set(selectedEvents);
+    const hasSelection = selectedEventIds.length > 0 || selectedEvents.length > 0;
+    const selectedIdSet = new Set(selectedEventIds);
+    const selectedNameSet = new Set(selectedEvents);
     const activeEventsList = (eventsList as Event[]).filter((e: Event) => !e.archived);
 
     const filteredEvents = hasSelection
-      ? activeEventsList.filter((e: Event) => selectedSet.has(e.name))
+      ? activeEventsList.filter((e: Event) => selectedIdSet.has(e.id) || selectedNameSet.has(e.name))
       : activeEventsList;
 
     if (!hasSelection) {
@@ -623,7 +632,10 @@ export default function Dashboard() {
     }
 
     const filteredSchedules = hasSelection
-      ? schedules.filter((s) => s.eventName && selectedSet.has(s.eventName))
+      ? schedules.filter((s) => {
+          if (s.eventId) return selectedIdSet.has(s.eventId);
+          return s.eventName && selectedNameSet.has(s.eventName);
+        })
       : schedules;
 
     filteredSchedules.forEach((item) => {
@@ -651,7 +663,7 @@ export default function Dashboard() {
       }
     });
     return Array.from(dateSet).sort();
-  }, [schedules, eventsList, selectedEvents]);
+  }, [schedules, eventsList, selectedEventIds, selectedEvents]);
 
   useEffect(() => {
     if (availableDates.length > 0 && !activeDate) {
@@ -664,20 +676,23 @@ export default function Dashboard() {
   const availableEvents = useMemo(() => {
     const activeEvents = (eventsList as Event[]).filter((e: Event) => !e.archived);
     if (!isManager) {
+      const assignedIds = user?.eventAssignmentIds as number[] | undefined;
       const assigned = user?.eventAssignments as string[] | undefined;
-      const assignedSet = new Set(assigned || []);
+      const assignedIdSet = new Set(assignedIds || []);
+      const assignedNameSet = new Set(assigned || []);
       const projAssignments = user?.projectAssignments || [];
       if (projAssignments.length > 0) {
         const projIds = new Set(projAssignments.map(pa => pa.projectId));
         for (const ev of activeEvents) {
           if (ev.projectId && projIds.has(ev.projectId)) {
-            assignedSet.add(ev.name);
+            assignedIdSet.add(ev.id);
+            assignedNameSet.add(ev.name);
           }
         }
       }
-      if (assignedSet.size === 0) return [];
+      if (assignedIdSet.size === 0 && assignedNameSet.size === 0) return [];
       return activeEvents
-        .filter((e: Event) => assignedSet.has(e.name))
+        .filter((e: Event) => assignedIdSet.has(e.id) || assignedNameSet.has(e.name))
         .sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""))
         .map((e: Event) => e.name);
     }
@@ -688,18 +703,16 @@ export default function Dashboard() {
 
   const expandedAssignedEvents = useMemo(() => {
     if (isManager) return null;
-    const assigned = user?.eventAssignments as string[] | undefined;
-    const assignedSet = new Set(assigned || []);
+    const assignedIds = user?.eventAssignmentIds as number[] | undefined;
+    const assignedIdSet = new Set(assignedIds || []);
     const projAssignments = user?.projectAssignments || [];
     if (projAssignments.length > 0) {
       const projIds = new Set(projAssignments.map(pa => pa.projectId));
       for (const ev of eventsList) {
-        if (ev.projectId && projIds.has(ev.projectId)) {
-          assignedSet.add(ev.name);
-        }
+        if (ev.projectId && projIds.has(ev.projectId)) assignedIdSet.add(ev.id);
       }
     }
-    return assignedSet;
+    return assignedIdSet;
   }, [eventsList, isManager, user]);
 
   const todayStr = format(new Date(), "yyyy-MM-dd");
@@ -859,15 +872,22 @@ export default function Dashboard() {
   const filteredSchedule = useMemo(() => sortedSchedule.filter((item) => {
     if (!isManager) {
       if (!expandedAssignedEvents || expandedAssignedEvents.size === 0) return false;
-      if (item.eventName && !expandedAssignedEvents.has(item.eventName)) return false;
+      if (item.eventId && !expandedAssignedEvents.has(item.eventId)) return false;
+      else if (!item.eventId && item.eventName) {
+        const ev = eventsList.find((e: Event) => e.name === item.eventName);
+        if (ev && !expandedAssignedEvents.has(ev.id)) return false;
+      }
     }
     const d = item.eventDate || format(new Date(item.startTime), "yyyy-MM-dd");
     if (d !== activeDate) return false;
     if (effectiveSelectedEvents.length > 0) {
+      if (item.eventId) {
+        return effectiveSelectedEventsSet.has(item.eventName || "");
+      }
       return item.eventName ? effectiveSelectedEventsSet.has(item.eventName) : false;
     }
     return true;
-  }), [sortedSchedule, activeDate, effectiveSelectedEventsSet, isManager, expandedAssignedEvents]);
+  }), [sortedSchedule, activeDate, effectiveSelectedEventsSet, isManager, expandedAssignedEvents, eventsList]);
 
   const searchFilteredNestedFlat = useMemo(() => {
     const tree = buildNestedSchedule(filteredSchedule);
@@ -925,7 +945,11 @@ export default function Dashboard() {
     return sortedSchedule.filter((item) => {
       if (!isManager) {
         if (!expandedAssignedEvents || expandedAssignedEvents.size === 0) return false;
-        if (item.eventName && !expandedAssignedEvents.has(item.eventName)) return false;
+        if (item.eventId && !expandedAssignedEvents.has(item.eventId)) return false;
+        else if (!item.eventId && item.eventName) {
+          const ev = eventsList.find((e: Event) => e.name === item.eventName);
+          if (ev && !expandedAssignedEvents.has(ev.id)) return false;
+        }
       }
       const d = item.eventDate || format(new Date(item.startTime), "yyyy-MM-dd");
       return d === activeDate;
@@ -936,7 +960,7 @@ export default function Dashboard() {
       if (diff !== 0) return diff;
       return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
     });
-  }, [sortedSchedule, activeDate, isManager, expandedAssignedEvents]);
+  }, [sortedSchedule, activeDate, isManager, expandedAssignedEvents, eventsList]);
 
   const allShowsForSelectedDate = useMemo(() => {
     if (!isManager) {
@@ -944,7 +968,7 @@ export default function Dashboard() {
     }
     return (eventsList as Event[]).filter((ev: Event) => {
       if (ev.archived) return false;
-      if (!isManager && expandedAssignedEvents && !expandedAssignedEvents.has(ev.name)) return false;
+      if (!isManager && expandedAssignedEvents && !expandedAssignedEvents.has(ev.id)) return false;
       if (!ev.startDate) return false;
       const start = ev.startDate;
       const end = ev.endDate || ev.startDate;
@@ -984,19 +1008,34 @@ export default function Dashboard() {
   }, [activeProjects, eventsList, activeDate, allDayVenues, venuesList]);
 
   const dailySheetContacts = useMemo(() => {
+    const dateShowIds = new Set(showsForSelectedDate.map(s => s.id));
     const dateShowNames = new Set(showsForSelectedDate.map(s => s.name));
     const relevantUserIds = new Set(
       allEventAssignments
-        .filter((a: any) => dateShowNames.has(a.eventName))
+        .filter((a: any) => (a.eventId ? dateShowIds.has(a.eventId) : dateShowNames.has(a.eventName)))
         .map((a: any) => a.userId)
     );
     if (!isManager) {
-      const assigned = user?.eventAssignments as string[] | undefined;
-      if (!assigned || assigned.length === 0) return [];
-      const assignedNames = new Set(assigned);
+      const assignedIds = user?.eventAssignmentIds as number[] | undefined;
+      const assignedIdSet = new Set(assignedIds || []);
+      if (assignedIdSet.size === 0) {
+        const assigned = user?.eventAssignments as string[] | undefined;
+        if (!assigned || assigned.length === 0) return [];
+        const assignedNames = new Set(assigned);
+        const assignedUserIds = new Set(
+          allEventAssignments
+            .filter((a: any) => assignedNames.has(a.eventName) && dateShowNames.has(a.eventName))
+            .map((a: any) => a.userId)
+        );
+        return contacts.filter(c => c.userId && assignedUserIds.has(c.userId));
+      }
       const assignedUserIds = new Set(
         allEventAssignments
-          .filter((a: any) => assignedNames.has(a.eventName) && dateShowNames.has(a.eventName))
+          .filter((a: any) => {
+            const matchesAssigned = a.eventId ? assignedIdSet.has(a.eventId) : false;
+            const matchesDate = a.eventId ? dateShowIds.has(a.eventId) : dateShowNames.has(a.eventName);
+            return matchesAssigned && matchesDate;
+          })
           .map((a: any) => a.userId)
       );
       return contacts.filter(c => c.userId && assignedUserIds.has(c.userId));
