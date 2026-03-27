@@ -12,6 +12,8 @@ interface EventSelectionContextType {
   selectAll: (events: string[]) => void;
   selectAllByIds: (ids: number[]) => void;
   setWorkspaceScope: (workspaceId: number) => void;
+  /** Register the current events list so name⇄ID sync works automatically. */
+  setEventResolver: (events: { id: number; name: string }[]) => void;
 }
 
 const STORAGE_PREFIX = "dailysheet_selected_events";
@@ -66,6 +68,39 @@ export function EventSelectionProvider({ children }: { children: ReactNode }) {
   const [selectedEvents, setSelectedEventsRaw] = useState<string[]>([]);
   const [selectedEventIds, setSelectedEventIdsRaw] = useState<number[]>([]);
 
+  // Resolver maps for name⇄ID sync. Updated externally via setEventResolver.
+  const nameToIdRef = useRef<Map<string, number>>(new Map());
+  const idToNameRef = useRef<Map<number, string>>(new Map());
+
+  const setEventResolver = useCallback((events: { id: number; name: string }[]) => {
+    const n2i = new Map<string, number>();
+    const i2n = new Map<number, string>();
+    for (const e of events) {
+      n2i.set(e.name, e.id);
+      i2n.set(e.id, e.name);
+    }
+    nameToIdRef.current = n2i;
+    idToNameRef.current = i2n;
+  }, []);
+
+  /** Given names, resolve matching IDs and update both states + storage */
+  const syncFromNames = useCallback((names: string[]) => {
+    setSelectedEventsRaw(names);
+    saveToStorage(names, workspaceIdRef.current);
+    const ids = names.map(n => nameToIdRef.current.get(n)).filter((id): id is number => id != null);
+    setSelectedEventIdsRaw(ids);
+    saveIdsToStorage(ids, workspaceIdRef.current);
+  }, []);
+
+  /** Given IDs, resolve matching names and update both states + storage */
+  const syncFromIds = useCallback((ids: number[]) => {
+    setSelectedEventIdsRaw(ids);
+    saveIdsToStorage(ids, workspaceIdRef.current);
+    const names = ids.map(id => idToNameRef.current.get(id)).filter((n): n is string => n != null);
+    setSelectedEventsRaw(names);
+    saveToStorage(names, workspaceIdRef.current);
+  }, []);
+
   const setWorkspaceScope = useCallback((workspaceId: number) => {
     if (workspaceIdRef.current !== workspaceId) {
       workspaceIdRef.current = workspaceId;
@@ -75,20 +110,22 @@ export function EventSelectionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setSelectedEvents = useCallback((events: string[]) => {
-    setSelectedEventsRaw(events);
-    saveToStorage(events, workspaceIdRef.current);
-  }, []);
+    syncFromNames(events);
+  }, [syncFromNames]);
 
   const setSelectedEventIds = useCallback((ids: number[]) => {
-    setSelectedEventIdsRaw(ids);
-    saveIdsToStorage(ids, workspaceIdRef.current);
-  }, []);
+    syncFromIds(ids);
+  }, [syncFromIds]);
 
   const toggleEvent = useCallback((name: string) => {
     setSelectedEventsRaw(prev => {
       const isSelected = prev.includes(name);
       const next = isSelected ? prev.filter(n => n !== name) : [...prev, name];
+      // Use syncFromNames logic inline to avoid stale closure
       saveToStorage(next, workspaceIdRef.current);
+      const ids = next.map(n => nameToIdRef.current.get(n)).filter((id): id is number => id != null);
+      setSelectedEventIdsRaw(ids);
+      saveIdsToStorage(ids, workspaceIdRef.current);
       return next;
     });
   }, []);
@@ -98,31 +135,28 @@ export function EventSelectionProvider({ children }: { children: ReactNode }) {
       const isSelected = prev.includes(id);
       const next = isSelected ? prev.filter(i => i !== id) : [...prev, id];
       saveIdsToStorage(next, workspaceIdRef.current);
+      const names = next.map(i => idToNameRef.current.get(i)).filter((n): n is string => n != null);
+      setSelectedEventsRaw(names);
+      saveToStorage(names, workspaceIdRef.current);
       return next;
     });
   }, []);
 
   const singleSelect = useCallback((name: string) => {
-    const next = [name];
-    setSelectedEventsRaw(next);
-    saveToStorage(next, workspaceIdRef.current);
-  }, []);
+    syncFromNames([name]);
+  }, [syncFromNames]);
 
   const singleSelectById = useCallback((id: number) => {
-    const next = [id];
-    setSelectedEventIdsRaw(next);
-    saveIdsToStorage(next, workspaceIdRef.current);
-  }, []);
+    syncFromIds([id]);
+  }, [syncFromIds]);
 
   const selectAll = useCallback((events: string[]) => {
-    setSelectedEventsRaw(events);
-    saveToStorage(events, workspaceIdRef.current);
-  }, []);
+    syncFromNames(events);
+  }, [syncFromNames]);
 
   const selectAllByIds = useCallback((ids: number[]) => {
-    setSelectedEventIdsRaw(ids);
-    saveIdsToStorage(ids, workspaceIdRef.current);
-  }, []);
+    syncFromIds(ids);
+  }, [syncFromIds]);
 
   return (
     <EventSelectionContext.Provider value={{
@@ -137,6 +171,7 @@ export function EventSelectionProvider({ children }: { children: ReactNode }) {
       selectAll,
       selectAllByIds,
       setWorkspaceScope,
+      setEventResolver,
     }}>
       {children}
     </EventSelectionContext.Provider>

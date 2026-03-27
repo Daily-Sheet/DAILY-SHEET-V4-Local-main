@@ -443,6 +443,13 @@ export default function Dashboard() {
   const { mutate: deleteSchedule } = useDeleteSchedule();
   const { mutate: deleteContact } = useDeleteContact();
 
+  // Keep event name⇄ID resolver in sync
+  useEffect(() => {
+    if (eventsList.length > 0) {
+      eventSelection.setEventResolver(eventsList);
+    }
+  }, [eventsList]);
+
   const isManager = user?.role === "owner" || user?.role === "manager";
   const isAdmin = ["owner", "manager", "admin"].includes(user?.role || "");
   const canEdit = isAdmin;

@@ -77,6 +77,13 @@ export function useDashboardData() {
   const currentWorkspace = userWorkspaces.find((w: Workspace) => w.id === user?.workspaceId);
   const pendingInviteNotif = workspaceInviteNotifications[0] ?? null;
 
+  // ─── Keep event name⇄ID resolver in sync with events list ───────────
+  useEffect(() => {
+    if (eventsList.length > 0) {
+      eventSelection.setEventResolver(eventsList);
+    }
+  }, [eventsList]);
+
   // ─── Role checks ────────────────────────────────────────────────────
   const isManager = user?.role === "owner" || user?.role === "manager";
   const isAdmin = ["owner", "manager", "admin"].includes(user?.role || "");
@@ -404,6 +411,13 @@ export function useDashboardData() {
   }, [availableEventIds, isManager, selectedEventIds]);
   const effectiveSelectedEventIdSet = useMemo(() => new Set(effectiveSelectedEventIds), [effectiveSelectedEventIds]);
 
+  // ─── Name→Event lookup for legacy rows without eventId ───────────────
+  const eventByName = useMemo(() => {
+    const map = new Map<string, Event>();
+    for (const e of eventsList) map.set(e.name, e);
+    return map;
+  }, [eventsList]);
+
   // ─── Filtered schedule ───────────────────────────────────────────────
   const filteredSchedule = useMemo(() => sortedSchedule.filter((item) => {
     if (!isManager) {
@@ -411,7 +425,7 @@ export function useDashboardData() {
       if (item.eventId && !expandedAssignedEvents.has(item.eventId)) return false;
       else if (!item.eventId && item.eventName) {
         // Fallback: resolve eventId from eventName for legacy rows
-        const ev = eventsList.find((e: Event) => e.name === item.eventName);
+        const ev = eventByName.get(item.eventName);
         if (ev && !expandedAssignedEvents.has(ev.id)) return false;
       }
     }
@@ -424,7 +438,7 @@ export function useDashboardData() {
       return false;
     }
     return true;
-  }), [sortedSchedule, activeDate, effectiveSelectedEventIds, effectiveSelectedEventIdSet, effectiveSelectedEventsSet, isManager, expandedAssignedEvents, eventsList]);
+  }), [sortedSchedule, activeDate, effectiveSelectedEventIds, effectiveSelectedEventIdSet, effectiveSelectedEventsSet, isManager, expandedAssignedEvents, eventByName]);
 
   const searchFilteredNestedFlat = useMemo(() => {
     const tree = buildNestedSchedule(filteredSchedule);
@@ -438,7 +452,7 @@ export function useDashboardData() {
         if (!expandedAssignedEvents || expandedAssignedEvents.size === 0) return false;
         if (item.eventId && !expandedAssignedEvents.has(item.eventId)) return false;
         else if (!item.eventId && item.eventName) {
-          const ev = eventsList.find((e: Event) => e.name === item.eventName);
+          const ev = eventByName.get(item.eventName);
           if (ev && !expandedAssignedEvents.has(ev.id)) return false;
         }
       }
@@ -451,7 +465,7 @@ export function useDashboardData() {
       if (diff !== 0) return diff;
       return (a.sortOrder ?? 0) - (b.sortOrder ?? 0);
     });
-  }, [sortedSchedule, activeDate, isManager, expandedAssignedEvents, eventsList]);
+  }, [sortedSchedule, activeDate, isManager, expandedAssignedEvents, eventByName]);
 
   // ─── Shows for selected date ─────────────────────────────────────────
   const allShowsForSelectedDate = useMemo(() => {
