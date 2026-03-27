@@ -430,7 +430,6 @@ export default function Dashboard() {
       if (ev) {
         const dayVenue = allDayVenues.find(dv => dv.eventId === ev.id && dv.date === activeDate);
         if (dayVenue) return dayVenue.venueId;
-        if (ev.venueId) return ev.venueId;
       }
     }
     return null;
@@ -972,7 +971,7 @@ export default function Dashboard() {
       let nextStop: { event: Event; venue: Venue | null } | null = null;
       if (nextEv) {
         const dayVenue = allDayVenues.find(dv => dv.eventId === nextEv.id && dv.date === nextEv.startDate);
-        const venueId = dayVenue ? dayVenue.venueId : nextEv.venueId;
+        const venueId = dayVenue?.venueId ?? null;
         const venue = venueId ? venuesList.find(v => v.id === venueId) || null : null;
         nextStop = { event: nextEv, venue };
       }
@@ -1497,7 +1496,7 @@ export default function Dashboard() {
                         const labelColor = showColorMap.get(showName);
                         const showEvent = showsForSelectedDate.find(s => s.name === showName);
                         const dayVenueEntry = showEvent ? allDayVenues.find(dv => dv.eventId === showEvent.id && dv.date === activeDate) : null;
-                        const resolvedVenueId = dayVenueEntry ? dayVenueEntry.venueId : showEvent?.venueId;
+                        const resolvedVenueId = dayVenueEntry?.venueId ?? null;
                         const showVenue = resolvedVenueId ? venuesList.find(v => v.id === resolvedVenueId) || null : null;
                         const showProject = showEvent?.projectId ? allProjects.find(p => p.id === showEvent.projectId) : null;
                         const tourInfo = showTourMap.get(showName);
@@ -2244,7 +2243,7 @@ export default function Dashboard() {
                       if (ev.startDate && activeDate < ev.startDate) return;
                       if (ev.endDate && activeDate > ev.endDate) return;
                       const dayVenue = allDayVenues.find(dv => dv.eventId === ev.id && dv.date === activeDate);
-                      const resolvedVenueId = dayVenue ? dayVenue.venueId : ev.venueId;
+                      const resolvedVenueId = dayVenue?.venueId ?? null;
                       if (!resolvedVenueId) return;
                       const venue = venuesList.find(v => v.id === resolvedVenueId);
                       if (!venue) return;

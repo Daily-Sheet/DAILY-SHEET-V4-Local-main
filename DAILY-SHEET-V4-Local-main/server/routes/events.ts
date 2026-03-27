@@ -38,16 +38,13 @@ export function registerEventRoutes(app: Express, upload: multer.Multer) {
       }
       const event = await storage.createEvent({ ...input, workspaceId });
 
+      // Always populate eventDayVenues for all dates when a venue is provided
       if (input.venueId && input.startDate && input.endDate) {
-        if (venueForAllDays) {
-          const start = new Date(input.startDate + "T00:00:00");
-          const end = new Date(input.endDate + "T00:00:00");
-          for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            const dateStr = d.toISOString().split("T")[0];
-            await storage.setEventDayVenue({ eventId: event.id, date: dateStr, venueId: input.venueId, workspaceId });
-          }
-        } else {
-          await storage.setEventDayVenue({ eventId: event.id, date: input.startDate, venueId: input.venueId, workspaceId });
+        const start = new Date(input.startDate + "T00:00:00");
+        const end = new Date(input.endDate + "T00:00:00");
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+          const dateStr = d.toISOString().split("T")[0];
+          await storage.setEventDayVenue({ eventId: event.id, date: dateStr, venueId: input.venueId, workspaceId });
         }
       }
 
@@ -98,17 +95,17 @@ export function registerEventRoutes(app: Express, upload: multer.Multer) {
       const effectiveEndDate = data.endDate ?? existing.endDate;
       const effectiveVenueId = data.venueId !== undefined ? data.venueId : existing.venueId;
 
+      // Populate eventDayVenues — default to all dates unless venueForAllDays is explicitly false
       if (effectiveVenueId && effectiveStartDate && effectiveEndDate) {
-        if (venueForAllDays) {
+        if (venueForAllDays === false) {
+          await storage.setEventDayVenue({ eventId: id, date: effectiveStartDate, venueId: effectiveVenueId, workspaceId });
+        } else {
           const start = new Date(effectiveStartDate + "T00:00:00");
           const end = new Date(effectiveEndDate + "T00:00:00");
           for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
             const dateStr = d.toISOString().split("T")[0];
             await storage.setEventDayVenue({ eventId: id, date: dateStr, venueId: effectiveVenueId, workspaceId });
           }
-        } else {
-          const firstDate = effectiveStartDate;
-          await storage.setEventDayVenue({ eventId: id, date: firstDate, venueId: effectiveVenueId, workspaceId });
         }
       }
 

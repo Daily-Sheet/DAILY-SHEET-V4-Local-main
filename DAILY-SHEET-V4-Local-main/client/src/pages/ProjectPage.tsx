@@ -353,7 +353,7 @@ function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose: () => 
   const resolvedVenueId = (() => {
     if (!selectedEvent) return null;
     const dayVenue = allDayVenues.find(dv => dv.eventId === selectedEvent.id && dv.date === watchedDate);
-    return dayVenue ? dayVenue.venueId : selectedEvent.venueId;
+    return dayVenue?.venueId ?? null;
   })();
   const venueZones = resolvedVenueId ? (zones as Zone[]).filter(z => z.venueId === resolvedVenueId) : [];
 
@@ -2717,7 +2717,7 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
     const sorted = [...events].sort((a, b) => (a.startDate || "").localeCompare(b.startDate || ""));
     for (const event of sorted) {
       const dayVenue = allDayVenues.find(dv => dv.eventId === event.id && dv.date === event.startDate);
-      const venueId = dayVenue ? dayVenue.venueId : event.venueId;
+      const venueId = dayVenue?.venueId ?? null;
       const venue = venueId ? venues.find(v => v.id === venueId) || null : null;
       showItems.push({ type: "show" as const, event, venue, date: event.startDate || "" });
     }
@@ -2906,7 +2906,7 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
         const crewCount = contacts.filter(c => c.userId && crewUserIds.has(c.userId)).length;
         const selectedDate = showDates[show.event.id] || show.event.startDate || format(new Date(), "yyyy-MM-dd");
         const dayVenue = allDayVenues.find(dv => dv.eventId === show.event.id && dv.date === selectedDate);
-        const resolvedVenueId = dayVenue ? dayVenue.venueId : show.event.venueId;
+        const resolvedVenueId = dayVenue?.venueId ?? null;
         const resolvedVenue = resolvedVenueId ? venues.find(v => v.id === resolvedVenueId) || null : null;
         const activeTab = showTabs[show.event.id] || "schedule";
         const dateRange = getDateRange(show.event);
@@ -3227,6 +3227,7 @@ export default function ProjectPage() {
         endDate: data.endDate,
         venueId: data.venueId,
         projectId,
+        venueForAllDays: true,
       });
       return res.json();
     },

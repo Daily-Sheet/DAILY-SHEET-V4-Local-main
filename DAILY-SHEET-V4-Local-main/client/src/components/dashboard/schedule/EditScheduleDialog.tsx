@@ -125,7 +125,7 @@ export function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose:
   const resolvedVenueId = (() => {
     if (!selectedEvent) return null;
     const dayVenue = allDayVenues.find(dv => dv.eventId === selectedEvent.id && dv.date === watchedDate);
-    return dayVenue ? dayVenue.venueId : selectedEvent.venueId;
+    return dayVenue?.venueId ?? null;
   })();
   const venueZones = resolvedVenueId ? (zones as Zone[]).filter(z => z.venueId === resolvedVenueId) : [];
 

@@ -1949,8 +1949,8 @@ function EventsAdmin() {
   const [editEndDate, setEditEndDate] = useState("");
   const [editVenueId, setEditVenueId] = useState<number | null>(null);
   const [editProjectId, setEditProjectId] = useState<number | null>(null);
-  const [newVenueForAllDays, setNewVenueForAllDays] = useState(false);
-  const [editVenueForAllDays, setEditVenueForAllDays] = useState(false);
+  const [newVenueForAllDays, setNewVenueForAllDays] = useState(true);
+  const [editVenueForAllDays, setEditVenueForAllDays] = useState(true);
 
   const createMutation = useMutation({
     mutationFn: async (data: { name: string; notes?: string; startDate?: string; endDate?: string; venueId?: number | null; projectId?: number | null; venueForAllDays?: boolean }) => {
@@ -2253,7 +2253,7 @@ function EventsAdmin() {
                 setEditEndDate(event.endDate || "");
                 setEditVenueId(event.venueId ?? null);
                 setEditProjectId(event.projectId ?? null);
-                setEditVenueForAllDays(false);
+                setEditVenueForAllDays(true);
               }}
               data-testid={`button-edit-event-${event.id}`}
             >

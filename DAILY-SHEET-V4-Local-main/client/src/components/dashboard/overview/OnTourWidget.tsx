@@ -174,7 +174,7 @@ export function OnTourWidget({ events, projects, venues, allDayVenues, selectedD
 
       for (const ev of tourEvents) {
         const dayVenue = allDayVenues.find(dv => dv.eventId === ev.id && dv.date === ev.startDate);
-        const venueId = dayVenue ? dayVenue.venueId : ev.venueId;
+        const venueId = dayVenue?.venueId ?? null;
         const venue = venueId ? venues.find(v => v.id === venueId) || null : null;
 
         if (ev.startDate && ev.startDate <= selectedDate && (!ev.endDate || ev.endDate >= selectedDate)) {
