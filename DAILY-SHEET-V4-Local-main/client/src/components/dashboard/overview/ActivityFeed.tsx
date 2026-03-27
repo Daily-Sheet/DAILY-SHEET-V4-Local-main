@@ -33,6 +33,7 @@ export function ActivityFeed({ filterEvents = [] }: { filterEvents?: string[] })
       return res.json();
     },
     refetchOnWindowFocus: true,
+    refetchInterval: 30_000,
   });
 
   function toggleExpand(id: number) {

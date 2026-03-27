@@ -1588,6 +1588,17 @@ function VenueAdmin() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [expandedVenues, setExpandedVenues] = useState<Set<number>>(new Set());
   const [venueView, setVenueView] = useState<"list" | "map">("list");
+  const [venueSearch, setVenueSearch] = useState("");
+
+  const filteredVenues = useMemo(() => {
+    const q = venueSearch.trim().toLowerCase();
+    if (!q) return venuesList;
+    return venuesList.filter(v =>
+      v.name.toLowerCase().includes(q) ||
+      (v.address && v.address.toLowerCase().includes(q)) ||
+      (v.contactName && v.contactName.toLowerCase().includes(q))
+    );
+  }, [venuesList, venueSearch]);
 
   if (isLoading) return <div className="text-center text-muted-foreground py-12">Loading venues...</div>;
 
@@ -1629,6 +1640,23 @@ function VenueAdmin() {
       ) : (
         <>
 
+      {venuesList.length > 0 && (
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Search venues by name, address, or contact..."
+            value={venueSearch}
+            onChange={e => setVenueSearch(e.target.value)}
+            className="pl-9 bg-card/50 backdrop-blur-sm border-border/30"
+          />
+          {venueSearch && (
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+              {filteredVenues.length} of {venuesList.length}
+            </span>
+          )}
+        </div>
+      )}
+
       {showAdd && (
         <Card className="bg-card/50 backdrop-blur-sm border-border/30 rounded-xl">
           <CardHeader>
@@ -1662,8 +1690,15 @@ function VenueAdmin() {
             </Button>
           </CardContent>
         </Card>
+      ) : filteredVenues.length === 0 && venueSearch ? (
+        <Card className="bg-card/50 backdrop-blur-sm border-border/30 rounded-xl">
+          <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+            <Search className="w-8 h-8 text-muted-foreground/40 mb-2" />
+            <p className="text-muted-foreground">No venues match "{venueSearch}"</p>
+          </CardContent>
+        </Card>
       ) : (
-        venuesList.map((venue, venueIndex) => (
+        filteredVenues.map((venue, venueIndex) => (
           <motion.div
             key={venue.id}
             initial={{ opacity: 0, y: 8 }}

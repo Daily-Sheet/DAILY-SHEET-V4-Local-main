@@ -3,7 +3,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertScheduleSchema, type InsertSchedule, type Contact, type Event, type TaskType, type ScheduleTemplate as DbScheduleTemplate, type EventDayVenue, type CrewMember } from "@shared/schema";
 import { DEFAULT_TASK_TYPES } from "@shared/constants";
 import { toTimeInputValue } from "@/lib/timeUtils";
-import { useCreateSchedule } from "@/hooks/use-schedules";
+import { useCreateSchedule, useSchedules } from "@/hooks/use-schedules";
 import { useContacts } from "@/hooks/use-contacts";
 import { useAuth } from "@/hooks/use-auth";
 import { useZones } from "@/hooks/use-zones";
@@ -227,6 +227,7 @@ export function CreateScheduleDialog({ defaultEventName, defaultDate, trigger }:
   const [crewSearch, setCrewSearch] = useState("");
   const [noEndTime, setNoEndTime] = useState(false);
   const [isNextDay, setIsNextDay] = useState(false);
+  const [isNextDayManual, setIsNextDayManual] = useState(false);
   const { mutate, isPending } = useCreateSchedule();
   const { toast } = useToast();
   const { data: contacts = [] } = useContacts();
@@ -236,6 +237,21 @@ export function CreateScheduleDialog({ defaultEventName, defaultDate, trigger }:
   const { data: venuesList = [] } = useVenues();
   const { data: eventsList = [] } = useQuery<Event[]>({ queryKey: ["/api/events"] });
   const { data: allEventAssignments = [] } = useQuery<any[]>({ queryKey: ["/api/event-assignments"] });
+  const { data: allSchedules = [] } = useSchedules();
+
+  const autoDetectNextDay = useCallback((time24: string, eventDate: string, eventName: string | undefined) => {
+    if (isNextDayManual) return;
+    const [h] = time24.split(":").map(Number);
+    if (h >= 6) { setIsNextDay(false); return; }
+    // Hour is 0-5 — check if there are evening items on this event/date
+    const hasEveningItems = allSchedules.some((s: any) => {
+      if (s.eventName !== eventName || s.eventDate !== eventDate) return false;
+      if (s.isNextDay) return false;
+      const startMin = new Date(s.startTime).getHours() * 60 + new Date(s.startTime).getMinutes();
+      return startMin >= 18 * 60; // 6 PM or later
+    });
+    setIsNextDay(hasEveningItems);
+  }, [allSchedules, isNextDayManual]);
 
   const { data: allDayVenues = [] } = useQuery<EventDayVenue[]>({ queryKey: ["/api/event-day-venues"] });
 
@@ -449,6 +465,7 @@ export function CreateScheduleDialog({ defaultEventName, defaultDate, trigger }:
                       onChange={(time24) => {
                         const eventDate = form.getValues("eventDate") || today;
                         field.onChange(timeStringToDate(time24, eventDate));
+                        autoDetectNextDay(time24, eventDate, defaultEventName);
                       }}
                       data-testid="input-create-schedule-start"
                     />
@@ -491,14 +508,20 @@ export function CreateScheduleDialog({ defaultEventName, defaultDate, trigger }:
               />
             </div>
 
-            <label className="flex items-center gap-2 cursor-pointer">
-              <Checkbox
-                checked={isNextDay}
-                onCheckedChange={(checked) => setIsNextDay(!!checked)}
-                data-testid="checkbox-next-day"
-              />
-              <span className="text-xs text-muted-foreground">After midnight <span className="text-amber-500 font-semibold">+1</span> — this item occurs past 12:00 AM (next calendar day)</span>
-            </label>
+            <button
+              type="button"
+              className={cn(
+                "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition-colors w-fit",
+                isNextDay
+                  ? "bg-amber-500/15 text-amber-500 border border-amber-500/30"
+                  : "bg-muted/50 text-muted-foreground border border-border/30 hover:bg-muted"
+              )}
+              onClick={() => { setIsNextDay(!isNextDay); setIsNextDayManual(true); }}
+              data-testid="toggle-next-day"
+            >
+              <span className="font-semibold">+1</span>
+              <span>{isNextDay ? "After midnight (next calendar day)" : "Same day"}</span>
+            </button>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField

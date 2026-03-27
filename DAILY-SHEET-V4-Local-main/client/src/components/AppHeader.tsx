@@ -54,6 +54,18 @@ export function AppHeader({
         {/* Right: User profile, search, map, etc. */}
         <div className="flex items-center gap-1 sm:gap-2 print:hidden flex-shrink-0 justify-end sm:w-1/3 ml-auto">
           {actions}
+          {(isManager || isAdmin) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link href="/admin">
+                  <Button variant="outline" size="icon" className="bg-card/50 backdrop-blur-sm border-border/30">
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent>Admin</TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip>
             <TooltipTrigger asChild>
               <Link href="/map">

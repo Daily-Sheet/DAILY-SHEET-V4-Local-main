@@ -73,10 +73,15 @@ export function useWebSocket() {
 
     // Listen for all domain events and invalidate queries
     const unsub = wsClient.on("*", (msg) => {
-      // Skip invalidation for own actions (React Query already handles via mutation onSuccess)
-      if (msg.meta.actorId === userId) return;
       // Skip presence events (handled separately)
       if (msg.type.startsWith("presence:")) return;
+
+      // Activity and notification events are server-side side effects —
+      // always invalidate them even for own actions since no client mutation handles it
+      const alwaysInvalidate = msg.type === "activity:new" || msg.type === "notification:new";
+
+      // Skip invalidation for own actions on direct mutations (React Query handles via onSuccess)
+      if (msg.meta.actorId === userId && !alwaysInvalidate) return;
 
       const keys = getInvalidations(msg.type);
       for (const key of keys) {

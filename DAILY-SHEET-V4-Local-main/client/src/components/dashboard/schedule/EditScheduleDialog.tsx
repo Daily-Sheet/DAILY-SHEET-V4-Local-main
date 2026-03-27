@@ -18,7 +18,7 @@ import { useForm } from "react-hook-form";
 import { cn } from "@/lib/utils";
 import { SearchableSelect } from "@/components/ui/searchable-select";
 import { toTimeInputValue } from "@/lib/timeUtils";
-import { useUpdateSchedule } from "@/hooks/use-schedules";
+import { useUpdateSchedule, useSchedules } from "@/hooks/use-schedules";
 import { useContacts } from "@/hooks/use-contacts";
 import { useVenues } from "@/hooks/use-venue";
 import { useZones } from "@/hooks/use-zones";
@@ -57,6 +57,22 @@ export function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose:
   const [crewSearch, setCrewSearch] = useState("");
   const [noEndTime, setNoEndTime] = useState(!item.endTime);
   const [isNextDay, setIsNextDay] = useState(!!(item as any).isNextDay);
+  const [isNextDayManual, setIsNextDayManual] = useState(true); // editing = trust existing value
+  const { data: allSchedules = [] } = useSchedules();
+
+  const autoDetectNextDay = useCallback((time24: string, eventDate: string, eventName: string | undefined | null) => {
+    if (isNextDayManual) return;
+    const [h] = time24.split(":").map(Number);
+    if (h >= 6) { setIsNextDay(false); return; }
+    const hasEveningItems = allSchedules.some((s: any) => {
+      if (s.id === item.id) return false; // exclude self
+      if (s.eventName !== eventName || s.eventDate !== eventDate) return false;
+      if (s.isNextDay) return false;
+      const startMin = new Date(s.startTime).getHours() * 60 + new Date(s.startTime).getMinutes();
+      return startMin >= 18 * 60;
+    });
+    setIsNextDay(hasEveningItems);
+  }, [allSchedules, isNextDayManual, item.id]);
   const categories = useCombinedCategories();
   const { data: crewPositions = [] } = useQuery<any[]>({ queryKey: ["/api/crew-positions"] });
 
@@ -213,6 +229,8 @@ export function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose:
                   onChange={(time24) => {
                     const eventDate = form.getValues("eventDate") || format(new Date(), "yyyy-MM-dd");
                     field.onChange(timeStringToDate(time24, eventDate));
+                    setIsNextDayManual(false);
+                    autoDetectNextDay(time24, eventDate, form.getValues("eventName"));
                   }}
                   data-testid="input-edit-schedule-start"
                 />
@@ -249,14 +267,20 @@ export function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose:
               </FormItem>
             )} />
           </div>
-          <label className="flex items-center gap-2 cursor-pointer">
-            <Checkbox
-              checked={isNextDay}
-              onCheckedChange={(checked) => setIsNextDay(!!checked)}
-              data-testid="checkbox-edit-next-day"
-            />
-            <span className="text-xs text-muted-foreground">After midnight <span className="text-amber-500 font-semibold">+1</span> — this item occurs past 12:00 AM (next calendar day)</span>
-          </label>
+          <button
+            type="button"
+            className={cn(
+              "flex items-center gap-2 rounded-md px-3 py-1.5 text-xs transition-colors w-fit",
+              isNextDay
+                ? "bg-amber-500/15 text-amber-500 border border-amber-500/30"
+                : "bg-muted/50 text-muted-foreground border border-border/30 hover:bg-muted"
+            )}
+            onClick={() => { setIsNextDay(!isNextDay); setIsNextDayManual(true); }}
+            data-testid="toggle-edit-next-day"
+          >
+            <span className="font-semibold">+1</span>
+            <span>{isNextDay ? "After midnight (next calendar day)" : "Same day"}</span>
+          </button>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FormField control={form.control} name="eventName" render={({ field }) => (
               <FormItem>
