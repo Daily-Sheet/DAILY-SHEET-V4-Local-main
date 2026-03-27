@@ -250,10 +250,9 @@ export default function Dashboard() {
         setCommandPaletteOpen(prev => !prev);
         return;
       }
-      // Ignore when typing in a field or when a button/tab trigger has focus
+      // Ignore when typing in a text field
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (e.target as HTMLElement)?.isContentEditable) return;
-      if (tag === "BUTTON" || (e.target as HTMLElement)?.getAttribute("role") === "tab") return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       if (e.key === "t" || e.key === "T") {
@@ -1197,7 +1196,7 @@ export default function Dashboard() {
           )}
         </AnimatePresence>
 
-        <Tabs defaultValue={defaultTab} value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)} className="space-y-4">
+        <Tabs defaultValue={defaultTab} value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)} activationMode="manual" className="space-y-4">
           {/* Customize layout dialog */}
           <Dialog open={customizeOpen} onOpenChange={setCustomizeOpen}>
             <DialogContent className="max-w-sm">
@@ -1265,7 +1264,6 @@ export default function Dashboard() {
               <div className="flex-1 overflow-x-auto scrollbar-hide min-w-0 text-center">
               <TabsList
                 className="bg-card p-1 rounded-xl inline-flex w-max"
-                onKeyDown={(e) => { if (e.key === "ArrowLeft" || e.key === "ArrowRight") e.preventDefault(); }}
               >
                 {visibleTabs.map(tabId => {
                   const meta = ALL_TABS.find(t => t.id === tabId)!;
@@ -1273,6 +1271,7 @@ export default function Dashboard() {
                     <TabsTrigger
                       key={tabId}
                       value={tabId}
+                      tabIndex={-1}
                       className="rounded-lg px-2.5 sm:px-4 py-2 text-xs sm:text-sm data-[state=active]:bg-primary data-[state=active]:text-primary-foreground font-medium transition-all whitespace-nowrap"
                       data-testid={tabId === "timesheet" ? "tab-timesheet" : tabId === "activity" ? "tab-activity" : undefined}
                     >

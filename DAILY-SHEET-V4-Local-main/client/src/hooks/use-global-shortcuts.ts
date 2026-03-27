@@ -9,7 +9,6 @@ export function useGlobalShortcuts() {
     const handleKeyDown = (e: KeyboardEvent) => {
       const tag = (e.target as HTMLElement)?.tagName;
       if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || (e.target as HTMLElement)?.isContentEditable) return;
-      if (tag === "BUTTON" || (e.target as HTMLElement)?.getAttribute("role") === "tab") return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
 
       if (e.key === "c" || e.key === "C") {
