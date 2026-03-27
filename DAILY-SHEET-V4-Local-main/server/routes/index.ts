@@ -7,7 +7,7 @@ import { setupAuth } from "../replit_integrations/auth";
 import { db } from "../db";
 import { users, workspaces, workspaceMembers } from "@shared/models/auth";
 import { schedules, contacts, files, venues, events, fileFolders, comments, settings as settingsTable, eventAssignments } from "@shared/schema";
-import { eq, isNull } from "drizzle-orm";
+import { eq, and, isNull, isNotNull } from "drizzle-orm";
 
 import { registerAuthRoutes } from "./auth";
 import { registerScheduleRoutes } from "./schedules";
@@ -83,6 +83,9 @@ export async function registerRoutes(
   // Migrate existing users without workspaces
   await migrateExistingUsersToWorkspaces();
 
+  // Backfill schedules.eventId from eventName
+  await migrateScheduleEventIds();
+
   return httpServer;
 }
 
@@ -148,5 +151,37 @@ async function migrateExistingUsersToWorkspaces() {
     }
   } catch (error) {
     console.error("Migration error (non-fatal):", error);
+  }
+}
+
+async function migrateScheduleEventIds() {
+  try {
+    // Find schedules that have eventName but no eventId
+    const orphans = await db.select({ id: schedules.id, eventName: schedules.eventName, workspaceId: schedules.workspaceId })
+      .from(schedules)
+      .where(and(isNull(schedules.eventId), isNotNull(schedules.eventName)));
+    if (orphans.length === 0) return;
+
+    const allEvents = await db.select().from(events);
+    // Map (name, workspaceId) → event.id
+    const eventLookup = new Map<string, number>();
+    for (const ev of allEvents) {
+      eventLookup.set(`${ev.name}::${ev.workspaceId}`, ev.id);
+    }
+
+    let updated = 0;
+    for (const row of orphans) {
+      const key = `${row.eventName}::${row.workspaceId}`;
+      const eventId = eventLookup.get(key);
+      if (eventId) {
+        await db.update(schedules).set({ eventId }).where(eq(schedules.id, row.id));
+        updated++;
+      }
+    }
+    if (updated > 0) {
+      console.log(`Migrated ${updated}/${orphans.length} schedules: backfilled eventId from eventName`);
+    }
+  } catch (error) {
+    console.error("Schedule eventId migration error (non-fatal):", error);
   }
 }

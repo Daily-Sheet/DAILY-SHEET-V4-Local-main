@@ -19,6 +19,7 @@ export const schedules = pgTable("schedules", {
   location: text("location"),
   eventDate: text("event_date"),
   eventName: text("event_name"),
+  eventId: integer("event_id"),
   sortOrder: integer("sort_order").default(0),
   crewNames: text("crew_names").array(),
   crew: json("crew").$type<CrewMember[]>(),

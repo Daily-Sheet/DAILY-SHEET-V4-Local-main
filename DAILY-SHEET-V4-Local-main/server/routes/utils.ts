@@ -106,6 +106,33 @@ export async function getUserAllowedEventNames(userId: string, workspaceId: numb
   return Array.from(nameSet);
 }
 
+export async function getUserAllowedEventIds(userId: string, workspaceId: number): Promise<number[] | null> {
+  const role = await getWorkspaceRole(userId, workspaceId);
+  if (role === "owner" || role === "manager" || role === "admin") return null;
+  const allAssignments = await storage.getAllAssignments(workspaceId);
+  const allEvents = await storage.getEvents(workspaceId);
+  const eventNameToId = new Map<string, number>();
+  for (const ev of allEvents) eventNameToId.set(ev.name, ev.id);
+
+  const idSet = new Set<number>();
+  for (const a of allAssignments) {
+    if (a.userId === userId) {
+      const eid = eventNameToId.get(a.eventName);
+      if (eid) idSet.add(eid);
+    }
+  }
+  const projAssignments = await storage.getProjectAssignmentsByUser(userId, workspaceId);
+  if (projAssignments.length > 0) {
+    const projIds = new Set(projAssignments.map((pa: any) => pa.projectId));
+    for (const ev of allEvents) {
+      if (ev.projectId && projIds.has(ev.projectId)) {
+        idSet.add(ev.id);
+      }
+    }
+  }
+  return Array.from(idSet);
+}
+
 export async function notifyUsers(
   userIds: string[],
   actorId: string,

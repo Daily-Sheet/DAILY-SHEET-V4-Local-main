@@ -695,12 +695,12 @@ function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose: () => 
   );
 }
 
-function ClearDayButton({ date, eventName, count }: { date: string; eventName?: string; count: number }) {
+function ClearDayButton({ date, eventName, eventId, count }: { date: string; eventName?: string; eventId?: number; count: number }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const clearMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("DELETE", "/api/schedules/clear-day", { eventDate: date, eventName });
+      await apiRequest("DELETE", "/api/schedules/clear-day", { eventDate: date, eventId, eventName });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/schedules"] });
@@ -916,7 +916,7 @@ function ScheduleTab({
               <>
                 <SaveAsTemplateButton schedules={dayItems} eventName={eventName} />
                 <CopyDayScheduleButton schedules={dayItems} defaultEventName={eventName} />
-                <ClearDayButton date={selectedDate} eventName={eventName} count={dayItems.length} />
+                <ClearDayButton date={selectedDate} eventName={eventName} eventId={(eventsList as Event[]).find(e => e.name === eventName)?.id} count={dayItems.length} />
               </>
             )}
           </div>

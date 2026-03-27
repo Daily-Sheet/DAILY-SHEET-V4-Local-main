@@ -8,7 +8,7 @@ import { isAuthenticated } from "../replit_integrations/auth";
 import {
   requireRole,
   normalizeTimeToEventDate,
-  getUserAllowedEventNames,
+  getUserAllowedEventIds,
   getCrewUserIdsForEvent,
   notifyUsers,
   logActivity,
@@ -26,12 +26,12 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
     }
     const workspaceId = user.workspaceId;
     let allSchedules = await storage.getSchedules(workspaceId);
-    const allowed = await getUserAllowedEventNames(user.id, workspaceId);
-    if (allowed !== null) {
-      if (allowed.length === 0) return res.json([]);
-      const allowedSet = new Set(allowed);
+    const allowedIds = await getUserAllowedEventIds(user.id, workspaceId);
+    if (allowedIds !== null) {
+      if (allowedIds.length === 0) return res.json([]);
+      const allowedSet = new Set(allowedIds);
       allSchedules = allSchedules.filter((s: any) =>
-        s.eventName && allowedSet.has(s.eventName)
+        s.eventId && allowedSet.has(s.eventId)
       );
     }
 
@@ -51,10 +51,12 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
     allAssignments.forEach((a: any) => {
       assignmentByUserEvent.set(`${a.userId}::${a.eventName}`, a);
     });
-    // Map eventName → projectId for project assignment lookup
-    const eventNameToProjectId = new Map<string, number>();
+    // Map eventId → projectId for project assignment lookup
+    const eventIdToProjectId = new Map<number, number>();
+    const eventIdToName = new Map<number, string>();
     allEvents.forEach((e: any) => {
-      if (e.projectId) eventNameToProjectId.set(e.name, e.projectId);
+      if (e.projectId) eventIdToProjectId.set(e.id, e.projectId);
+      eventIdToName.set(e.id, e.name);
     });
     const projectAssignmentByUserProject = new Map<string, any>();
     allProjectAssignments.forEach((pa: any) => {
@@ -65,14 +67,15 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
       if (s.crew && (s.crew as any[]).length > 0) return s;
       const names: string[] = s.crewNames || [];
       if (names.length === 0) return s;
-      const projectId = s.eventName ? eventNameToProjectId.get(s.eventName) : null;
+      const projectId = s.eventId ? eventIdToProjectId.get(s.eventId) : null;
+      const eventName = s.eventId ? eventIdToName.get(s.eventId) : s.eventName;
       const crew = names.map((name: string) => {
         const contact = contactByName.get(name.toLowerCase());
         const departments: string[] = contact?.role
           ? contact.role.split(",").map((r: string) => r.trim()).filter(Boolean)
           : [];
-        const assignment = contact?.userId
-          ? assignmentByUserEvent.get(`${contact.userId}::${s.eventName}`)
+        const assignment = contact?.userId && eventName
+          ? assignmentByUserEvent.get(`${contact.userId}::${eventName}`)
           : null;
         const projectAssignment = contact?.userId && projectId
           ? projectAssignmentByUserProject.get(`${contact.userId}::${projectId}`)
@@ -181,11 +184,12 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
   app.delete("/api/schedules/clear-day", isAuthenticated, requireRole("owner", "manager", "admin"), async (req: any, res) => {
     const workspaceId = req.user.workspaceId;
     if (!workspaceId) return res.status(400).json({ message: "No workspace selected" });
-    const { eventDate, eventName } = z.object({
+    const { eventDate, eventId, eventName } = z.object({
       eventDate: z.string(),
+      eventId: z.number().optional(),
       eventName: z.string().optional(),
     }).parse(req.body);
-    const count = await storage.clearDaySchedules(workspaceId, eventDate, eventName);
+    const count = await storage.clearDaySchedules(workspaceId, eventDate, eventId);
     res.json({ success: true, deleted: count });
 
     const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";

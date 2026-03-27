@@ -18,12 +18,12 @@ import { EditScheduleDialog } from "./EditScheduleDialog";
 import { CSS } from "@dnd-kit/utilities";
 import { useSortable } from "@dnd-kit/sortable";
 
-export function ClearDayButton({ date, eventName, count }: { date: string; eventName?: string; count: number }) {
+export function ClearDayButton({ date, eventName, eventId, count }: { date: string; eventName?: string; eventId?: number; count: number }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const clearMutation = useMutation({
     mutationFn: async () => {
-      await apiRequest("DELETE", "/api/schedules/clear-day", { eventDate: date, eventName });
+      await apiRequest("DELETE", "/api/schedules/clear-day", { eventDate: date, eventId, eventName });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/schedules"] });

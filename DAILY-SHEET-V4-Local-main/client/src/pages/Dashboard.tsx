@@ -1865,6 +1865,7 @@ export default function Dashboard() {
                               <ClearDayButton
                                 date={activeDate}
                                 eventName={effectiveSelectedEvents.length === 1 ? effectiveSelectedEvents[0] : undefined}
+                                eventId={effectiveSelectedEvents.length === 1 ? (eventsList as Event[]).find(e => e.name === effectiveSelectedEvents[0])?.id : undefined}
                                 count={filteredSchedule.length}
                               />
                             </>

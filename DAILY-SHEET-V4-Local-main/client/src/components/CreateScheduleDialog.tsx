@@ -256,6 +256,7 @@ export function CreateScheduleDialog({ defaultEventName, defaultDate, trigger }:
   const { data: allDayVenues = [] } = useQuery<EventDayVenue[]>({ queryKey: ["/api/event-day-venues"] });
 
   const selectedEvent = defaultEventName ? (eventsList as Event[]).find(e => e.name === defaultEventName) : null;
+  const defaultEventId = selectedEvent?.id ?? null;
   const filteredSections = selectedEvent ? (allSections as Section[]).filter(s => s.eventId === selectedEvent.id) : [];
 
   const today = defaultDate || format(new Date(), "yyyy-MM-dd");
@@ -344,7 +345,7 @@ export function CreateScheduleDialog({ defaultEventName, defaultDate, trigger }:
     }
     const crew = ((form.getValues as any)("crew") as CrewMember[] | null) || [];
     const submitData = { ...data, startTime: normalizedStart, endTime: normalizedEnd, crew, crewNames: crew.map((m: CrewMember) => m.name), isNextDay };
-    mutate({ ...submitData, eventName: defaultEventName || "", zoneId: data.zoneId || null, sectionId: data.sectionId || null }, {
+    mutate({ ...submitData, eventName: defaultEventName || "", eventId: defaultEventId, zoneId: data.zoneId || null, sectionId: data.sectionId || null }, {
       onSuccess: () => {
         setOpen(false);
         setCrewDropdownOpen(false);
@@ -831,6 +832,7 @@ export function ScheduleTemplateDialog({ defaultEventName, defaultDate, availabl
   const { mutateAsync } = useCreateSchedule();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { data: eventsList = [] } = useQuery<Event[]>({ queryKey: ["/api/events"] });
 
   const { data: savedTemplates = [] } = useQuery<DbScheduleTemplate[]>({
     queryKey: ["/api/schedule-templates"],
@@ -852,6 +854,8 @@ export function ScheduleTemplateDialog({ defaultEventName, defaultDate, availabl
     setApplying(true);
     try {
       const eventName = selectedShowName || defaultEventName || "";
+      const resolvedEvent = (eventsList as Event[]).find(e => e.name === eventName);
+      const eventId = resolvedEvent?.id ?? null;
       for (const item of template.items) {
         const startTime = new Date(dateToUse + "T00:00:00");
         startTime.setHours(item.startHour, item.startMinute, 0, 0);
@@ -865,6 +869,7 @@ export function ScheduleTemplateDialog({ defaultEventName, defaultDate, availabl
           endTime,
           eventDate: dateToUse,
           eventName,
+          eventId,
           description: item.description || "",
           location: "",
           crew: [] as CrewMember[],
@@ -890,6 +895,8 @@ export function ScheduleTemplateDialog({ defaultEventName, defaultDate, availabl
     setApplying(true);
     try {
       const eventName = selectedShowName || defaultEventName || "";
+      const resolvedEvent = (eventsList as Event[]).find(e => e.name === eventName);
+      const eventId = resolvedEvent?.id ?? null;
       const items: TemplateItem[] = JSON.parse(template.items);
       const isShowTemplate = template.type === "show";
       const baseDate = isShowTemplate ? showStartDate : dateToUse;
@@ -916,6 +923,7 @@ export function ScheduleTemplateDialog({ defaultEventName, defaultDate, availabl
           endTime,
           eventDate: itemDate,
           eventName,
+          eventId,
           description: item.description || "",
           location: "",
           crew: [] as CrewMember[],
@@ -1312,6 +1320,7 @@ export function CopyDayScheduleButton({ schedules, defaultEventName, onCopy }: {
           endTime: newEnd,
           eventDate: targetDate,
           eventName: defaultEventName || s.eventName || "",
+          eventId: s.eventId ?? null,
           description: s.description || "",
           location: s.location || "",
           crew: (s as any).crew || (s.crewNames || []).map((n: string) => ({ name: n })),

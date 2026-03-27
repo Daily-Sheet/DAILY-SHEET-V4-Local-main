@@ -33,7 +33,7 @@ export interface IStorage {
   createSchedule(schedule: InsertSchedule): Promise<Schedule>;
   updateSchedule(id: number, schedule: Partial<InsertSchedule>): Promise<Schedule>;
   deleteSchedule(id: number): Promise<void>;
-  clearDaySchedules(workspaceId: number, eventDate: string, eventName?: string): Promise<number>;
+  clearDaySchedules(workspaceId: number, eventDate: string, eventId?: number): Promise<number>;
 
   reorderSchedules(ids: number[], timeUpdates?: { id: number; startTime: Date; endTime: Date | null }[]): Promise<void>;
 
@@ -306,13 +306,13 @@ export class DatabaseStorage implements IStorage {
     await db.delete(schedules).where(eq(schedules.id, id));
   }
 
-  async clearDaySchedules(workspaceId: number, eventDate: string, eventName?: string): Promise<number> {
+  async clearDaySchedules(workspaceId: number, eventDate: string, eventId?: number): Promise<number> {
     const conditions = [
       eq(schedules.workspaceId, workspaceId),
       eq(schedules.eventDate, eventDate),
     ];
-    if (eventName) {
-      conditions.push(eq(schedules.eventName, eventName));
+    if (eventId) {
+      conditions.push(eq(schedules.eventId, eventId));
     }
     const result = await db.delete(schedules).where(and(...conditions)).returning();
     return result.length;
@@ -661,13 +661,16 @@ export class DatabaseStorage implements IStorage {
   async deleteEvent(id: number, workspaceId?: number): Promise<void> {
     const [event] = await db.select().from(events).where(eq(events.id, id));
     if (event) {
+      // Delete schedules by eventId (primary), fall back to eventName for un-migrated rows
       if (workspaceId) {
-        await db.delete(schedules).where(and(eq(schedules.eventName, event.name), eq(schedules.workspaceId, workspaceId)));
+        await db.delete(schedules).where(and(eq(schedules.eventId, id), eq(schedules.workspaceId, workspaceId)));
+        await db.delete(schedules).where(and(eq(schedules.eventName, event.name), isNull(schedules.eventId), eq(schedules.workspaceId, workspaceId)));
         await db.delete(eventAssignments).where(and(eq(eventAssignments.eventName, event.name), eq(eventAssignments.workspaceId, workspaceId)));
         await db.delete(files).where(and(eq(files.eventName, event.name), eq(files.workspaceId, workspaceId)));
         await db.delete(fileFolders).where(and(eq(fileFolders.eventName, event.name), eq(fileFolders.workspaceId, workspaceId)));
       } else {
-        await db.delete(schedules).where(eq(schedules.eventName, event.name));
+        await db.delete(schedules).where(eq(schedules.eventId, id));
+        await db.delete(schedules).where(and(eq(schedules.eventName, event.name), isNull(schedules.eventId)));
         await db.delete(eventAssignments).where(eq(eventAssignments.eventName, event.name));
         await db.delete(files).where(eq(files.eventName, event.name));
         await db.delete(fileFolders).where(eq(fileFolders.eventName, event.name));
@@ -679,9 +682,10 @@ export class DatabaseStorage implements IStorage {
 
   async renameEvent(oldName: string, newName: string, workspaceId?: number): Promise<void> {
     await db.transaction(async (tx) => {
+      // Schedules linked by eventId don't need name updates; update legacy eventName-only rows
       if (workspaceId) {
         await tx.update(schedules).set({ eventName: newName })
-          .where(and(eq(schedules.eventName, oldName), eq(schedules.workspaceId, workspaceId)));
+          .where(and(eq(schedules.eventName, oldName), isNull(schedules.eventId), eq(schedules.workspaceId, workspaceId)));
         await tx.update(eventAssignments).set({ eventName: newName })
           .where(and(eq(eventAssignments.eventName, oldName), eq(eventAssignments.workspaceId, workspaceId)));
         await tx.update(files).set({ eventName: newName })
@@ -689,7 +693,8 @@ export class DatabaseStorage implements IStorage {
         await tx.update(fileFolders).set({ eventName: newName })
           .where(and(eq(fileFolders.eventName, oldName), eq(fileFolders.workspaceId, workspaceId)));
       } else {
-        await tx.update(schedules).set({ eventName: newName }).where(eq(schedules.eventName, oldName));
+        await tx.update(schedules).set({ eventName: newName })
+          .where(and(eq(schedules.eventName, oldName), isNull(schedules.eventId)));
         await tx.update(eventAssignments).set({ eventName: newName }).where(eq(eventAssignments.eventName, oldName));
         await tx.update(files).set({ eventName: newName }).where(eq(files.eventName, oldName));
         await tx.update(fileFolders).set({ eventName: newName }).where(eq(fileFolders.eventName, oldName));

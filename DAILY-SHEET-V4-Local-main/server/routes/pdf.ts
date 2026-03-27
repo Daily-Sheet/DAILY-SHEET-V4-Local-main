@@ -496,6 +496,10 @@ export function registerPdfRoutes(app: Express, upload: multer.Multer) {
       const template = allTemplates.find((t: any) => t.id === templateId);
       if (!template) return res.status(404).json({ message: "Template not found" });
 
+      // Resolve eventId from eventName
+      const event = await storage.getEventByName(eventName, workspaceId);
+      const eventId = event?.id ?? null;
+
       const items = JSON.parse(template.items) as any[];
       const base = new Date(startDate + "T00:00:00Z");
       const created: any[] = [];
@@ -526,6 +530,7 @@ export function registerPdfRoutes(app: Express, upload: multer.Multer) {
           endTime: endTime || null,
           eventDate,
           eventName,
+          eventId,
           sortOrder: item.sortOrder || 0,
           workspaceId,
         });

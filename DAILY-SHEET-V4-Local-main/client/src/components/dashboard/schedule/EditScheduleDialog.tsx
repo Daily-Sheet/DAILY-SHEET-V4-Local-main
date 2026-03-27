@@ -160,7 +160,9 @@ export function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose:
       }
     }
     const crew = ((form.getValues as any)("crew") as CrewMember[] | null) || [];
-    const submitData = { ...data, startTime: normalizedStart, endTime: normalizedEnd, zoneId: data.zoneId || null, sectionId: data.sectionId || null, crew, crewNames: crew.map((m: CrewMember) => m.name), isNextDay };
+    const resolvedEvent = data.eventName ? (eventsList as Event[]).find(e => e.name === data.eventName) : null;
+    const eventId = resolvedEvent?.id ?? null;
+    const submitData = { ...data, startTime: normalizedStart, endTime: normalizedEnd, zoneId: data.zoneId || null, sectionId: data.sectionId || null, crew, crewNames: crew.map((m: CrewMember) => m.name), isNextDay, eventId };
     updateSchedule(
       { id: item.id, data: submitData },
       {
