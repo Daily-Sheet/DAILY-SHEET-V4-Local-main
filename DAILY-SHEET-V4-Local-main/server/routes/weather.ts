@@ -170,27 +170,48 @@ export function registerWeatherRoutes(app: Express, upload: multer.Multer) {
       const address = venue.address?.trim() || "";
       const lat = venue.latitude;
       const lng = venue.longitude;
-      let result: WeatherResult;
+      let result: WeatherResult | null = null;
+      const errors: string[] = [];
 
-      // Priority chain — most accurate to least accurate:
+      // Priority chain with fallbacks — try each provider, move to next on failure
       //   1. Stored coordinates  → Open-Meteo (precise, no geocoding needed)
       //   2. Address string      → wttr.in (handles most real addresses)
       //   3. Venue name          → wttr.in (last resort for venues with no address)
       if (lat && lng) {
-        result = await fetchWeatherOpenMeteo(lat, lng, venue.name, address);
-      } else if (address) {
-        result = await fetchWeatherWttr(address, venue.name, address);
-      } else if (venue.name) {
-        result = await fetchWeatherWttr(venue.name, venue.name, address);
-      } else {
-        return res.status(404).json({ message: "Venue has no location data (no coordinates, address, or name)" });
+        try {
+          result = await fetchWeatherOpenMeteo(lat, lng, venue.name, address);
+        } catch (e: any) {
+          errors.push(`Open-Meteo: ${e.message}`);
+        }
+      }
+
+      if (!result && address) {
+        try {
+          result = await fetchWeatherWttr(address, venue.name, address);
+        } catch (e: any) {
+          errors.push(`wttr.in(address): ${e.message}`);
+        }
+      }
+
+      if (!result && venue.name) {
+        try {
+          result = await fetchWeatherWttr(venue.name, venue.name, address);
+        } catch (e: any) {
+          errors.push(`wttr.in(name): ${e.message}`);
+        }
+      }
+
+      if (!result) {
+        const detail = errors.length > 0 ? errors.join("; ") : "Venue has no location data";
+        console.error(`Weather fetch failed for venue ${venueId}:`, detail);
+        return res.status(502).json({ message: "Weather temporarily unavailable", detail });
       }
 
       weatherCache.set(cacheKey, { data: result, timestamp: Date.now() });
       res.json(result);
-    } catch (err) {
+    } catch (err: any) {
       console.error("Weather API error:", err);
-      res.status(500).json({ message: "Failed to fetch weather" });
+      res.status(500).json({ message: "Failed to fetch weather", detail: err?.message });
     }
   });
 }
