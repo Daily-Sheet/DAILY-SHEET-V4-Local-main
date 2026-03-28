@@ -1,5 +1,6 @@
 import { Sun, Cloud, CloudRain, CloudSnow, CloudLightning, CloudDrizzle, CloudFog, Wind, Droplets } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { buildApiUrl } from "@/lib/api";
 
 export function getWeatherIcon(code: number) {
   if (code === 0) return <Sun className="h-5 w-5 text-yellow-400" />;
@@ -31,7 +32,7 @@ export function WeatherWidget({ venueId, date }: { venueId: number; date: string
   const { data: weather, isLoading } = useQuery<any>({
     queryKey: ["/api/weather", venueId],
     queryFn: async () => {
-      const res = await fetch(`/api/weather/${venueId}`, { credentials: "include" });
+      const res = await fetch(buildApiUrl(`/api/weather/${venueId}`), { credentials: "include" });
       if (!res.ok) return null;
       return res.json();
     },
