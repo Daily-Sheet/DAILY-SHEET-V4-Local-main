@@ -148,7 +148,7 @@ export function CreateContactDialog() {
                             <ChevronDown className="w-4 h-4 opacity-50 shrink-0 ml-2" />
                           </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent align="start" className="max-h-56 overflow-y-auto w-56">
+                        <DropdownMenuContent align="start" className="max-h-60 overflow-y-auto w-56">
                           {departmentOptions.map(dept => (
                             <DropdownMenuItem
                               key={dept}

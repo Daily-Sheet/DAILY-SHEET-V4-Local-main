@@ -282,7 +282,7 @@ export function ShowSwitcher({
           type="button"
           onClick={() => toggleProjectExpanded(groupId)}
           className={cn(
-            "flex items-center gap-1.5 w-full px-2.5 py-2 hover:bg-muted/50 transition-colors",
+            "flex items-center gap-1.5 w-full px-2.5 py-2 hover:bg-accent/50 transition-colors",
             isExpanded && "bg-muted/30"
           )}
           data-testid={`button-expand-project-${groupId}`}
@@ -455,7 +455,7 @@ export function ShowSwitcher({
           )}
         </div>
 
-        <div className="max-h-[400px] overflow-y-auto">
+        <div className="max-h-[70vh] overflow-y-auto">
           {hasProjects && projectGroups.length > 0 ? (
             <div>
               {projectGroups.map(renderProjectGroup)}
@@ -471,7 +471,7 @@ export function ShowSwitcher({
               <button
                 type="button"
                 onClick={() => setArchivedOpen(prev => !prev)}
-                className="flex items-center gap-1.5 w-full px-2.5 py-2 hover:bg-muted/50 transition-colors"
+                className="flex items-center gap-1.5 w-full px-2.5 py-2 hover:bg-accent/50 transition-colors"
                 data-testid="button-toggle-archived"
               >
                 <ChevronRight className={cn("h-3 w-3 text-muted-foreground/60 transition-transform shrink-0", archivedOpen && "rotate-90")} />

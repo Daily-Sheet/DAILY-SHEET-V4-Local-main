@@ -178,7 +178,7 @@ export function VenueQuickSelect({ show, selectedDate, currentVenueId, venuesLis
             />
           </div>
         </div>
-        <div className="max-h-56 overflow-y-auto p-1">
+        <div className="max-h-60 overflow-y-auto p-1">
           {filteredVenues.length === 0 && (
             <div className="px-2 py-3 text-sm text-muted-foreground text-center">No venues found</div>
           )}

@@ -541,7 +541,7 @@ function HorizontalGantt({
     <div
       ref={containerRef}
       className={cn(
-        "relative border border-border/30 rounded-xl bg-card/50 backdrop-blur-sm overflow-hidden",
+        "relative border border-border/30 rounded-xl bg-card/50 backdrop-blur-sm overflow-clip",
         drag && "select-none",
       )}
       style={{ cursor: drag ? "grabbing" : undefined }}

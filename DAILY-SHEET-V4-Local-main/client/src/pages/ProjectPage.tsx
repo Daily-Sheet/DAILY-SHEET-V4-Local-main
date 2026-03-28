@@ -600,7 +600,7 @@ function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose: () => 
                 <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
               </Button>
               {crewDropdownOpen && (
-                <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-md max-h-56 overflow-y-auto p-1">
+                <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-md max-h-60 overflow-y-auto p-1">
                   {crewList.length === 0 ? (
                     <p className="text-sm text-muted-foreground p-2">No crew available</p>
                   ) : (
@@ -612,7 +612,7 @@ function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose: () => 
                           key={opt.name}
                           type="button"
                           onClick={() => toggleCrew(opt)}
-                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50"
+                          className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-accent/50"
                           data-testid={`crew-option-${opt.name.replace(/\s+/g, '-')}`}
                         >
                           <div className={cn("w-4 h-4 rounded border flex items-center justify-center flex-shrink-0", isSelected ? "bg-primary border-primary" : "border-muted-foreground")}>
@@ -758,7 +758,7 @@ function ScheduleItemRow({
   return (
     <div
       className={cn(
-        "px-3 py-1.5 group hover:bg-muted/30 transition-colors",
+        "px-3 py-1.5 group hover:bg-accent/50 transition-colors",
       )}
       style={isNested ? { paddingLeft: `${12 + indentPx}px` } : undefined}
       data-testid={`schedule-item-${item.id}`}
@@ -1216,7 +1216,7 @@ function CrewTab({
                   className="mb-2"
                   data-testid="input-search-assign-crew"
                 />
-                <div className="max-h-56 overflow-y-auto space-y-0.5">
+                <div className="max-h-60 overflow-y-auto space-y-0.5">
                   {unassignedContacts.length === 0 ? (
                     <p className="text-xs text-muted-foreground p-2 text-center">No contacts available</p>
                   ) : (
@@ -2491,7 +2491,7 @@ function CrewTravelManifest({ travelDayId, isAdmin, contacts, assignedUserIds }:
           <div key={ct.id} className="rounded-md border border-border/40 bg-background/50 group" data-testid={`crew-travel-item-${ct.id}`}>
             <button
               type="button"
-              className="w-full flex items-center justify-between gap-2 p-2.5 cursor-pointer hover:bg-muted/30 transition-colors"
+              className="w-full flex items-center justify-between gap-2 p-2.5 cursor-pointer hover:bg-accent/50 transition-colors"
               onClick={() => toggleCrewExpand(ct.id)}
             >
               <div className="flex items-center gap-2 min-w-0">

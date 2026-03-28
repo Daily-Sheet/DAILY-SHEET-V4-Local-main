@@ -94,7 +94,7 @@ export function HeaderUserMenu({
             </Avatar>
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-64 p-2 max-h-[80vh] overflow-y-auto" align="end">
+        <PopoverContent className="w-64 p-2 max-h-[70vh] overflow-y-auto" align="end">
           {/* Notification Bell and Admin button moved here */}
           <div className="flex items-center gap-2 mb-2">
             {showNotifications && <NotificationBell />}

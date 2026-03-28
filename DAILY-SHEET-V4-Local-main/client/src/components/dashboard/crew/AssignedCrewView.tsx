@@ -143,7 +143,7 @@ function AssignContactToEventDialog({ eventName, contacts, allEventAssignments, 
               {filtered.map(contact => {
                 const name = [contact.firstName, contact.lastName].filter(Boolean).join(" ");
                 return (
-                  <div key={contact.id} className="flex items-center justify-between gap-2 px-3 py-3 hover:bg-muted/30 transition-colors rounded-md mx-1" data-testid={`assign-contact-row-${contact.id}`}>
+                  <div key={contact.id} className="flex items-center justify-between gap-2 px-3 py-2 hover:bg-accent/50 transition-colors rounded-md mx-1" data-testid={`assign-contact-row-${contact.id}`}>
                     <div className="flex-1 min-w-0">
                       <div className="font-semibold text-sm">{name}</div>
                       <div className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
@@ -283,7 +283,7 @@ function AssignProjectCrewDialog({ projectId, projectName, contacts, isTour }: {
           {isTour ? "Assign to Tour" : "Assign to Festival"}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md max-h-[80vh] flex flex-col" data-testid="dialog-assign-project-crew">
+      <DialogContent className="max-w-md max-h-[85vh] flex flex-col" data-testid="dialog-assign-project-crew">
         <DialogHeader>
           <DialogTitle className="font-display uppercase tracking-wide">Assign to {projectName}</DialogTitle>
         </DialogHeader>
@@ -522,7 +522,7 @@ export function AssignedCrewView({ contacts, user, selectedEvents, allEventAssig
   if (!isManager && !canEdit && userEvents.length === 0) {
     return (
       <div className="space-y-4">
-        <h2 className="text-2xl font-display uppercase tracking-wide">Assigned Crew</h2>
+        <h2 className="text-xl font-display uppercase tracking-wide">Assigned Crew</h2>
         <Card className="border-none shadow-md">
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
             <Users className="w-12 h-12 text-muted-foreground/40 mb-4" />
@@ -537,7 +537,7 @@ export function AssignedCrewView({ contacts, user, selectedEvents, allEventAssig
   if (Object.keys(groupedByEvent).length === 0 && assignedContacts.length === 0) {
     return (
       <div className="space-y-4">
-        <h2 className="text-2xl font-display uppercase tracking-wide">Assigned Crew</h2>
+        <h2 className="text-xl font-display uppercase tracking-wide">Assigned Crew</h2>
         {!isManager && userEvents.length > 0 && (
           <div className="flex items-center gap-2 text-xs text-muted-foreground" data-testid="text-assigned-events">
             <Eye className="w-3 h-3" />
@@ -570,7 +570,7 @@ export function AssignedCrewView({ contacts, user, selectedEvents, allEventAssig
   const showLabel = isTourProject ? "Show Crew" : "Stage Crew";
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <h2 className="text-xl font-display uppercase tracking-wide">Assigned Crew</h2>
       {!isManager && userEvents.length > 0 && (
         <div className="flex items-center gap-2 text-xs text-muted-foreground" data-testid="text-assigned-events">

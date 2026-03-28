@@ -398,7 +398,7 @@ export function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose:
                       />
                     </div>
                   </div>
-                  <div className="max-h-56 overflow-y-auto p-1">
+                  <div className="max-h-60 overflow-y-auto p-1">
                     {(() => {
                       const q = crewSearch.toLowerCase().trim();
                       const filtered = q ? crewList.filter(opt =>
@@ -416,7 +416,7 @@ export function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose:
                           <button
                             key={opt.name}
                             type="button"
-                            className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 flex items-center gap-2"
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-accent/50 flex items-center gap-2"
                             onClick={() => toggleCrew(opt)}
                             data-testid={`crew-edit-option-${opt.name.replace(/\s+/g, '-')}`}
                           >

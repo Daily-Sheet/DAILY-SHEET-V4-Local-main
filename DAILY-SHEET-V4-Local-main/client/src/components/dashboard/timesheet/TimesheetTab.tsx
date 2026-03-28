@@ -118,7 +118,7 @@ function TimesheetRow({
   const roText = "px-2 py-1.5 text-sm text-muted-foreground";
 
   return (
-    <tr className="border-b border-border hover:bg-muted/30 transition-colors">
+    <tr className="border-b border-border hover:bg-accent/50 transition-colors">
       <td className={cellClass}>
         {readOnly
           ? <span className={roText}>{local.employeeName}</span>

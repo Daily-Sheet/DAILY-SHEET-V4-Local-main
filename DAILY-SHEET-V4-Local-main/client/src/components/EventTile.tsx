@@ -39,7 +39,7 @@ export function EventTile({ event, crew, scheduleItems, onClick, showDetails = t
   return (
     <div
       className={cn(
-        "px-4 py-3 flex items-start gap-2.5 cursor-pointer hover:bg-muted/40 transition-colors rounded-xl",
+        "px-4 py-3 flex items-start gap-2.5 cursor-pointer hover:bg-accent/50 transition-colors rounded-xl",
         onClick && "active:bg-muted/60"
       )}
       onClick={onClick}

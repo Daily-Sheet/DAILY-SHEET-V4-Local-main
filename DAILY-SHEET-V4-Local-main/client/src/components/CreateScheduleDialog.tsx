@@ -145,7 +145,7 @@ export function CategorySelect({
       </Button>
       {popoverOpen && (
         <div className="absolute z-50 mt-1 w-full bg-popover border border-border rounded-md shadow-md">
-          <div className="max-h-56 overflow-y-auto p-1">
+          <div className="max-h-60 overflow-y-auto p-1">
             {categories.map((cat) => (
               <button
                 key={cat}
@@ -634,7 +634,7 @@ export function CreateScheduleDialog({ defaultEventName, defaultDate, trigger }:
                           />
                         </div>
                       </div>
-                      <div className="max-h-56 overflow-y-auto">
+                      <div className="max-h-60 overflow-y-auto">
                         {(() => {
                           const q = crewSearch.toLowerCase().trim();
                           const filtered = q ? crewList.filter(opt =>
@@ -652,7 +652,7 @@ export function CreateScheduleDialog({ defaultEventName, defaultDate, trigger }:
                               <button
                                 key={opt.name}
                                 type="button"
-                                className="w-full text-left px-3 py-2 text-sm hover:bg-muted/50 flex items-center gap-2"
+                                className="w-full text-left px-3 py-2 text-sm hover:bg-accent/50 flex items-center gap-2"
                                 onClick={() => toggleCrew(opt)}
                                 data-testid={`crew-option-${opt.name.replace(/\s+/g, '-')}`}
                               >
@@ -965,7 +965,7 @@ export function ScheduleTemplateDialog({ defaultEventName, defaultDate, availabl
           <FileText className="w-3.5 h-3.5" /> Template
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[480px] font-body max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[480px] font-body max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-display text-xl uppercase tracking-wide text-primary">Schedule Templates</DialogTitle>
           <DialogDescription className="sr-only">Choose a schedule template to apply</DialogDescription>

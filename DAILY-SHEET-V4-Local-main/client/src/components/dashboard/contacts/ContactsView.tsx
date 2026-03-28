@@ -46,7 +46,7 @@ export function ContactsView({ contacts, canEdit, allEventAssignments, dashboard
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center flex-wrap gap-2">
-        <h2 className="text-2xl font-display uppercase tracking-wide">Contact Directory</h2>
+        <h2 className="text-xl font-display uppercase tracking-wide">Contact Directory</h2>
         {canEdit && <CreateContactDialog />}
       </div>
 
@@ -112,7 +112,7 @@ export function ContactsView({ contacts, canEdit, allEventAssignments, dashboard
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filteredContacts.map((contact) => (
-            <Card key={contact.id} className="hover:shadow-lg transition-shadow" data-testid={`card-contact-${contact.id}`}>
+            <Card key={contact.id} className="rounded-xl border border-border/30 bg-card/50 backdrop-blur-sm shadow-sm hover:shadow-lg transition-shadow" data-testid={`card-contact-${contact.id}`}>
               <CardHeader>
                 <div className="flex items-start justify-between gap-2">
                   <div>

@@ -283,7 +283,7 @@ function InlineRoleEditor({ contactId, currentRole, allRoles, onUpdate }: {
           <ChevronDown className="w-3 h-3 opacity-50 shrink-0" />
         </div>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-56 overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()}>
+      <DropdownMenuContent align="start" className="max-h-60 overflow-y-auto" onCloseAutoFocus={(e) => e.preventDefault()}>
         {options.map(dept => (
           <DropdownMenuItem
             key={dept}
@@ -327,7 +327,7 @@ function MultiDepartmentSelect({ value, onChange }: { value: string; onChange: (
           <ChevronDown className="w-4 h-4 opacity-50 shrink-0 ml-2" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="max-h-56 overflow-y-auto w-56">
+      <DropdownMenuContent align="start" className="max-h-60 overflow-y-auto w-56">
         {deptOptions.map(dept => (
           <DropdownMenuItem
             key={dept}
@@ -1731,7 +1731,7 @@ function VenueAdmin() {
             ) : (
               <>
                 <div
-                  className="flex items-center justify-between gap-2 px-4 py-3 cursor-pointer hover:bg-muted/30 transition-colors"
+                  className="flex items-center justify-between gap-2 px-4 py-3 cursor-pointer hover:bg-accent/50 transition-colors"
                   onClick={() => setExpandedVenues(prev => {
                     const next = new Set(prev);
                     next.has(venue.id) ? next.delete(venue.id) : next.add(venue.id);
@@ -1841,7 +1841,7 @@ function SearchableContactSelect({ contacts, onSelect, testId }: { contacts: Con
             data-testid={testId ? `${testId}-search` : undefined}
           />
         </div>
-        <div className="max-h-56 overflow-y-auto">
+        <div className="max-h-60 overflow-y-auto">
           {filtered.length === 0 ? (
             <div className="p-3 text-sm text-muted-foreground text-center">No contacts found</div>
           ) : (
@@ -3221,7 +3221,7 @@ function StandaloneShowsSection({ venues }: { venues: Venue[] }) {
               </form>
             </div>
           ) : (
-            <div key={show.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 group" data-testid={`row-standalone-show-${show.id}`}>
+            <div key={show.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-accent/50 group" data-testid={`row-standalone-show-${show.id}`}>
               <div className="w-2 h-2 rounded-full shrink-0 bg-muted-foreground/40" />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium truncate" data-testid={`text-standalone-show-name-${show.id}`}>{show.name}</p>
@@ -3468,7 +3468,7 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
               </form>
             </div>
           ) : (
-            <div key={show.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 group" data-testid={`row-show-${show.id}`}>
+            <div key={show.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-accent/50 group" data-testid={`row-show-${show.id}`}>
               <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: show.color || "hsl(var(--primary))" }} />
               <div className="flex-1 min-w-0">
                 <Link href={`/dashboard?event=${encodeURIComponent(show.name)}${show.startDate ? `&date=${show.startDate}` : ""}`} className="text-sm font-medium truncate hover:underline hover:text-primary block" data-testid={`text-show-name-${show.id}`}>{show.name}</Link>
@@ -3588,7 +3588,7 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
             <p className="text-sm text-muted-foreground py-4 text-center">No unassigned {entityLabel.toLowerCase()}s available.</p>
           ) : (
             <>
-              <label className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer border-b border-border mb-1">
+              <label className="flex items-center gap-3 p-2 rounded-md hover:bg-accent/50 cursor-pointer border-b border-border mb-1">
                 <Checkbox
                   checked={assignSelectedIds.size === standaloneShows.length && standaloneShows.length > 0}
                   onCheckedChange={(checked) => {
@@ -3600,7 +3600,7 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
               </label>
               <div className="overflow-y-auto flex-1 min-h-0 space-y-1 pr-1" style={{ WebkitOverflowScrolling: "touch" }}>
                 {standaloneShows.map(event => (
-                  <label key={event.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer">
+                  <label key={event.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-accent/50 cursor-pointer">
                     <Checkbox
                       checked={assignSelectedIds.has(event.id)}
                       onCheckedChange={(checked) => {
@@ -3864,7 +3864,7 @@ function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { pr
                 return (
                 <div className="border-t border-blue-500/10 px-2.5 pb-2 pt-1 space-y-0.5">
                   {items.map(item => item.kind === "show" ? (
-                    <div key={item.show.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 group" data-testid={`row-leg-show-${item.show.id}`}>
+                    <div key={item.show.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-accent/50 group" data-testid={`row-leg-show-${item.show.id}`}>
                       <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.show.color || "hsl(var(--primary))" }} />
                       <div className="flex-1 min-w-0">
                         <Link href={`/dashboard?event=${encodeURIComponent(item.show.name)}${item.show.startDate ? `&date=${item.show.startDate}` : ""}`} className="text-sm font-medium truncate hover:underline hover:text-primary block">{item.show.name}</Link>
@@ -4161,7 +4161,7 @@ function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { pr
             <p className="text-sm text-muted-foreground py-4 text-center">No unassigned {entityLabel.toLowerCase()}s available.</p>
           ) : (
             <>
-              <label className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer border-b border-border mb-1">
+              <label className="flex items-center gap-3 p-2 rounded-md hover:bg-accent/50 cursor-pointer border-b border-border mb-1">
                 <Checkbox
                   checked={selectedShowIds.size === unassignedShows.length && unassignedShows.length > 0}
                   onCheckedChange={(checked) => {
@@ -4176,7 +4176,7 @@ function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { pr
               </label>
               <div className="overflow-y-auto flex-1 min-h-0 space-y-1 pr-1" style={{ WebkitOverflowScrolling: "touch" }}>
                 {unassignedShows.map(event => (
-                  <label key={event.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 cursor-pointer">
+                  <label key={event.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-accent/50 cursor-pointer">
                     <Checkbox
                       checked={selectedShowIds.has(event.id)}
                       onCheckedChange={(checked) => {
@@ -5491,7 +5491,7 @@ function SettingsAdmin() {
       </Card>
 
       <Card className="bg-card/50 backdrop-blur-sm border-border/30 rounded-xl">
-        <CardHeader className="pb-3 cursor-pointer select-none hover:bg-muted/30 transition-colors rounded-t-lg" onClick={() => setTaskTypesOpen(!taskTypesOpen)} data-testid="toggle-task-types">
+        <CardHeader className="pb-3 cursor-pointer select-none hover:bg-accent/50 transition-colors rounded-t-lg" onClick={() => setTaskTypesOpen(!taskTypesOpen)} data-testid="toggle-task-types">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <CardTitle className="text-lg flex items-center gap-2">
               {taskTypesOpen ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
@@ -5538,7 +5538,7 @@ function SettingsAdmin() {
           ) : (
             <div className="space-y-1">
               {taskTypes.map((tt: any) => (
-                <div key={tt.id} className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-muted/50 group" data-testid={`row-task-type-${tt.id}`}>
+                <div key={tt.id} className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-accent/50 group" data-testid={`row-task-type-${tt.id}`}>
                   {editingTaskTypeId === tt.id ? (
                     <>
                       <Input
@@ -5586,7 +5586,7 @@ function SettingsAdmin() {
       </Card>
 
       <Card className="bg-card/50 backdrop-blur-sm border-border/30 rounded-xl">
-        <CardHeader className="pb-3 cursor-pointer select-none hover:bg-muted/30 transition-colors rounded-t-lg" onClick={() => setDepartmentsOpen(!departmentsOpen)} data-testid="toggle-departments">
+        <CardHeader className="pb-3 cursor-pointer select-none hover:bg-accent/50 transition-colors rounded-t-lg" onClick={() => setDepartmentsOpen(!departmentsOpen)} data-testid="toggle-departments">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <CardTitle className="text-lg flex items-center gap-2">
               {departmentsOpen ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
@@ -5633,7 +5633,7 @@ function SettingsAdmin() {
           ) : (
             <div className="space-y-1">
               {departments.map((dept: any) => (
-                <div key={dept.id} className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-muted/50 group" data-testid={`row-department-${dept.id}`}>
+                <div key={dept.id} className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-accent/50 group" data-testid={`row-department-${dept.id}`}>
                   {editingDeptId === dept.id ? (
                     <>
                       <Input
@@ -5681,7 +5681,7 @@ function SettingsAdmin() {
       </Card>
 
       <Card className="bg-card/50 backdrop-blur-sm border-border/30 rounded-xl">
-        <CardHeader className="pb-3 cursor-pointer select-none hover:bg-muted/30 transition-colors rounded-t-lg" onClick={() => setCrewPositionsOpen(!crewPositionsOpen)} data-testid="toggle-crew-positions">
+        <CardHeader className="pb-3 cursor-pointer select-none hover:bg-accent/50 transition-colors rounded-t-lg" onClick={() => setCrewPositionsOpen(!crewPositionsOpen)} data-testid="toggle-crew-positions">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <CardTitle className="text-lg flex items-center gap-2">
               {crewPositionsOpen ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
@@ -5728,7 +5728,7 @@ function SettingsAdmin() {
           ) : (
             <div className="space-y-1">
               {crewPositionsList.map((pos: any) => (
-                <div key={pos.id} className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-muted/50 group" data-testid={`row-crew-position-${pos.id}`}>
+                <div key={pos.id} className="flex items-center gap-2 py-1.5 px-2 rounded-md hover:bg-accent/50 group" data-testid={`row-crew-position-${pos.id}`}>
                   {editingPosId === pos.id ? (
                     <>
                       <Input
@@ -5827,7 +5827,7 @@ function ScheduleTemplatesSection() {
   return (
     <Card className="bg-card/50 backdrop-blur-sm border-border/30 rounded-xl">
       <CardHeader
-        className="pb-3 cursor-pointer select-none hover:bg-muted/30 transition-colors rounded-t-lg"
+        className="pb-3 cursor-pointer select-none hover:bg-accent/50 transition-colors rounded-t-lg"
         onClick={() => setTemplatesOpen(!templatesOpen)}
         data-testid="toggle-schedule-templates"
       >
@@ -5959,7 +5959,7 @@ function ScheduleTemplatesSection() {
                             >
                               <div className="mt-3 pt-3 border-t border-border/30 space-y-1" data-testid={`template-items-${template.id}`}>
                                 {items.map((item: any, idx: number) => (
-                                  <div key={idx} className="flex items-center gap-2 text-xs py-1 px-2 rounded hover:bg-muted/30">
+                                  <div key={idx} className="flex items-center gap-2 text-xs py-1 px-2 rounded hover:bg-accent/50">
                                     <span className="text-muted-foreground w-6 text-right">{idx + 1}.</span>
                                     <span className="font-medium flex-1">{item.title || "Untitled"}</span>
                                     {item.category && <Badge variant="outline" className="text-[10px]">{item.category}</Badge>}
@@ -6079,7 +6079,7 @@ function TimesheetRow({ entry, onUpdate, onDelete }: { entry: TimesheetEntry; on
   );
 
   return (
-    <tr className="border-b border-border hover:bg-muted/30 transition-colors" data-testid={`row-timesheet-${entry.id}`}>
+    <tr className="border-b border-border hover:bg-accent/50 transition-colors" data-testid={`row-timesheet-${entry.id}`}>
       <td className="p-1">
         <Input className="h-8 text-sm" value={local.employeeName} onChange={(e) => handleChange("employeeName", e.target.value)} placeholder="Name" data-testid={`input-ts-name-${entry.id}`} />
       </td>

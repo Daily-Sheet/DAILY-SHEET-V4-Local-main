@@ -688,7 +688,7 @@ export function FinderView({
         /* Column View with DnD — stop touch events from bubbling to dashboard swipe handler */
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
           <div
-            className="border rounded-xl bg-card/50 backdrop-blur-sm overflow-hidden flex"
+            className="border rounded-xl bg-card/50 backdrop-blur-sm overflow-clip flex"
             style={{ minHeight: 360 }}
             onTouchStart={e => e.stopPropagation()}
             onTouchEnd={e => e.stopPropagation()}
@@ -836,7 +836,7 @@ export function FinderView({
         </DndContext>
       ) : (
         /* List View */
-        <div className="border rounded-xl bg-card/50 backdrop-blur-sm overflow-hidden">
+        <div className="border rounded-xl bg-card/50 backdrop-blur-sm overflow-clip">
           <FinderListView
             files={files}
             folders={folders}

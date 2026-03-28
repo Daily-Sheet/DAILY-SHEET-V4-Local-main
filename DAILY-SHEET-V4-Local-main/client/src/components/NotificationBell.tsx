@@ -104,7 +104,7 @@ export function NotificationBell() {
             </Button>
           )}
         </div>
-        <ScrollArea className="max-h-[400px]">
+        <ScrollArea className="max-h-[70vh]">
           {isLoading ? (
             <div className="flex items-center justify-center py-8 text-sm text-muted-foreground">
               Loading...
@@ -119,7 +119,7 @@ export function NotificationBell() {
               {notifications.map((notif) => (
                 <button
                   key={notif.id}
-                  className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/50 ${
+                  className={`flex w-full items-start gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/50 ${
                     !notif.read ? "bg-muted/30" : ""
                   }`}
                   onClick={() => {

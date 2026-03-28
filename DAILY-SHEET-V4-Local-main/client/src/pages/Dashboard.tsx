@@ -1395,7 +1395,7 @@ export default function Dashboard() {
                       transition={{ duration: 0.3 }}
                       data-testid="overview-travel-day"
                     >
-                      <Card className="border-amber-500/20 bg-amber-500/5 backdrop-blur-xl rounded-xl overflow-hidden">
+                      <Card className="border-amber-500/20 bg-amber-500/5 backdrop-blur-xl rounded-xl overflow-clip">
                         <CardContent className="p-0">
                           <button
                             type="button"
@@ -1507,7 +1507,7 @@ export default function Dashboard() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.3, delay: showIdx * 0.05 }}
                           >
-                          <Card className={cn("shadow-sm bg-card/50 backdrop-blur-sm rounded-xl flex flex-col overflow-hidden h-full border", showProject ? pc.border : "border-border/30")} data-testid={`overview-card-${showName.replace(/\s+/g, '-')}`}>
+                          <Card className={cn("shadow-sm bg-card/50 backdrop-blur-sm rounded-xl flex flex-col overflow-clip h-full border", showProject ? pc.border : "border-border/30")} data-testid={`overview-card-${showName.replace(/\s+/g, '-')}`}>
                             {showProject && (
                               <div className={cn("flex items-center justify-between px-3 py-1.5 border-b", pc.bg, pc.border)}>
                                 <div className="flex items-center gap-1.5">
@@ -1624,7 +1624,7 @@ export default function Dashboard() {
                                 className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-stretch min-w-0 grid-rows-2"
                               >
                                 <button
-                                  className="flex flex-col gap-1.5 p-3 rounded-xl border border-border/30 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-colors text-left min-h-[120px] h-full max-h-[14rem] overflow-hidden w-full min-w-0"
+                                  className="flex flex-col gap-1.5 p-3 rounded-xl border border-border/30 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-colors text-left min-h-[120px] h-full max-h-[14rem] overflow-clip w-full min-w-0"
                                   onClick={() => setActiveTab('venue')}
                                   data-testid={`overview-venue-${showName.replace(/\s+/g, '-')}`}
                                 >
@@ -1647,7 +1647,7 @@ export default function Dashboard() {
                                   )}
                                 </button>
                                 <button
-                                  className="flex flex-col gap-1.5 p-3 rounded-xl border border-border/30 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-colors text-left min-h-[120px] h-full max-h-[14rem] overflow-hidden w-full min-w-0"
+                                  className="flex flex-col gap-1.5 p-3 rounded-xl border border-border/30 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-colors text-left min-h-[120px] h-full max-h-[14rem] overflow-clip w-full min-w-0"
                                   onClick={() => setActiveTab('schedule')}
                                   data-testid={`overview-schedule-${showName.replace(/\s+/g, '-')}`}
                                 >
@@ -1689,7 +1689,7 @@ export default function Dashboard() {
                                   </div>
                                 </button>
                                 <button
-                                  className="flex flex-col gap-1.5 p-3 rounded-xl border border-border/30 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-colors text-left min-h-[120px] h-full max-h-[14rem] overflow-hidden w-full min-w-0"
+                                  className="flex flex-col gap-1.5 p-3 rounded-xl border border-border/30 bg-card/40 backdrop-blur-sm hover:bg-card/60 transition-colors text-left min-h-[120px] h-full max-h-[14rem] overflow-clip w-full min-w-0"
                                   onClick={() => setActiveTab('assigned-crew')}
                                   data-testid={`overview-crew-${showName.replace(/\s+/g, '-')}`}
                                 >
@@ -1767,7 +1767,7 @@ export default function Dashboard() {
                                   </div>
                                 </button>
                                 <div
-                                  className="h-full max-h-[14rem] overflow-hidden flex w-full min-w-0"
+                                  className="h-full max-h-[14rem] overflow-clip flex w-full min-w-0"
                                 >
                                   <OverviewActivitySquare
                                     showName={showName}
