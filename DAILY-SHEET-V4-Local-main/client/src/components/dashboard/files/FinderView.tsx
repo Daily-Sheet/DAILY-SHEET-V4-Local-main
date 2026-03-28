@@ -481,45 +481,19 @@ export function FinderView({
     );
   }, [fileSearch, files, selectedEvents, projectIds]);
 
-  // Keyboard navigation
+  // Escape key only — close modals within the file explorer without conflicting with dashboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-
-      if (e.key === " " && selectedItem?.type === "file" && previewFile) {
-        e.preventDefault();
-        setShowPreview(prev => !prev);
-      }
       if (e.key === "Escape") {
         if (showPreview) setShowPreview(false);
         else if (renamingId) setRenamingId(null);
         else if (newFolderTarget) setNewFolderTarget(null);
       }
-      if (e.key === "Backspace" && !renamingId && !newFolderTarget && columns.length > 1) {
-        e.preventDefault();
-        navigateToBreadcrumb(columns.length - 2);
-      }
-      // Ctrl+A / Cmd+A: select all items in current column
-      if ((e.ctrlKey || e.metaKey) && e.key === "a" && !renamingId && !newFolderTarget) {
-        e.preventDefault();
-        const lastCol = columns[columns.length - 1];
-        if (lastCol?.type === "folder" && lastCol.scopeName) {
-          const items = getItemsForColumn(lastCol.scopeName, lastCol.folderId ?? null);
-          const keys = new Set<string>();
-          for (const f of items.folders) keys.add(`folder:${f.id}`);
-          for (const f of items.files) keys.add(`file:${f.id}`);
-          setSelectedIds(keys);
-        }
-      }
-      // Delete key: trigger bulk delete
-      if (e.key === "Delete" && selectedIds.size > 0 && !renamingId && !newFolderTarget) {
-        e.preventDefault();
-        if (selectedFileIds.length > 0) setBulkDeleteOpen(true);
-      }
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [selectedItem, previewFile, showPreview, renamingId, newFolderTarget, columns, navigateToBreadcrumb, getItemsForColumn, selectedIds, selectedFileIds]);
+  }, [showPreview, renamingId, newFolderTarget]);
 
   // ---------- Render ----------
 
