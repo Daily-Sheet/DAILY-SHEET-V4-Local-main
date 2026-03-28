@@ -541,6 +541,9 @@ export function FinderView({
         onChange={handleUpload}
       />
 
+      {/* Band Portal — top of file tab */}
+      {canEdit && <BandPortalManager selectedEvents={selectedEvents} />}
+
       {/* Toolbar */}
       <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
         {/* Back button */}
@@ -548,7 +551,7 @@ export function FinderView({
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className="h-8 w-8 sm:h-7 sm:w-7"
             onClick={() => navigateToBreadcrumb(columns.length - 2)}
           >
             <ChevronLeft className="h-4 w-4" />
@@ -562,7 +565,7 @@ export function FinderView({
               {i > 0 && <ChevronRight className="h-3 w-3 text-muted-foreground/50" />}
               <button
                 className={cn(
-                  "px-1.5 py-0.5 rounded text-xs hover:bg-accent/50 transition-colors whitespace-nowrap",
+                  "px-2 py-1 sm:px-1.5 sm:py-0.5 rounded text-xs hover:bg-accent/50 transition-colors whitespace-nowrap",
                   i === columns.length - 1 ? "text-foreground font-medium" : "text-muted-foreground"
                 )}
                 onClick={() => navigateToBreadcrumb(i)}
@@ -580,10 +583,10 @@ export function FinderView({
             placeholder="Search..."
             value={fileSearch}
             onChange={(e) => setFileSearch(e.target.value)}
-            className="h-7 pl-7 text-xs"
+            className="h-8 sm:h-7 pl-7 text-xs"
           />
           {fileSearch && (
-            <Button variant="ghost" size="icon" className="absolute right-0 top-0 h-7 w-7" onClick={() => setFileSearch("")}>
+            <Button variant="ghost" size="icon" className="absolute right-0 top-0 h-8 w-8 sm:h-7 sm:w-7" onClick={() => setFileSearch("")}>
               <X className="h-3 w-3" />
             </Button>
           )}
@@ -622,9 +625,6 @@ export function FinderView({
           <Info className="h-3.5 w-3.5" />
         </Button>
       </div>
-
-      {/* Band Portal */}
-      {canEdit && <BandPortalManager selectedEvents={selectedEvents} />}
 
       {/* Selection toolbar */}
       <AnimatePresence>
@@ -954,7 +954,7 @@ function FinderScopeColumn({
           <button
             key={item.name}
             className={cn(
-              "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-sm transition-colors group",
+              "w-full flex items-center gap-2 px-2 py-2.5 sm:py-1.5 rounded-md text-left text-sm transition-colors group",
               selectedScope === item.name
                 ? "bg-primary text-primary-foreground"
                 : "hover:bg-accent/50"
@@ -1117,11 +1117,11 @@ function FinderFolderColumn({
 
             {/* New folder input */}
             {showNewFolderInput && (
-              <div className="flex items-center gap-2 px-2 py-1.5">
+              <div className="flex items-center gap-2 px-2 py-2.5 sm:py-1.5">
                 <FolderClosed className="h-4 w-4 flex-shrink-0 text-amber-500" />
                 <input
                   autoFocus
-                  className="flex-1 bg-background text-foreground text-xs border rounded px-1.5 py-0.5"
+                  className="flex-1 bg-background text-foreground text-xs border rounded px-2 py-1.5 sm:px-1.5 sm:py-0.5"
                   placeholder="Folder name..."
                   value={newFolderName}
                   onChange={e => onNewFolderNameChange(e.target.value)}
@@ -1156,11 +1156,11 @@ function FinderFolderColumn({
         {/* Action bar — always visible when user can edit */}
         {canEdit && (
           <div className="flex items-center gap-1 px-2 py-1.5 border-t border-border/30 bg-card/80">
-            <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 flex-1" onClick={onNewFolder}>
-              <Plus className="h-3 w-3" /> New Folder
+            <Button variant="ghost" size="sm" className="h-8 sm:h-6 text-xs sm:text-[10px] gap-1 flex-1" onClick={onNewFolder}>
+              <Plus className="h-3.5 sm:h-3 w-3.5 sm:w-3" /> New Folder
             </Button>
-            <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 flex-1" onClick={onUpload}>
-              <Upload className="h-3 w-3" /> Upload
+            <Button variant="ghost" size="sm" className="h-8 sm:h-6 text-xs sm:text-[10px] gap-1 flex-1" onClick={onUpload}>
+              <Upload className="h-3.5 sm:h-3 w-3.5 sm:w-3" /> Upload
             </Button>
           </div>
         )}
@@ -1236,7 +1236,7 @@ function DraggableDroppableFolder({
           {...listeners}
           {...attributes}
           className={cn(
-            "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left text-sm transition-colors group",
+            "w-full flex items-center gap-2 px-2 py-2.5 sm:py-1.5 rounded-md text-left text-sm transition-colors group",
             highlight ? "bg-primary text-primary-foreground" : "hover:bg-accent/50",
             isOver && "ring-2 ring-primary/50 bg-primary/10",
             isDragging && "opacity-40",
@@ -1345,7 +1345,7 @@ function DraggableFile({
           {...listeners}
           {...attributes}
           className={cn(
-            "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors group",
+            "w-full flex items-center gap-2 px-2 py-2.5 sm:py-1.5 rounded-md text-left transition-colors group",
             highlight ? "bg-primary text-primary-foreground" : "hover:bg-accent/50",
             isDragging && "opacity-40",
           )}
@@ -1373,15 +1373,15 @@ function DraggableFile({
               <span
                 role="button"
                 className={cn(
-                  "flex-shrink-0 p-1 rounded-md transition-colors",
+                  "flex-shrink-0 rounded-md transition-colors",
                   isMobile
-                    ? "text-primary"
-                    : "opacity-0 group-hover:opacity-100 hover:bg-accent/50",
+                    ? "p-2 -mr-1 text-primary"
+                    : "p-1 opacity-0 group-hover:opacity-100 hover:bg-accent/50",
                   highlight && !isMobile && "opacity-0 group-hover:opacity-100 text-primary-foreground"
                 )}
                 onClick={e => { e.stopPropagation(); onDownload(); }}
               >
-                <Download className="h-3.5 w-3.5" />
+                <Download className={cn(isMobile ? "h-4 w-4" : "h-3.5 w-3.5")} />
               </span>
             </>
           )}
