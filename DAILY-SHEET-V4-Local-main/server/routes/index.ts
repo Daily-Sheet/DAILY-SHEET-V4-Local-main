@@ -6,7 +6,7 @@ import fs from "fs";
 import { setupAuth } from "../replit_integrations/auth";
 import { db } from "../db";
 import { users, workspaces, workspaceMembers } from "@shared/models/auth";
-import { schedules, contacts, files, venues, events, fileFolders, comments, settings as settingsTable, eventAssignments, bandPortalLinks } from "@shared/schema";
+import { schedules, contacts, files, venues, events, fileFolders, comments, settings as settingsTable, eventAssignments, bandPortalLinks, eventDayVenues } from "@shared/schema";
 import { eq, and, isNull, isNotNull, sql } from "drizzle-orm";
 
 import { registerAuthRoutes } from "./auth";
@@ -88,6 +88,9 @@ export async function registerRoutes(
 
   // Backfill files.folderId and band_portal_links.folderId from folderName
   await migrateFileFolderIds();
+
+  // Backfill eventDayVenues for events with venueId but missing day-venue rows
+  await migrateEventDayVenues();
 
   return httpServer;
 }
@@ -248,5 +251,43 @@ async function migrateFileFolderIds() {
     }
   } catch (error) {
     console.error("File folderId migration error (non-fatal):", error);
+  }
+}
+
+async function migrateEventDayVenues() {
+  try {
+    // Find events that have a venueId + date range but no eventDayVenues rows
+    const allEvents = await db.select().from(events);
+    const allDayVenues = await db.select().from(eventDayVenues);
+
+    // Build a set of (eventId, date) pairs that already exist
+    const existingKeys = new Set(allDayVenues.map(dv => `${dv.eventId}::${dv.date}`));
+
+    let created = 0;
+    for (const ev of allEvents) {
+      if (!ev.venueId || !ev.startDate || !ev.endDate) continue;
+
+      const start = new Date(ev.startDate + "T00:00:00");
+      const end = new Date(ev.endDate + "T00:00:00");
+      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+        const dateStr = d.toISOString().split("T")[0];
+        const key = `${ev.id}::${dateStr}`;
+        if (!existingKeys.has(key)) {
+          await db.insert(eventDayVenues).values({
+            eventId: ev.id,
+            date: dateStr,
+            venueId: ev.venueId,
+            workspaceId: ev.workspaceId,
+          });
+          existingKeys.add(key);
+          created++;
+        }
+      }
+    }
+    if (created > 0) {
+      console.log(`Migrated ${created} eventDayVenues rows: backfilled from event.venueId`);
+    }
+  } catch (error) {
+    console.error("EventDayVenues migration error (non-fatal):", error);
   }
 }
