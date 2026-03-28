@@ -532,7 +532,7 @@ export function FinderView({
       />
 
       {/* Toolbar */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
         {/* Back button */}
         {columns.length > 1 && (
           <Button
@@ -564,7 +564,7 @@ export function FinderView({
         </div>
 
         {/* Search */}
-        <div className="relative w-48">
+        <div className="relative w-full sm:w-48 order-last sm:order-none">
           <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             placeholder="Search..."
@@ -579,8 +579,8 @@ export function FinderView({
           )}
         </div>
 
-        {/* View toggle */}
-        <div className="flex border rounded-md overflow-hidden">
+        {/* View toggle — hidden on mobile (always single column) */}
+        <div className="hidden sm:flex border rounded-md overflow-hidden">
           <Button
             variant={viewMode === "column" ? "default" : "ghost"}
             size="icon"
@@ -599,11 +599,11 @@ export function FinderView({
           </Button>
         </div>
 
-        {/* Preview toggle */}
+        {/* Preview toggle — hidden on mobile */}
         <Button
           variant={previewFile && showPreview ? "default" : "ghost"}
           size="icon"
-          className="h-7 w-7"
+          className="h-7 w-7 hidden sm:flex"
           onClick={() => {
             if (previewFile) setShowPreview(prev => !prev);
           }}
@@ -675,12 +675,71 @@ export function FinderView({
           )}
         </div>
       ) : viewMode === "column" ? (
-        /* Column View with DnD */
+        /* Column View with DnD — stop touch events from bubbling to dashboard swipe handler */
         <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <div className="border rounded-xl bg-card/50 backdrop-blur-sm overflow-hidden flex" style={{ minHeight: 360 }}>
-            <div ref={scrollContainerRef} className="flex flex-1 overflow-x-auto">
+          <div
+            className="border rounded-xl bg-card/50 backdrop-blur-sm overflow-hidden flex"
+            style={{ minHeight: 360 }}
+            onTouchStart={e => e.stopPropagation()}
+            onTouchEnd={e => e.stopPropagation()}
+          >
+            {/* Mobile: single-column drill-down (show only the active column) */}
+            <div className="sm:hidden flex-1">
+              {(() => {
+                const col = columns[columns.length - 1];
+                const colIdx = columns.length - 1;
+                return col.type === "scope" ? (
+                  <FinderScopeColumn
+                    items={scopeItems}
+                    selectedScope={selectedScope}
+                    onSelectScope={selectScope}
+                  />
+                ) : (
+                  <FinderFolderColumn
+                    scopeName={col.scopeName!}
+                    parentFolderId={col.folderId ?? null}
+                    items={getItemsForColumn(col.scopeName!, col.folderId ?? null)}
+                    selectedItem={selectedItem}
+                    selectedIds={selectedIds}
+                    columnIndex={colIdx}
+                    canEdit={canEdit}
+                    isMobile
+                    isRenaming={renamingId}
+                    renameValue={renameValue}
+                    onRenameChange={setRenameValue}
+                    onRenameSubmit={submitRename}
+                    onRenameCancel={() => setRenamingId(null)}
+                    onSelectFile={selectFile}
+                    onOpenFolder={(folderId, folderName) => openFolder(col.scopeName!, folderId, folderName, colIdx)}
+                    onStartRename={startRename}
+                    onDelete={(type, id, name) => setDeleteTarget({ type, id, name })}
+                    onDownload={(id) => window.open(buildApiUrl(`/api/files/${id}/download`), "_blank")}
+                    onPreview={(file) => { selectFile(file); setShowPreview(true); }}
+                    onNewFolder={() => startNewFolder(col.scopeName!, col.folderId ?? null)}
+                    onUpload={() => {
+                      const isProject = col.scopeName!.startsWith("project:");
+                      const projectId = isProject ? parseInt(col.scopeName!.split(":")[1]) : null;
+                      const eventName = isProject ? null : col.scopeName!;
+                      const folder = col.folderId ? folders.find(f => f.id === col.folderId) : null;
+                      triggerUpload(eventName, col.folderId ?? null, folder?.name ?? null, projectId);
+                    }}
+                    onToggleSelect={toggleSelect}
+                    onMoveTo={() => setMoveToOpen(true)}
+                    newFolderTarget={newFolderTarget}
+                    newFolderName={newFolderName}
+                    onNewFolderNameChange={setNewFolderName}
+                    onNewFolderSubmit={submitNewFolder}
+                    onNewFolderCancel={() => setNewFolderTarget(null)}
+                    uploadingTo={uploadingTo}
+                  />
+                );
+              })()}
+            </div>
+
+            {/* Desktop: multi-column side-by-side */}
+            <div ref={scrollContainerRef} className="hidden sm:flex flex-1 overflow-x-auto">
               {columns.map((col, colIdx) => (
-                <div key={colIdx} className={cn("flex-shrink-0 border-r border-border/30 last:border-r-0", colIdx === 0 ? "w-52" : "w-60")}>
+                <div key={colIdx} className={cn("flex-shrink-0 border-r border-border/30 last:border-r-0", colIdx === 0 ? "w-56" : "w-64")}>
                   {col.type === "scope" ? (
                     <FinderScopeColumn
                       items={scopeItems}
@@ -729,7 +788,7 @@ export function FinderView({
               ))}
             </div>
 
-            {/* Preview panel */}
+            {/* Preview panel — desktop only */}
             <AnimatePresence>
               {showPreview && previewFile && (
                 <motion.div
@@ -737,7 +796,7 @@ export function FinderView({
                   animate={{ width: 280, opacity: 1 }}
                   exit={{ width: 0, opacity: 0 }}
                   transition={{ duration: 0.2 }}
-                  className="border-l border-border/30 overflow-hidden flex-shrink-0"
+                  className="border-l border-border/30 overflow-hidden flex-shrink-0 hidden sm:block"
                 >
                   <FinderPreviewPanel
                     file={previewFile}
@@ -919,6 +978,7 @@ function FinderFolderColumn({
   selectedIds,
   columnIndex,
   canEdit,
+  isMobile,
   isRenaming,
   renameValue,
   onRenameChange,
@@ -948,6 +1008,7 @@ function FinderFolderColumn({
   selectedIds: Set<string>;
   columnIndex: number;
   canEdit: boolean;
+  isMobile?: boolean;
   isRenaming: { type: "file" | "folder"; id: number } | null;
   renameValue: string;
   onRenameChange: (v: string) => void;
@@ -1021,6 +1082,7 @@ function FinderFolderColumn({
                 isSelected={selectedItem?.type === "file" && selectedItem.id === file.id}
                 isMultiSelected={selectedIds.has(`file:${file.id}`)}
                 canEdit={canEdit}
+                isMobile={isMobile}
                 isRenaming={isRenaming?.type === "file" && isRenaming.id === file.id}
                 renameValue={renameValue}
                 onRenameChange={onRenameChange}
@@ -1223,6 +1285,7 @@ function DraggableFile({
   isSelected,
   isMultiSelected,
   canEdit,
+  isMobile,
   isRenaming,
   renameValue,
   onRenameChange,
@@ -1240,6 +1303,7 @@ function DraggableFile({
   isSelected: boolean;
   isMultiSelected: boolean;
   canEdit: boolean;
+  isMobile?: boolean;
   isRenaming: boolean;
   renameValue: string;
   onRenameChange: (v: string) => void;
@@ -1290,7 +1354,23 @@ function DraggableFile({
               onClick={e => e.stopPropagation()}
             />
           ) : (
-            <span className="truncate flex-1 text-xs">{file.name}</span>
+            <>
+              <span className="truncate flex-1 text-xs">{file.name}</span>
+              {/* Download button — always visible on mobile, hover on desktop */}
+              <span
+                role="button"
+                className={cn(
+                  "flex-shrink-0 p-1 rounded-md transition-colors",
+                  isMobile
+                    ? "text-primary"
+                    : "opacity-0 group-hover:opacity-100 hover:bg-accent/50",
+                  highlight && !isMobile && "opacity-0 group-hover:opacity-100 text-primary-foreground"
+                )}
+                onClick={e => { e.stopPropagation(); onDownload(); }}
+              >
+                <Download className="h-3.5 w-3.5" />
+              </span>
+            </>
           )}
         </button>
       </ContextMenuTrigger>
@@ -1384,10 +1464,22 @@ function FinderFileRow({
             <>
               <span className="truncate flex-1 text-xs">{file.name}</span>
               {!compact && (
-                <span className={cn("text-[10px] flex-shrink-0", isSelected ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                <span className={cn("text-[10px] flex-shrink-0 hidden sm:inline", isSelected ? "text-primary-foreground/70" : "text-muted-foreground")}>
                   {formatFileSize(file.size)}
                 </span>
               )}
+              {/* Download button — always visible on mobile, hover on desktop */}
+              <span
+                role="button"
+                className={cn(
+                  "flex-shrink-0 p-1 rounded-md transition-colors",
+                  "sm:opacity-0 sm:group-hover:opacity-100 hover:bg-accent/50",
+                  isSelected && "sm:text-primary-foreground"
+                )}
+                onClick={e => { e.stopPropagation(); onDownload(); }}
+              >
+                <Download className="h-3.5 w-3.5" />
+              </span>
             </>
           )}
         </button>
@@ -1485,12 +1577,13 @@ function FinderListView({
         <button className="flex-1 text-left" onClick={() => toggleSort("name")}>
           Name {sortBy === "name" && (sortDir === "asc" ? "↑" : "↓")}
         </button>
-        <button className="w-20 text-right" onClick={() => toggleSort("size")}>
+        <button className="w-20 text-right hidden sm:block" onClick={() => toggleSort("size")}>
           Size {sortBy === "size" && (sortDir === "asc" ? "↑" : "↓")}
         </button>
-        <button className="w-24 text-right" onClick={() => toggleSort("date")}>
+        <button className="w-24 text-right hidden sm:block" onClick={() => toggleSort("date")}>
           Modified {sortBy === "date" && (sortDir === "asc" ? "↑" : "↓")}
         </button>
+        <span className="w-8 flex-shrink-0" />
       </div>
       <ScrollArea className="max-h-[500px]">
         <div className="p-1">
@@ -1510,7 +1603,7 @@ function FinderListView({
                   <ContextMenuTrigger asChild>
                     <button
                       className={cn(
-                        "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors",
+                        "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-left transition-colors group",
                         isSelected ? "bg-primary text-primary-foreground" : "hover:bg-accent/50"
                       )}
                       onClick={() => onSelectFile(file)}
@@ -1540,11 +1633,23 @@ function FinderListView({
                           )}
                         </div>
                       )}
-                      <span className={cn("text-[10px] w-20 text-right flex-shrink-0", isSelected ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                      <span className={cn("text-[10px] w-20 text-right flex-shrink-0 hidden sm:inline", isSelected ? "text-primary-foreground/70" : "text-muted-foreground")}>
                         {formatFileSize(file.size)}
                       </span>
-                      <span className={cn("text-[10px] w-24 text-right flex-shrink-0", isSelected ? "text-primary-foreground/70" : "text-muted-foreground")}>
+                      <span className={cn("text-[10px] w-24 text-right flex-shrink-0 hidden sm:inline", isSelected ? "text-primary-foreground/70" : "text-muted-foreground")}>
                         {timeAgo(file.uploadedAt)}
+                      </span>
+                      {/* Download button — always visible on mobile, hover on desktop */}
+                      <span
+                        role="button"
+                        className={cn(
+                          "flex-shrink-0 p-1 rounded-md transition-colors",
+                          "sm:opacity-0 sm:group-hover:opacity-100 hover:bg-accent/50",
+                          isSelected && "sm:text-primary-foreground"
+                        )}
+                        onClick={e => { e.stopPropagation(); onDownload(file.id); }}
+                      >
+                        <Download className="h-3.5 w-3.5" />
                       </span>
                     </button>
                   </ContextMenuTrigger>
