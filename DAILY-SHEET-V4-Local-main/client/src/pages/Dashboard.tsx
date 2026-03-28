@@ -5,6 +5,7 @@ import { useState, useRef, useMemo, useEffect, useCallback, useSyncExternalStore
 import { DEPARTMENTS } from "@shared/constants";
 import { cn } from "@/lib/utils";
 import { getProjectTypeColors } from "@/lib/projectColors";
+import { projectPath } from "@/lib/slugs";
 import { AppHeader } from "@/components/AppHeader";
 const PdfPreview = lazy(() => import("@/components/PdfPreview"));
 import { Link, useSearch, useLocation } from "wouter";
@@ -1464,7 +1465,7 @@ export default function Dashboard() {
                           {travelExpanded && (
                             <div className="px-4 pb-4 space-y-3">
                               <div className="flex items-center gap-1 justify-end">
-                                <Link href={`/project/${travelDayForSelectedDate.projectId}`}>
+                                <Link href={projectPath(travelDayForSelectedDate.projectId, allProjects.find(p => p.id === travelDayForSelectedDate.projectId)?.name || "project")}>
                                   <Button variant="ghost" size="sm" className="h-7 px-2 text-[10px] text-amber-600 dark:text-amber-400 hover:text-amber-700 hover:bg-amber-500/10" data-testid="button-travel-day-itinerary">
                                     View Itinerary
                                   </Button>
@@ -1555,7 +1556,7 @@ export default function Dashboard() {
                                     {tourInfo ? `On Tour · ${showProject.name}` : showProject.name}
                                   </span>
                                 </div>
-                                <Link href={`/project/${showProject.id}`}>
+                                <Link href={projectPath(showProject.id, showProject.name)}>
                                   <Button variant="ghost" size="sm" className={cn("h-5 px-1.5 text-[9px]", pc.text, pc.darkText)} data-testid={`button-view-itinerary-${showProject.id}`}>
                                     {tourInfo ? "Itinerary" : "Project"}
                                   </Button>
@@ -1642,7 +1643,7 @@ export default function Dashboard() {
                                   selectedDate={activeDate}
                                   projectName={showProject?.name}
                                   projectDriveUrl={showProject?.driveUrl}
-                                  projectHref={canEdit ? `/project/${showEvent.projectId}` : undefined}
+                                  projectHref={canEdit ? projectPath(showEvent.projectId, showProject?.name || "project") : undefined}
                                 />
                               </div>
                             ) : (

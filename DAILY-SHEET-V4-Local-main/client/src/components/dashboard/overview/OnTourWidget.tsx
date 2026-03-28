@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { format, parseISO } from "date-fns";
 import { MapPin, Navigation, Plane, Hotel, CarFront, PlaneTakeoff } from "lucide-react";
 import { Link } from "wouter";
+import { projectPath } from "@/lib/slugs";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
@@ -102,7 +103,7 @@ function OnTourCard({ info, selectedDate, travelDays }: {
             </div>
             <span className="text-xs font-display uppercase tracking-wider text-blue-600 dark:text-blue-400 font-semibold">On Tour · {info.project.name}</span>
           </div>
-          <Link href={`/project/${info.project.id}`}>
+          <Link href={projectPath(info.project.id, info.project.name)}>
             <Button variant="ghost" size="sm" className="h-6 px-2 text-[10px] text-blue-600 dark:text-blue-400 hover:text-blue-700" data-testid={`button-view-itinerary-${info.project.id}`}>
               View Itinerary
             </Button>

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
+import { projectPath } from "@/lib/slugs";
 import {
   CommandDialog,
   CommandEmpty,
@@ -34,7 +35,7 @@ export function CommandPalette({ open, onOpenChange, onNavigateTab, onSelectShow
         if (onNavigateTab) onNavigateTab("overview");
         break;
       case "project":
-        navigate(`/project/${item.id}`);
+        navigate(projectPath(item.id, item.name));
         break;
       case "venue":
         if (onNavigateTab) onNavigateTab("venue");

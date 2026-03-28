@@ -115,16 +115,6 @@ export function HeaderUserMenu({
             <Separator />
             <button
               type="button"
-              className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm text-destructive hover-elevate cursor-pointer"
-              onClick={() => logout()}
-              data-testid="button-logout"
-            >
-              <LogOut className="h-4 w-4" />
-              Log Out
-            </button>
-            <Separator />
-            <button
-              type="button"
               className="flex items-center gap-2 w-full px-2 py-1.5 rounded-md text-sm hover-elevate cursor-pointer"
               onClick={() => setProfileOpen(true)}
               data-testid="button-open-profile"
