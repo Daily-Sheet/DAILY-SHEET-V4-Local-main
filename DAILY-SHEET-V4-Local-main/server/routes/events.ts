@@ -32,14 +32,6 @@ export function registerEventRoutes(app: Express, upload: multer.Multer) {
       if (!input.projectId) {
         return res.status(400).json({ message: "A project is required to create a show" });
       }
-      // Prevent creation of events with duplicate names within the same workspace
-      if (input.name) {
-        const existingEvents = await storage.getEvents(workspaceId);
-        const hasDuplicateName = existingEvents.some((e: any) => e.name === input.name);
-        if (hasDuplicateName) {
-          return res.status(400).json({ message: "An event with this name already exists in this workspace" });
-        }
-      }
       const event = await storage.createEvent({ ...input, workspaceId });
 
       // Always populate eventDayVenues for all dates when a venue is provided

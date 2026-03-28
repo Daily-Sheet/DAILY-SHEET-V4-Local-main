@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useCallback, useEffect, lazy, Suspense } from "react";
 import { cn } from "@/lib/utils";
 import { getProjectTypeColors } from "@/lib/projectColors";
+import { projectPath } from "@/lib/slugs";
 import { AppHeader } from "@/components/AppHeader";
 import { motion, AnimatePresence } from "framer-motion";
 const PdfPreview = lazy(() => import("@/components/PdfPreview"));
@@ -2062,7 +2063,7 @@ function EventsAdmin() {
                   name: editName.trim(),
                   notes: editNotes.trim() || null,
                   startDate: editStartDate || null,
-                  endDate: editEndDate || null,
+                  endDate: editEndDate || editStartDate || null,
                   venueId: editVenueId,
                   projectId: editProjectId ?? undefined,
                   venueForAllDays: editVenueForAllDays,
@@ -2379,7 +2380,7 @@ function EventsAdmin() {
                     name: newName.trim(),
                     notes: newNotes.trim() || undefined,
                     startDate: newStartDate || undefined,
-                    endDate: newEndDate || undefined,
+                    endDate: newEndDate || newStartDate || undefined,
                     venueId: newVenueId,
                     projectId: newProjectId,
                     venueForAllDays: newVenueForAllDays,
@@ -2591,13 +2592,12 @@ function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival
   const [open, setOpen] = useState(false);
   const [showName, setShowName] = useState("");
   const [startDate, setStartDate] = useState(defaultStartDate || format(new Date(), "yyyy-MM-dd"));
-  const [endDate, setEndDate] = useState(defaultEndDate || defaultStartDate || format(new Date(), "yyyy-MM-dd"));
+  const [endDate, setEndDate] = useState(defaultEndDate || "");
 
   // Sync dates when leg dates change (e.g. after editing a festival's dates)
   useEffect(() => {
     if (defaultStartDate) setStartDate(defaultStartDate);
     if (defaultEndDate) setEndDate(defaultEndDate);
-    else if (defaultStartDate) setEndDate(defaultStartDate);
   }, [defaultStartDate, defaultEndDate]);
   const [venueId, setVenueId] = useState<number | null>(null);
   const [venueSearchOpen, setVenueSearchOpen] = useState(false);
@@ -2691,7 +2691,7 @@ function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival
       toast({ title: `${entityLabel} Created`, description: `${entityLabel} added to ${projectName}` });
       setOpen(false);
       setShowName(""); setNotes(""); setVenueId(null); setVenueForAllDays(false);
-      setStartDate(format(new Date(), "yyyy-MM-dd")); setEndDate(format(new Date(), "yyyy-MM-dd"));
+      setStartDate(format(new Date(), "yyyy-MM-dd")); setEndDate("");
       resetInlineVenue();
     },
     onError: (err: Error) => toast({ title: "Error", description: err.message, variant: "destructive" }),
@@ -2703,7 +2703,7 @@ function CreateShowForProjectDialog({ projectId, projectName, venues, isFestival
     createMutation.mutate({
       name: showName.trim(),
       startDate: startDate || undefined,
-      endDate: endDate || undefined,
+      endDate: endDate || startDate || undefined,
       venueId: venueId || undefined,
       venueForAllDays,
       notes: notes.trim() || undefined,
@@ -3813,7 +3813,7 @@ function ProjectLegsSection({ projectId, projectName, venues, isFestival }: { pr
                 <button className="flex-1 min-w-0 text-left flex items-center gap-2" onClick={() => setExpandedLegs(prev => ({ ...prev, [leg.id]: !prev[leg.id] }))}>
                   {isExpanded ? <ChevronDown className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
                   <div className="min-w-0">
-                    <Link href={`/project/${projectId}?from=admin`} className="text-sm font-medium truncate hover:underline hover:text-primary block" onClick={(e: React.MouseEvent) => e.stopPropagation()}>{leg.name}</Link>
+                    <Link href={projectPath(projectId, projectName)} className="text-sm font-medium truncate hover:underline hover:text-primary block" onClick={(e: React.MouseEvent) => e.stopPropagation()}>{leg.name}</Link>
                     <p className="text-xs text-muted-foreground">{(() => {
                       if (isFestival) {
                         const stages = legShows.filter((e: any) => e.eventType !== "area");
@@ -4730,7 +4730,7 @@ function ProjectsAdmin() {
                       <div className="mt-3 space-y-2">
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <Link href={`/project/${project.id}?from=admin`} className="font-display text-sm font-semibold uppercase tracking-wide text-primary hover:underline flex items-center gap-1.5" data-testid={`link-project-${project.id}`}>View Project Page <ExternalLink className="w-3.5 h-3.5 inline-flex opacity-60" /></Link>
+                            <Link href={projectPath(project.id, project.name)} className="font-display text-sm font-semibold uppercase tracking-wide text-primary hover:underline flex items-center gap-1.5" data-testid={`link-project-${project.id}`}>View Project Page <ExternalLink className="w-3.5 h-3.5 inline-flex opacity-60" /></Link>
                           </div>
                           {project.description && (
                             <p className="text-sm text-muted-foreground mt-1">{project.description}</p>
@@ -4905,7 +4905,7 @@ function ProjectsAdmin() {
                           <div className="flex items-start justify-between">
                             <div>
                               <div className="flex items-center gap-2">
-                                <Link href={`/project/${project.id}?from=admin`} className="font-display text-base font-semibold uppercase tracking-wide text-muted-foreground" data-testid={`link-archived-project-${project.id}`}>{project.name}</Link>
+                                <Link href={projectPath(project.id, project.name)} className="font-display text-base font-semibold uppercase tracking-wide text-muted-foreground" data-testid={`link-archived-project-${project.id}`}>{project.name}</Link>
                                 {project.projectNumber && (
                                   <Badge variant="outline" className="text-[10px] uppercase tracking-wide" data-testid={`badge-archived-project-number-${project.id}`}>#{project.projectNumber}</Badge>
                                 )}

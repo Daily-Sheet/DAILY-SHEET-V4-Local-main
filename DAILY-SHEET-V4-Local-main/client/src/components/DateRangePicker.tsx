@@ -28,21 +28,20 @@ export function DateRangePicker({
             value={startDate}
             onChange={(v) => {
               onChangeStart(v);
+              // Only pull end date forward if it's set and now before start
               if (endDate && v > endDate) onChangeEnd(v);
             }}
-            maxDate={endDate || undefined}
             data-testid={`${testIdPrefix}-start`}
           />
         </div>
         <div>
-          <label className="text-xs text-muted-foreground">End</label>
+          <label className="text-xs text-muted-foreground">End <span className="text-muted-foreground/60">(blank = single day)</span></label>
           <DatePicker
             value={endDate}
             onChange={(v) => {
               onChangeEnd(v);
-              if (startDate && v < startDate) onChangeStart(v);
+              if (!startDate || v < startDate) onChangeStart(v);
             }}
-            minDate={startDate || undefined}
             data-testid={`${testIdPrefix}-end`}
           />
         </div>

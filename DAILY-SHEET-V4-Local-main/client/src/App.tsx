@@ -108,7 +108,7 @@ function AuthenticatedRouter() {
       <Route path="/shows" component={Shows} />
       <Route path="/calendar" component={CalendarPage} />
       <Route path="/map" component={MapPage} />
-      <Route path="/project/:id" component={ProjectPage} />
+      <Route path="/project/:id/:slug?" component={ProjectPage} />
       <Route path="/admin" component={AdminRoute} />
       <Route path="/" component={() => <Redirect to="/dashboard" />} />
       <Route component={NotFound} />

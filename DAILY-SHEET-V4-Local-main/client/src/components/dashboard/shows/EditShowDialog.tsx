@@ -102,7 +102,7 @@ export function EditShowDialog({
     const payload: any = {
       name: values.name.trim(),
       startDate: values.startDate || null,
-      endDate: values.endDate || null,
+      endDate: values.endDate || values.startDate || null,
       notes: values.notes || null,
       tag: values.tag?.trim() || null,
     };
@@ -137,7 +137,6 @@ export function EditShowDialog({
                         const endDate = form.getValues("endDate");
                         if (endDate && v && endDate < v) form.setValue("endDate", v);
                       }}
-                      maxDate={form.watch("endDate") || undefined}
                       data-testid="input-edit-show-start"
                     />
                   </FormControl>
@@ -146,16 +145,15 @@ export function EditShowDialog({
               )} />
               <FormField control={form.control} name="endDate" render={({ field }) => (
                 <FormItem>
-                  <FormLabel>End Date</FormLabel>
+                  <FormLabel>End Date <span className="text-muted-foreground/60 text-xs font-normal">(blank = single day)</span></FormLabel>
                   <FormControl>
                     <DatePicker
                       value={field.value}
                       onChange={(v) => {
                         field.onChange(v);
                         const startDate = form.getValues("startDate");
-                        if (startDate && v && v < startDate) form.setValue("startDate", v);
+                        if (!startDate || (v && v < startDate)) form.setValue("startDate", v);
                       }}
-                      minDate={form.watch("startDate") || undefined}
                       data-testid="input-edit-show-end"
                     />
                   </FormControl>

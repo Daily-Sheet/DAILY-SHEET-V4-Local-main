@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
+import { projectPath } from "@/lib/slugs";
 import { AppHeader } from "@/components/AppHeader";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
@@ -440,7 +441,8 @@ export default function CalendarPage() {
   }
 
   function handleNavigateToTour(projectId: number, _date: string) {
-    navigate(`/project/${projectId}`);
+    const p = allProjects.find(p => p.id === projectId);
+    navigate(projectPath(projectId, p?.name || "project"));
   }
 
   const getFilteredEventNames = (filterId: string): string[] => {

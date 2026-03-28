@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
-import { useRoute, Link, useSearch } from "wouter";
+import { useRoute, Link, useSearch, useLocation } from "wouter";
+import { projectPath } from "@/lib/slugs";
 import { AppHeader } from "@/components/AppHeader";
 import { EditShowDialog } from "@/components/dashboard/shows/EditShowDialog";
 import { useQuery, useQueries, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -19,6 +20,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useForm } from "react-hook-form";
 import { TimePicker } from "@/components/ui/time-picker";
 import { DatePicker } from "@/components/ui/date-picker";
+import { DateRangePicker } from "@/components/DateRangePicker";
 import { cn } from "@/lib/utils";
 import { getProjectTypeColors } from "@/lib/projectColors";
 import { formatTime, toTimeInputValue } from "@/lib/timeUtils";
@@ -2621,10 +2623,10 @@ function CrewTravelManifest({ travelDayId, isAdmin, contacts, assignedUserIds }:
   );
 }
 
-function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAdmin, schedules, zones, sections, allFiles, fileFolders, allEventAssignments, contacts, onEditShow, onDeleteShow }: {
+function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAdmin, schedules, zones, sections, allFiles, fileFolders, allEventAssignments, contacts, activeLegId, onEditShow, onDeleteShow }: {
   project: Project; events: Event[]; venues: Venue[]; allDayVenues: EventDayVenue[]; travelDays: TravelDay[]; isAdmin: boolean;
   schedules: Schedule[]; zones: Zone[]; sections: Section[]; allFiles: FileRecord[]; fileFolders: FileFolder[];
-  allEventAssignments: any[]; contacts: Contact[]; onEditShow: (eventId: number) => void; onDeleteShow: (eventId: number) => void;
+  allEventAssignments: any[]; contacts: Contact[]; activeLegId: number | null; onEditShow: (eventId: number) => void; onDeleteShow: (eventId: number) => void;
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -2633,12 +2635,12 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
   const [showTabs, setShowTabs] = useState<Record<number, string>>({});
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [newTravel, setNewTravel] = useState({
-    date: "", legId: null as number | null, notes: "", flightNumber: "", airline: "",
+    date: "", legId: activeLegId as number | null, notes: "", flightNumber: "", airline: "",
     departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: ""
   });
 
   const resetForm = () => setNewTravel({
-    date: "", legId: null, notes: "", flightNumber: "", airline: "",
+    date: "", legId: activeLegId, notes: "", flightNumber: "", airline: "",
     departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: ""
   });
 
@@ -2768,15 +2770,21 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
     return groups;
   }, [events, venues, allDayVenues, travelDays, legs]);
 
+  // Filter to active leg when leg tabs exist
+  const visibleGroups = useMemo(() => {
+    if (activeLegId == null || legs.length === 0) return legGroups;
+    return legGroups.filter(g => g.legId === activeLegId);
+  }, [legGroups, activeLegId, legs]);
+
   return (
     <div className="space-y-3" data-testid="tour-itinerary">
 
-      {legGroups.every(g => g.items.length === 0) && (
+      {visibleGroups.every(g => g.items.length === 0) && (
         <p className="text-center text-sm text-muted-foreground py-4">No stops or travel days yet.</p>
       )}
 
-      {legGroups.map((group) => {
-        const showLegHeader = legs.length > 0;
+      {visibleGroups.map((group) => {
+        const showLegHeader = legs.length > 0 && activeLegId == null;
         const showCount = group.items.filter(i => i.type === "show").length;
 
         return (
@@ -3086,7 +3094,7 @@ function CreateShowInline({ isFestival, venues, isPending, onSubmit, onCancel }:
   const entityLabel = isFestival ? "Stage" : "Show";
   const [name, setName] = useState("");
   const [startDate, setStartDate] = useState(format(new Date(), "yyyy-MM-dd"));
-  const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [endDate, setEndDate] = useState("");
   const [venueId, setVenueId] = useState<number | null>(null);
 
   return (
@@ -3103,16 +3111,14 @@ function CreateShowInline({ isFestival, venues, isPending, onSubmit, onCancel }:
               data-testid="input-show-name"
             />
           </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label className="text-xs text-muted-foreground">Start Date</Label>
-              <DatePicker value={startDate} onChange={setStartDate} data-testid="input-show-start" />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">End Date</Label>
-              <DatePicker value={endDate} onChange={setEndDate} minDate={startDate} data-testid="input-show-end" />
-            </div>
-          </div>
+          <DateRangePicker
+            startDate={startDate}
+            endDate={endDate}
+            onChangeStart={setStartDate}
+            onChangeEnd={setEndDate}
+            testIdPrefix="create-show-date-range"
+            label={`${entityLabel} Dates`}
+          />
           <div>
             <Label className="text-xs text-muted-foreground">Venue</Label>
             <Select value={venueId?.toString() || ""} onValueChange={(v) => setVenueId(v ? Number(v) : null)}>
@@ -3131,8 +3137,8 @@ function CreateShowInline({ isFestival, venues, isPending, onSubmit, onCancel }:
           <Button variant="outline" size="sm" onClick={onCancel} data-testid="button-cancel-show">Cancel</Button>
           <Button
             size="sm"
-            disabled={!name.trim() || isPending || endDate < startDate}
-            onClick={() => onSubmit({ name: name.trim(), startDate, endDate, venueId })}
+            disabled={!name.trim() || isPending || (endDate && endDate < startDate)}
+            onClick={() => onSubmit({ name: name.trim(), startDate, endDate: endDate || startDate, venueId })}
             data-testid="button-submit-show"
           >
             {isPending ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Plus className="w-4 h-4 mr-2" />}
@@ -3145,10 +3151,10 @@ function CreateShowInline({ isFestival, venues, isPending, onSubmit, onCancel }:
 }
 
 export default function ProjectPage() {
-  const [, params] = useRoute("/project/:id");
+  const [, params] = useRoute("/project/:id/:slug?");
   const projectId = params?.id ? Number(params.id) : null;
   const searchString = useSearch();
-  const backHref = new URLSearchParams(searchString).get("from") === "admin" ? "/admin" : "/";
+  const backHref = "/";
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -3175,8 +3181,30 @@ export default function ProjectPage() {
     queryKey: ["/api/project-assignments", projectId],
     enabled: !!projectId,
   });
+  const { data: legs = [] } = useQuery<Leg[]>({
+    queryKey: ["/api/projects", projectId, "legs"],
+    enabled: !!projectId,
+  });
 
+  const [, navigate] = useLocation();
   const project = useMemo(() => projects.find(p => p.id === projectId), [projects, projectId]);
+
+  // Active leg from query param ?leg=, default to first leg
+  const searchParams = new URLSearchParams(searchString);
+  const legParam = searchParams.get("leg");
+  const activeLegId = useMemo(() => {
+    if (legParam) return Number(legParam);
+    if (legs.length > 0) return legs[0].id;
+    return null;
+  }, [legParam, legs]);
+
+  const setActiveLeg = useCallback((legId: number | null) => {
+    const sp = new URLSearchParams(searchString);
+    if (legId != null) sp.set("leg", String(legId));
+    else sp.delete("leg");
+    const qs = sp.toString();
+    navigate(`/project/${projectId}/${params?.slug || ""}${qs ? `?${qs}` : ""}`, { replace: true });
+  }, [searchString, projectId, params?.slug, navigate]);
 
   const projectEvents = useMemo(() => {
     if (!projectId) return [];
@@ -3227,6 +3255,7 @@ export default function ProjectPage() {
         endDate: data.endDate,
         venueId: data.venueId,
         projectId,
+        legId: activeLegId,
         venueForAllDays: true,
       });
       return res.json();
@@ -3299,7 +3328,7 @@ export default function ProjectPage() {
         <Link href={backHref}>
           <Button variant="outline" data-testid="btn-back-dashboard">
             <ArrowLeft className="w-4 h-4 mr-2" />
-            {backHref === "/admin" ? "Back to Projects" : "Back to Dashboard"}
+            {"Back to Dashboard"}
           </Button>
         </Link>
       </div>
@@ -3310,8 +3339,8 @@ export default function ProjectPage() {
     <div className="min-h-screen bg-background pb-24 sm:pb-0">
       <AppHeader showBack>
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <span className="text-sm sm:text-base font-display font-bold text-accent truncate" data-testid="text-project-name">
+          <div className="flex items-center gap-1 text-sm sm:text-base">
+            <span className="font-display font-bold text-accent truncate" data-testid="text-project-name">
               {project.name}
             </span>
             {project.driveUrl && (
@@ -3332,6 +3361,25 @@ export default function ProjectPage() {
       </AppHeader>
 
       <div className="max-w-5xl mx-auto px-4 py-4 space-y-3">
+        {legs.length > 0 && (
+          <div className="flex gap-1.5 flex-wrap" data-testid="leg-tabs">
+            {legs.map(leg => (
+              <button
+                key={leg.id}
+                onClick={() => setActiveLeg(leg.id)}
+                className={cn(
+                  "px-3 py-1.5 rounded-full text-xs font-display font-semibold uppercase tracking-wider transition-colors",
+                  activeLegId === leg.id
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                )}
+                data-testid={`leg-tab-${leg.id}`}
+              >
+                {leg.name}
+              </button>
+            ))}
+          </div>
+        )}
         {isAdmin && (
           <div className="flex justify-end">
             <Button size="sm" onClick={() => setShowCreateDialog(true)} data-testid="button-add-show">
@@ -3367,6 +3415,7 @@ export default function ProjectPage() {
               fileFolders={fileFolders}
               allEventAssignments={allEventAssignments}
               contacts={contacts}
+              activeLegId={activeLegId}
               onEditShow={(eventId) => setEditShowDialogId(eventId)}
               onDeleteShow={(eventId) => deleteShowMutation.mutate(eventId)}
             />
