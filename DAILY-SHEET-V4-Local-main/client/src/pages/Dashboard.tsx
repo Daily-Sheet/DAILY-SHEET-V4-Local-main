@@ -2,7 +2,7 @@ import { useState, useRef, useMemo, useEffect, useCallback, useSyncExternalStore
 // ...existing code...
   // Number of sub-card rows (Venue, Schedule, Crew, Activity)
 
-import { DEPARTMENTS } from "@shared/constants";
+import { DEPARTMENTS, DAY_TYPES, EVENT_TYPE_COLORS } from "@shared/constants";
 import { cn } from "@/lib/utils";
 import { getProjectTypeColors } from "@/lib/projectColors";
 import { projectPath } from "@/lib/slugs";
@@ -845,15 +845,7 @@ export default function Dashboard() {
 
   const handleDateSelect = useCallback((date: string) => {
     setActiveDate(date);
-    // Auto-select shows active on the clicked date
-    const availableSet = new Set(availableEvents);
-    const showsOnDate = (eventsList as Event[]).filter((e: Event) => {
-      if (!availableSet.has(e.name) || !e.startDate) return false;
-      const end = e.endDate || e.startDate;
-      return e.startDate <= date && end >= date;
-    }).map((e: Event) => e.name);
-    eventSelection.setSelectedEvents(showsOnDate);
-  }, [availableEvents, eventsList, eventSelection]);
+  }, []);
   handleDateSelectRef.current = handleDateSelect;
 
   const effectiveSelectedEvents: string[] = useMemo(() => {
@@ -979,8 +971,29 @@ export default function Dashboard() {
 
   const showsForSelectedDate = useMemo(() => {
     if (effectiveSelectedEvents.length === 0) return allShowsForSelectedDate;
-    return allShowsForSelectedDate.filter((ev: Event) => effectiveSelectedEventsSet.has(ev.name));
-  }, [allShowsForSelectedDate, effectiveSelectedEvents, effectiveSelectedEventsSet]);
+    // Build the set of projectIds (and legIds) from the selected events
+    const selectedProjectIds = new Set<number>();
+    const selectedLegIds = new Set<number>();
+    for (const name of effectiveSelectedEvents) {
+      const ev = (eventsList as Event[]).find((e: Event) => e.name === name);
+      if (ev?.projectId) {
+        selectedProjectIds.add(ev.projectId);
+        if ((ev as any).legId) selectedLegIds.add((ev as any).legId);
+      }
+    }
+    return allShowsForSelectedDate.filter((ev: Event) => {
+      // Direct match by name
+      if (effectiveSelectedEventsSet.has(ev.name)) return true;
+      // Related by project: if leg info exists, match by leg; otherwise match by project
+      if (ev.projectId && selectedProjectIds.has(ev.projectId)) {
+        if (selectedLegIds.size > 0 && (ev as any).legId) {
+          return selectedLegIds.has((ev as any).legId);
+        }
+        return true;
+      }
+      return false;
+    });
+  }, [allShowsForSelectedDate, effectiveSelectedEvents, effectiveSelectedEventsSet, eventsList]);
 
   // Map show names to their tour project + next stop (for inline tour banner on show cards)
   const showTourMap = useMemo(() => {
@@ -1337,70 +1350,39 @@ export default function Dashboard() {
               </Button>
             </div>
             {/* ShowSwitcher moved to header. */}
-            {allShowsForSelectedDate.length > 1 && (
-              <div
-                className="-mx-4 px-4 mb-2"
-                data-testid="show-filter-pills"
-              >
-                <div className="bg-muted/40 border border-muted rounded-lg px-4 py-2 flex flex-col gap-1">
-                  <span className="text-xs font-semibold text-muted-foreground mb-1 pl-0.5 select-none">
-                    Filter by Show:
-                  </span>
-                  <div className="flex flex-wrap gap-1.5 pb-0.5">
-                    {(() => {
-                      const pillNames = allShowsForSelectedDate.map((ev: Event) => ev.name);
-                      const allPillsShown = pillNames.every(n => effectiveSelectedEventsSet.has(n));
-                      return (
-                        <>
-                          <button
-                            onClick={() => eventSelection.selectAll(availableEvents)}
-                            className={cn(
-                              "flex-shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap",
-                              allPillsShown
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-muted text-muted-foreground hover:bg-muted/80"
-                            )}
-                            data-testid="pill-show-all"
-                          >
-                            All
-                          </button>
-                          {pillNames.map(name => {
-                            const isActive = !allPillsShown && effectiveSelectedEventsSet.has(name);
-                            const color = showColorMap.get(name);
-                            return (
-                              <button
-                                key={name}
-                                onClick={() => {
-                                  if (isActive) {
-                                    eventSelection.selectAll(availableEvents);
-                                  } else {
-                                    eventSelection.singleSelect(name);
-                                  }
-                                }}
-                                className={cn(
-                                  "flex-shrink-0 flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors whitespace-nowrap",
-                                  isActive
-                                    ? "bg-primary text-primary-foreground"
-                                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                                )}
-                                data-testid={`pill-show-${name.replace(/\s+/g, '-')}`}
-                              >
-                                {color && (
-                                  <span
-                                    className={cn("w-1.5 h-1.5 rounded-full flex-shrink-0", color.dot)}
-                                  />
-                                )}
-                                {name}
-                              </button>
-                            );
-                          })}
-                        </>
-                      );
-                    })()}
-                  </div>
+            {/* Subtle notice for other shows on the same date that aren't in the current selection chain */}
+            {(() => {
+              const visibleNames = new Set(showsForSelectedDate.map((ev: Event) => ev.name));
+              const unselectedOnDate = allShowsForSelectedDate.filter((ev: Event) => !visibleNames.has(ev.name));
+              if (unselectedOnDate.length === 0) return null;
+              // Dedupe by project — show project name as pill, or event name if no project
+              const seen = new Set<string>();
+              const pills: { label: string; eventNames: string[] }[] = [];
+              for (const ev of unselectedOnDate) {
+                const proj = ev.projectId ? allProjects.find((p: Project) => p.id === ev.projectId) : null;
+                const key = proj ? `p-${proj.id}` : `e-${ev.name}`;
+                if (seen.has(key)) {
+                  pills.find(p => p.label === (proj?.name || ev.name))?.eventNames.push(ev.name);
+                  continue;
+                }
+                seen.add(key);
+                pills.push({ label: proj?.name || ev.name, eventNames: [ev.name] });
+              }
+              return (
+                <div className="flex items-center gap-1.5 flex-wrap px-1 py-1">
+                  <span className="text-[11px] text-muted-foreground/70">Also on this date:</span>
+                  {pills.map(pill => (
+                    <button
+                      key={pill.label}
+                      onClick={() => eventSelection.setSelectedEvents(pill.eventNames)}
+                      className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                    >
+                      {pill.label}
+                    </button>
+                  ))}
                 </div>
-                </div>
-            )}
+              );
+            })()}
             <DayNavigator
               dates={availableDates}
               selectedDate={activeDate}
@@ -1570,6 +1552,11 @@ export default function Dashboard() {
                                     <div className="min-w-0 flex-1">
                                       <div className="flex items-center gap-1.5 text-sm sm:text-base font-display uppercase tracking-wide" data-testid={`text-venue-bar-name-${showEvent?.id}`}>
                                         <span className="font-bold truncate" data-testid={`text-venue-bar-show-${showEvent?.id}`}>{showName}</span>
+                                        {showEvent && (showEvent as any).eventType && (showEvent as any).eventType !== "show" && (() => {
+                                          const etc = EVENT_TYPE_COLORS[(showEvent as any).eventType];
+                                          const label = DAY_TYPES.find(t => t.value === (showEvent as any).eventType)?.label;
+                                          return etc && label ? <span className={`text-[9px] px-1.5 py-0 rounded-full font-medium ${etc.bg} ${etc.text} ${etc.border} border`}>{label}</span> : null;
+                                        })()}
                                         {show.tag && (
                                           <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-normal border-primary/30 text-primary flex-shrink-0">{show.tag}</Badge>
                                         )}
@@ -1653,6 +1640,11 @@ export default function Dashboard() {
                                   <h3 className="text-sm font-display uppercase tracking-wide text-foreground" data-testid={`overview-show-label-${showName.replace(/\s+/g, '-')}`}>
                                     {showName}
                                   </h3>
+                                  {show && (show as any).eventType && (show as any).eventType !== "show" && (() => {
+                                    const etc = EVENT_TYPE_COLORS[(show as any).eventType];
+                                    const label = DAY_TYPES.find(t => t.value === (show as any).eventType)?.label;
+                                    return etc && label ? <span className={`text-[9px] px-1.5 py-0 rounded-full font-medium ${etc.bg} ${etc.text} ${etc.border} border`}>{label}</span> : null;
+                                  })()}
                                   {show.tag && (
                                     <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4 font-normal border-primary/30 text-primary">{show.tag}</Badge>
                                   )}

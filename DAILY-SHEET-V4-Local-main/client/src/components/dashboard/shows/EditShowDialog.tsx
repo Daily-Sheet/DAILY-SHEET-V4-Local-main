@@ -13,6 +13,7 @@ import { Trash2, ChevronDown, Check, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { DAY_TYPES, EVENT_TYPE_COLORS } from "@shared/constants";
 import type { Event } from "@shared/schema";
 
 export function EditShowDialog({
@@ -53,6 +54,7 @@ export function EditShowDialog({
       endDate: show.endDate || "",
       notes: show.notes || "",
       tag: show.tag || "",
+      eventType: (show as any).eventType || "show",
     },
   });
 
@@ -63,6 +65,7 @@ export function EditShowDialog({
       endDate: show.endDate || "",
       notes: show.notes || "",
       tag: show.tag || "",
+      eventType: (show as any).eventType || "show",
     });
   }, [show, form]);
 
@@ -105,6 +108,7 @@ export function EditShowDialog({
       endDate: values.endDate || values.startDate || null,
       notes: values.notes || null,
       tag: values.tag?.trim() || null,
+      eventType: values.eventType || "show",
     };
     updateMutation.mutate(payload);
   };
@@ -165,6 +169,33 @@ export function EditShowDialog({
               <FormItem>
                 <FormLabel>Notes</FormLabel>
                 <FormControl><Textarea {...field} rows={3} data-testid="input-edit-show-notes" /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="eventType" render={({ field }) => (
+              <FormItem>
+                <FormLabel>Event Type</FormLabel>
+                <div className="flex flex-wrap gap-1.5">
+                  {DAY_TYPES.filter(t => t.value !== "travel").map(t => {
+                    const colors = EVENT_TYPE_COLORS[t.value];
+                    const isActive = field.value === t.value;
+                    return (
+                      <button
+                        key={t.value}
+                        type="button"
+                        onClick={() => field.onChange(t.value)}
+                        className={cn(
+                          "px-2.5 py-1 rounded-full text-xs font-medium border transition-colors",
+                          isActive
+                            ? `${colors.activeBg} ${colors.activeText} ${colors.activeBorder}`
+                            : `${colors.bg} ${colors.text} ${colors.border} hover:opacity-80`
+                        )}
+                      >
+                        {t.label}
+                      </button>
+                    );
+                  })}
+                </div>
                 <FormMessage />
               </FormItem>
             )} />

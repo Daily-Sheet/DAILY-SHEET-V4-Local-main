@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { useState, useRef, useCallback } from "react";
+import { Calendar as CalendarIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
+import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday } from "date-fns";
 
 interface DatePickerProps {
   value: string;
@@ -14,152 +15,71 @@ interface DatePickerProps {
   "data-testid"?: string;
 }
 
-const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-];
+const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
-function parseISO(value: string): { year: number; month: number; day: number } {
-  if (!value) {
-    const now = new Date();
-    return { year: now.getFullYear(), month: now.getMonth(), day: now.getDate() };
-  }
-  const [y, m, d] = value.split("-").map(Number);
-  return { year: y || new Date().getFullYear(), month: (m || 1) - 1, day: d || 1 };
+function toDate(iso: string): Date {
+  if (!iso) return new Date();
+  return new Date(iso + "T00:00:00");
 }
 
-function toISO(year: number, month: number, day: number): string {
-  return `${year}-${(month + 1).toString().padStart(2, "0")}-${day.toString().padStart(2, "0")}`;
+function toISO(d: Date): string {
+  return format(d, "yyyy-MM-dd");
 }
 
 function formatDisplay(value: string): string {
   if (!value) return "";
-  const { year, month, day } = parseISO(value);
-  return `${MONTHS[month]} ${day}, ${year}`;
-}
-
-function daysInMonth(year: number, month: number): number {
-  return new Date(year, month + 1, 0).getDate();
-}
-
-function clampDate(iso: string, minDate?: string, maxDate?: string): string {
-  if (!iso) return iso;
-  if (minDate && iso < minDate) return minDate;
-  if (maxDate && iso > maxDate) return maxDate;
-  return iso;
-}
-
-function ScrollColumn({
-  items,
-  selected,
-  onSelect,
-  formatItem,
-  testIdPrefix,
-  disabledItems,
-}: {
-  items: (number | string)[];
-  selected: number | string;
-  onSelect: (val: any) => void;
-  formatItem?: (val: any) => string;
-  testIdPrefix?: string;
-  disabledItems?: Set<number | string>;
-}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const selectedRef = useRef<HTMLButtonElement>(null);
-
-  useEffect(() => {
-    if (selectedRef.current && containerRef.current) {
-      const container = containerRef.current;
-      const el = selectedRef.current;
-      const offsetTop = el.offsetTop - container.offsetTop;
-      container.scrollTo({ top: offsetTop - container.clientHeight / 2 + el.clientHeight / 2, behavior: "instant" });
-    }
-  }, [selected]);
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const onTouch = (e: TouchEvent) => {
-      e.stopPropagation();
-    };
-    el.addEventListener("touchstart", onTouch, { passive: true });
-    el.addEventListener("touchmove", onTouch, { passive: true });
-    return () => {
-      el.removeEventListener("touchstart", onTouch);
-      el.removeEventListener("touchmove", onTouch);
-    };
-  }, []);
-
-  return (
-    <div
-      ref={containerRef}
-      className="flex flex-col overflow-y-auto h-48 px-1"
-      data-datepicker-column
-      style={{ WebkitOverflowScrolling: "touch", touchAction: "pan-y", overscrollBehavior: "contain" }}
-      onWheel={(e) => {
-        e.stopPropagation();
-        e.preventDefault();
-        containerRef.current?.scrollBy({ top: e.deltaY });
-      }}
-    >
-      {items.map((item) => {
-        const isSelected = item === selected;
-        const isDisabled = disabledItems?.has(item);
-        const display = formatItem ? formatItem(item) : String(item);
-        return (
-          <button
-            key={item}
-            ref={isSelected ? selectedRef : undefined}
-            type="button"
-            onClick={() => !isDisabled && onSelect(item)}
-            disabled={isDisabled}
-            className={cn(
-              "px-3 py-2 text-sm rounded-md text-center transition-colors flex-shrink-0 touch-manipulation",
-              isSelected
-                ? "bg-primary text-primary-foreground font-semibold"
-                : isDisabled
-                  ? "text-muted-foreground/30 cursor-not-allowed"
-                  : "hover:bg-muted/50 active:bg-muted"
-            )}
-            data-testid={testIdPrefix ? `${testIdPrefix}-${item}` : undefined}
-          >
-            {display}
-          </button>
-        );
-      })}
-    </div>
-  );
+  return format(toDate(value), "MMM d, yyyy");
 }
 
 export function DatePicker({ value, onChange, compact, clearable, minDate, maxDate, "data-testid": testId }: DatePickerProps) {
   const [open, setOpen] = useState(false);
-  const { year, month, day } = parseISO(value);
+  const selectedDate = value ? toDate(value) : null;
+  const [viewMonth, setViewMonth] = useState(() => selectedDate || new Date());
 
-  const currentYear = new Date().getFullYear();
-  const years = useMemo(() => {
-    const start = minDate ? parseISO(minDate).year : currentYear - 2;
-    const end = maxDate ? parseISO(maxDate).year : currentYear + 5;
-    const arr: number[] = [];
-    for (let y = Math.min(start, currentYear - 2); y <= Math.max(end, currentYear + 5); y++) arr.push(y);
-    return arr;
-  }, [currentYear, minDate, maxDate]);
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
 
-  const monthIndices = useMemo(() => Array.from({ length: 12 }, (_, i) => i), []);
+  const goToPrev = useCallback(() => setViewMonth(m => subMonths(m, 1)), []);
+  const goToNext = useCallback(() => setViewMonth(m => addMonths(m, 1)), []);
 
-  const maxDay = daysInMonth(year, month);
-  const daysList = useMemo(() => Array.from({ length: maxDay }, (_, i) => i + 1), [maxDay]);
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, []);
 
-  const handleChange = useCallback((y: number, m: number, d: number) => {
-    const maxD = daysInMonth(y, m);
-    const clampedDay = Math.min(d, maxD);
-    const raw = toISO(y, m, clampedDay);
-    const clamped = clampDate(raw, minDate, maxDate);
-    onChange(clamped);
+  const handleTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (!touchStart.current) return;
+    const dx = e.changedTouches[0].clientX - touchStart.current.x;
+    const dy = e.changedTouches[0].clientY - touchStart.current.y;
+    touchStart.current = null;
+    if (Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40) {
+      // Horizontal swipe: left = next, right = prev
+      dx < 0 ? goToNext() : goToPrev();
+    } else if (Math.abs(dy) > Math.abs(dx) && Math.abs(dy) > 40) {
+      // Vertical swipe: down = next, up = prev
+      dy > 0 ? goToNext() : goToPrev();
+    }
+  }, [goToNext, goToPrev]);
+
+  const handleSelect = useCallback((d: Date) => {
+    let iso = toISO(d);
+    if (minDate && iso < minDate) iso = minDate;
+    if (maxDate && iso > maxDate) iso = maxDate;
+    onChange(iso);
+    setOpen(false);
   }, [onChange, minDate, maxDate]);
+
+  // Build calendar grid
+  const monthStart = startOfMonth(viewMonth);
+  const monthEnd = endOfMonth(viewMonth);
+  const calStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+  const calEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+  const days = eachDayOfInterval({ start: calStart, end: calEnd });
 
   return (
     <div className="flex items-center gap-0.5">
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={(v) => {
+        setOpen(v);
+        if (v && selectedDate) setViewMonth(selectedDate);
+      }}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
@@ -176,33 +96,73 @@ export function DatePicker({ value, onChange, compact, clearable, minDate, maxDa
           </Button>
         </PopoverTrigger>
         <PopoverContent
-          className="w-auto p-2"
+          className="w-auto p-3"
           align="start"
           sideOffset={4}
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
-          <div className="flex gap-1">
-            <ScrollColumn
-              items={monthIndices}
-              selected={month}
-              onSelect={(m) => handleChange(year, m, day)}
-              formatItem={(m: number) => MONTHS[m]}
-              testIdPrefix={testId ? `${testId}-month` : undefined}
-            />
-            <div className="w-px bg-border self-stretch" />
-            <ScrollColumn
-              items={daysList}
-              selected={Math.min(day, maxDay)}
-              onSelect={(d) => handleChange(year, month, d)}
-              testIdPrefix={testId ? `${testId}-day` : undefined}
-            />
-            <div className="w-px bg-border self-stretch" />
-            <ScrollColumn
-              items={years}
-              selected={year}
-              onSelect={(y) => handleChange(y, month, day)}
-              testIdPrefix={testId ? `${testId}-year` : undefined}
-            />
+          <div
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+            style={{ touchAction: "none" }}
+          >
+            {/* Month/year header with nav arrows */}
+            <div className="flex items-center justify-between mb-2">
+              <button type="button" onClick={goToPrev} className="p-1 rounded-md hover:bg-muted transition-colors">
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <span className="text-sm font-semibold">{format(viewMonth, "MMMM yyyy")}</span>
+              <button type="button" onClick={goToNext} className="p-1 rounded-md hover:bg-muted transition-colors">
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+            {/* Weekday headers */}
+            <div className="grid grid-cols-7 mb-1">
+              {WEEKDAYS.map(d => (
+                <div key={d} className="text-center text-[10px] font-medium text-muted-foreground py-1">{d}</div>
+              ))}
+            </div>
+            {/* Day grid */}
+            <div className="grid grid-cols-7">
+              {days.map(d => {
+                const iso = toISO(d);
+                const inMonth = isSameMonth(d, viewMonth);
+                const selected = selectedDate && isSameDay(d, selectedDate);
+                const today = isToday(d);
+                const disabled = (minDate && iso < minDate) || (maxDate && iso > maxDate);
+                return (
+                  <button
+                    key={iso}
+                    type="button"
+                    onClick={() => !disabled && handleSelect(d)}
+                    disabled={!!disabled}
+                    className={cn(
+                      "h-8 w-8 mx-auto rounded-md text-xs font-medium transition-colors touch-manipulation",
+                      selected
+                        ? "bg-primary text-primary-foreground"
+                        : today
+                          ? "bg-accent text-accent-foreground"
+                          : inMonth
+                            ? "hover:bg-muted active:bg-muted"
+                            : "text-muted-foreground/40 hover:bg-muted/50",
+                      disabled && "opacity-30 cursor-not-allowed"
+                    )}
+                  >
+                    {d.getDate()}
+                  </button>
+                );
+              })}
+            </div>
+            {/* Today shortcut */}
+            <div className="mt-2 flex justify-center">
+              <button
+                type="button"
+                onClick={() => { setViewMonth(new Date()); handleSelect(new Date()); }}
+                className="text-[11px] text-primary hover:underline font-medium"
+              >
+                Today
+              </button>
+            </div>
           </div>
         </PopoverContent>
       </Popover>

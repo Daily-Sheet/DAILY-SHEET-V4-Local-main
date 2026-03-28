@@ -42,6 +42,7 @@ import { ConfirmDelete } from "@/components/ConfirmDelete";
 import GanttScheduleView from "@/components/GanttScheduleView";
 import { buildNestedSchedule, flattenNested } from "@/lib/schedule-nesting";
 import { useAuth } from "@/hooks/use-auth";
+import { DAY_TYPES, EVENT_TYPE_COLORS } from "@shared/constants";
 import type { Event, Venue } from "@shared/schema";
 
 type RightPanel = "venue" | "crew" | "activity" | "files" | "timesheet";
@@ -174,45 +175,74 @@ export default function DesktopDashboard() {
             />
 
             {/* Show pills for the selected date */}
-            {d.allShowsForSelectedDate.length > 0 && (
-              <div className="space-y-2">
-                <span className="text-[10px] font-display uppercase tracking-wider text-muted-foreground">
-                  Shows on {format(parseISO(d.activeDate + "T12:00:00"), "MMM d")}
-                </span>
-                <div className="space-y-1">
-                  {d.allShowsForSelectedDate.map(show => {
-                    const isActive = d.effectiveSelectedEventsSet.has(show.name);
-                    const color = d.showColorMap.get(show.name);
-                    const project = show.projectId ? d.allProjects.find(p => p.id === show.projectId) : null;
-                    const pc = getProjectTypeColors(project);
+            {d.allShowsForSelectedDate.length > 0 && (() => {
+              const visibleNames = new Set(d.showsForSelectedDate.map(s => s.name));
+              const selectedShows = d.allShowsForSelectedDate.filter(s => visibleNames.has(s.name));
+              const unselectedShows = d.allShowsForSelectedDate.filter(s => !visibleNames.has(s.name));
+              return (
+                <div className="space-y-2">
+                  {selectedShows.length > 0 && (
+                    <>
+                      <span className="text-[10px] font-display uppercase tracking-wider text-muted-foreground">
+                        Shows on {format(parseISO(d.activeDate + "T12:00:00"), "MMM d")}
+                      </span>
+                      <div className="space-y-1">
+                        {selectedShows.map(show => {
+                          const color = d.showColorMap.get(show.name);
+                          return (
+                            <button
+                              key={show.name}
+                              onClick={() => {
+                                if (d.effectiveSelectedEvents.length === 1) {
+                                  d.eventSelection.selectAll(d.availableEvents);
+                                } else {
+                                  d.eventSelection.singleSelect(show.name);
+                                }
+                              }}
+                              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors text-sm bg-primary/10 border border-primary/30"
+                            >
+                              <span className={cn("w-2 h-2 rounded-full shrink-0", color?.dot || "bg-primary")} />
+                              <span className="truncate font-medium">{show.name}</span>
+                              {show.tag && (
+                                <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 ml-auto shrink-0">{show.tag}</Badge>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </>
+                  )}
+                  {unselectedShows.length > 0 && (() => {
+                    const seen = new Set<string>();
+                    const pills: { label: string; eventNames: string[] }[] = [];
+                    for (const ev of unselectedShows) {
+                      const proj = ev.projectId ? d.allProjects.find(p => p.id === ev.projectId) : null;
+                      const key = proj ? `p-${proj.id}` : `e-${ev.name}`;
+                      if (seen.has(key)) {
+                        pills.find(p => p.label === (proj?.name || ev.name))?.eventNames.push(ev.name);
+                        continue;
+                      }
+                      seen.add(key);
+                      pills.push({ label: proj?.name || ev.name, eventNames: [ev.name] });
+                    }
                     return (
-                      <button
-                        key={show.name}
-                        onClick={() => {
-                          if (isActive && d.effectiveSelectedEvents.length === 1) {
-                            d.eventSelection.selectAll(d.availableEvents);
-                          } else {
-                            d.eventSelection.singleSelect(show.name);
-                          }
-                        }}
-                        className={cn(
-                          "w-full flex items-center gap-2 px-3 py-2 rounded-lg text-left transition-colors text-sm",
-                          isActive
-                            ? "bg-primary/10 border border-primary/30"
-                            : "hover:bg-muted/50 border border-transparent"
-                        )}
-                      >
-                        <span className={cn("w-2 h-2 rounded-full shrink-0", color?.dot || "bg-primary")} />
-                        <span className="truncate font-medium">{show.name}</span>
-                        {show.tag && (
-                          <Badge variant="outline" className="text-[8px] px-1 py-0 h-4 ml-auto shrink-0">{show.tag}</Badge>
-                        )}
-                      </button>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[11px] text-muted-foreground/70">Also on this date:</span>
+                        {pills.map(pill => (
+                          <button
+                            key={pill.label}
+                            onClick={() => d.eventSelection.setSelectedEvents(pill.eventNames)}
+                            className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                          >
+                            {pill.label}
+                          </button>
+                        ))}
+                      </div>
                     );
-                  })}
+                  })()}
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* Travel day card */}
             {d.travelDayForSelectedDate && (
@@ -373,6 +403,14 @@ export default function DesktopDashboard() {
                         <div className="px-3 py-2 flex items-center gap-2">
                           <span className={cn("w-3 h-3 rounded-full shrink-0", labelColor?.dot || "bg-primary")} />
                           <h3 className="text-sm font-display uppercase tracking-wide">{showName}</h3>
+                          {(() => {
+                            const ev = d.eventsList.find(e => e.name === showName);
+                            const et = (ev as any)?.eventType;
+                            if (!et || et === "show") return null;
+                            const etc = EVENT_TYPE_COLORS[et];
+                            const label = DAY_TYPES.find(t => t.value === et)?.label;
+                            return etc && label ? <span className={`text-[9px] px-1.5 py-0 rounded-full font-medium ${etc.bg} ${etc.text} ${etc.border} border`}>{label}</span> : null;
+                          })()}
                           <Badge variant="secondary" className="text-[10px]">{showItems.length}</Badge>
                         </div>
                         <div className="p-2 flex-1 space-y-1.5">
