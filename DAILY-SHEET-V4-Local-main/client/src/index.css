@@ -744,6 +744,14 @@ body.capacitor textarea {
   @apply bg-muted-foreground/50;
 }
 
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 @page {
   size: landscape;
   margin: 0.25in;

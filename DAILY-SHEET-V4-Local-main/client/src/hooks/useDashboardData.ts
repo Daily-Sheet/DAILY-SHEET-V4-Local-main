@@ -380,14 +380,7 @@ export function useDashboardData() {
   // ─── Handle date select ──────────────────────────────────────────────
   const handleDateSelect = useCallback((date: string) => {
     setActiveDate(date);
-    const availableSet = new Set(availableEvents);
-    const showsOnDate = (eventsList as Event[]).filter((e: Event) => {
-      if (!availableSet.has(e.name) || !e.startDate) return false;
-      const end = e.endDate || e.startDate;
-      return e.startDate <= date && end >= date;
-    }).map((e: Event) => e.name);
-    eventSelection.setSelectedEvents(showsOnDate);
-  }, [availableEvents, eventsList, eventSelection]);
+  }, []);
 
   // ─── Effective selected events ───────────────────────────────────────
   const effectiveSelectedEvents: string[] = useMemo(() => {
@@ -484,10 +477,30 @@ export function useDashboardData() {
 
   const showsForSelectedDate = useMemo(() => {
     if (effectiveSelectedEventIds.length === 0 && effectiveSelectedEvents.length === 0) return allShowsForSelectedDate;
-    return allShowsForSelectedDate.filter((ev: Event) =>
-      effectiveSelectedEventIdSet.has(ev.id) || effectiveSelectedEventsSet.has(ev.name)
-    );
-  }, [allShowsForSelectedDate, effectiveSelectedEventIds, effectiveSelectedEventIdSet, effectiveSelectedEvents, effectiveSelectedEventsSet]);
+    // Build the set of projectIds (and legIds) from the selected events
+    const selectedProjectIds = new Set<number>();
+    const selectedLegIds = new Set<number>();
+    for (const ev of eventsList as Event[]) {
+      if (effectiveSelectedEventIdSet.has(ev.id) || effectiveSelectedEventsSet.has(ev.name)) {
+        if (ev.projectId) {
+          selectedProjectIds.add(ev.projectId);
+          if ((ev as any).legId) selectedLegIds.add((ev as any).legId);
+        }
+      }
+    }
+    return allShowsForSelectedDate.filter((ev: Event) => {
+      // Direct match by id or name
+      if (effectiveSelectedEventIdSet.has(ev.id) || effectiveSelectedEventsSet.has(ev.name)) return true;
+      // Related by project: if leg info exists, match by leg; otherwise match by project
+      if (ev.projectId && selectedProjectIds.has(ev.projectId)) {
+        if (selectedLegIds.size > 0 && (ev as any).legId) {
+          return selectedLegIds.has((ev as any).legId);
+        }
+        return true;
+      }
+      return false;
+    });
+  }, [allShowsForSelectedDate, effectiveSelectedEventIds, effectiveSelectedEventIdSet, effectiveSelectedEvents, effectiveSelectedEventsSet, eventsList]);
 
   // ─── Show tour map ───────────────────────────────────────────────────
   const showTourMap = useMemo(() => {

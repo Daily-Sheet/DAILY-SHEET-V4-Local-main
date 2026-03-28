@@ -52,6 +52,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import type { User, WorkspaceInvite } from "@shared/models/auth";
 import type { AccessLink } from "@shared/schema";
+import { DAY_TYPES, EVENT_TYPE_COLORS } from "@shared/constants";
 
 import {
   insertContactSchema, insertVenueSchema, insertEventSchema, insertProjectSchema,
@@ -3075,6 +3076,7 @@ function StandaloneShowsSection({ venues }: { venues: Venue[] }) {
   const [editEndDate, setEditEndDate] = useState("");
   const [editVenueId, setEditVenueId] = useState<number | null>(null);
   const [editNotes, setEditNotes] = useState("");
+  const [editEventType, setEditEventType] = useState("show");
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: eventsList = [] } = useQuery<Event[]>({ queryKey: ["/api/events"] });
@@ -3129,6 +3131,7 @@ function StandaloneShowsSection({ venues }: { venues: Venue[] }) {
     setEditEndDate(show.endDate || "");
     setEditVenueId(show.venueId ?? null);
     setEditNotes(show.notes || "");
+    setEditEventType((show as any).eventType || "show");
   };
 
   if (standaloneShows.length === 0 && !open) {
@@ -3200,6 +3203,7 @@ function StandaloneShowsSection({ venues }: { venues: Venue[] }) {
                     endDate: editEndDate || null,
                     venueId: editVenueId,
                     notes: editNotes.trim() || null,
+                    eventType: editEventType,
                   }});
                 }}
                 className="space-y-2"
@@ -3214,6 +3218,18 @@ function StandaloneShowsSection({ venues }: { venues: Venue[] }) {
                   </SelectContent>
                 </Select>
                 <Textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Notes (optional)" rows={2} data-testid={`input-edit-standalone-show-notes-${show.id}`} />
+                <div className="flex flex-wrap gap-1">
+                  {DAY_TYPES.filter(t => t.value !== "travel").map(t => {
+                    const c = EVENT_TYPE_COLORS[t.value as keyof typeof EVENT_TYPE_COLORS];
+                    const active = editEventType === t.value;
+                    return (
+                      <button key={t.value} type="button" onClick={() => setEditEventType(t.value)}
+                        className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${
+                          active ? `${c.activeBg} ${c.activeText} ${c.activeBorder}` : `${c.bg} ${c.text} ${c.border} opacity-60 hover:opacity-100`
+                        }`}>{t.label}</button>
+                    );
+                  })}
+                </div>
                 <div className="flex gap-2 justify-end">
                   <Button type="button" variant="outline" size="sm" onClick={() => setEditingId(null)}><X className="w-3 h-3 mr-1" />Cancel</Button>
                   <Button type="submit" size="sm" disabled={updateMutation.isPending}><Save className="w-3 h-3 mr-1" />Save</Button>
@@ -3269,6 +3285,7 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
   const [editEndDate, setEditEndDate] = useState("");
   const [editVenueId, setEditVenueId] = useState<number | null>(null);
   const [editNotes, setEditNotes] = useState("");
+  const [editEventType, setEditEventType] = useState("show");
   const [addTravelOpen, setAddTravelOpen] = useState(false);
   const [newTravel, setNewTravel] = useState({ date: "", notes: "", flightNumber: "", airline: "", departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: "" });
   const resetTravelForm = () => setNewTravel({ date: "", notes: "", flightNumber: "", airline: "", departureAirport: "", arrivalAirport: "", departureTime: "", arrivalTime: "" });
@@ -3375,6 +3392,7 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
     setEditEndDate(show.endDate || "");
     setEditVenueId(show.venueId ?? null);
     setEditNotes(show.notes || "");
+    setEditEventType((show as any).eventType || "show");
   };
 
   return (
@@ -3446,6 +3464,7 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
                     endDate: editEndDate || null,
                     venueId: editVenueId,
                     notes: editNotes.trim() || null,
+                    eventType: editEventType,
                     projectId,
                   }});
                 }}
@@ -3461,6 +3480,18 @@ function ProjectShowsSection({ projectId, isFestival, isTour, venues, projectNam
                   </SelectContent>
                 </Select>
                 <Textarea value={editNotes} onChange={e => setEditNotes(e.target.value)} placeholder="Notes (optional)" rows={2} data-testid={`input-edit-show-notes-${show.id}`} />
+                <div className="flex flex-wrap gap-1">
+                  {DAY_TYPES.filter(t => t.value !== "travel").map(t => {
+                    const c = EVENT_TYPE_COLORS[t.value as keyof typeof EVENT_TYPE_COLORS];
+                    const active = editEventType === t.value;
+                    return (
+                      <button key={t.value} type="button" onClick={() => setEditEventType(t.value)}
+                        className={`px-2 py-0.5 rounded-full text-xs font-medium border transition-colors ${
+                          active ? `${c.activeBg} ${c.activeText} ${c.activeBorder}` : `${c.bg} ${c.text} ${c.border} opacity-60 hover:opacity-100`
+                        }`}>{t.label}</button>
+                    );
+                  })}
+                </div>
                 <div className="flex gap-2 justify-end">
                   <Button type="button" variant="outline" size="sm" onClick={() => setEditingId(null)} data-testid={`button-cancel-edit-show-${show.id}`}><X className="w-3 h-3 mr-1" />Cancel</Button>
                   <Button type="submit" size="sm" disabled={updateMutation.isPending} data-testid={`button-save-edit-show-${show.id}`}><Save className="w-3 h-3 mr-1" />Save</Button>

@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useRoute, Link, useSearch, useLocation } from "wouter";
 import { projectPath } from "@/lib/slugs";
 import { AppHeader } from "@/components/AppHeader";
@@ -23,16 +23,18 @@ import { DatePicker } from "@/components/ui/date-picker";
 import { DateRangePicker } from "@/components/DateRangePicker";
 import { cn } from "@/lib/utils";
 import { getProjectTypeColors } from "@/lib/projectColors";
+import { DAY_TYPES, EVENT_TYPE_COLORS, type DayType } from "@shared/constants";
 import { formatTime, toTimeInputValue } from "@/lib/timeUtils";
 import {
-  ArrowLeft, Calendar as CalendarIcon, MapPin, Users, ChevronDown, ChevronUp,
+  ArrowLeft, ArrowUpDown, Calendar as CalendarIcon, MapPin, Users, ChevronDown, ChevronUp,
   Clock, Phone, Mail, Wifi, Download, FolderOpen, FileText,
   Loader2, Pencil, Trash2, Plus, Upload, File, Check, X,
   MessageSquare, Send, Pin, ExternalLink, Eye, Mic2, BarChart3, List,
   Map as MapIcon, Car, Navigation, Plane, PlaneTakeoff, PlaneLanding,
-  CheckCircle2, Circle, LogIn, LogOut, UserCog, Copy, Check as CheckIcon
+  CheckCircle2, Circle, LogIn, LogOut, UserCog, Copy, Check as CheckIcon,
+  Guitar, FileMusic, Truck, Moon
 } from "lucide-react";
-import { format, parseISO, eachDayOfInterval, isToday } from "date-fns";
+import { format, parseISO, eachDayOfInterval, isToday, addDays } from "date-fns";
 import type { Event, Project, Venue, Schedule, Contact, FileFolder, Zone, Section, EventDayVenue, TravelDay, CrewMember, Leg } from "@shared/schema";
 import { useAuth } from "@/hooks/use-auth";
 import { useContacts } from "@/hooks/use-contacts";
@@ -2623,10 +2625,10 @@ function CrewTravelManifest({ travelDayId, isAdmin, contacts, assignedUserIds }:
   );
 }
 
-function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAdmin, schedules, zones, sections, allFiles, fileFolders, allEventAssignments, contacts, activeLegId, onEditShow, onDeleteShow }: {
+function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAdmin, schedules, zones, sections, allFiles, fileFolders, allEventAssignments, contacts, activeLegId, sortNewestFirst, onEditShow, onDeleteShow }: {
   project: Project; events: Event[]; venues: Venue[]; allDayVenues: EventDayVenue[]; travelDays: TravelDay[]; isAdmin: boolean;
   schedules: Schedule[]; zones: Zone[]; sections: Section[]; allFiles: FileRecord[]; fileFolders: FileFolder[];
-  allEventAssignments: any[]; contacts: Contact[]; activeLegId: number | null; onEditShow: (eventId: number) => void; onDeleteShow: (eventId: number) => void;
+  allEventAssignments: any[]; contacts: Contact[]; activeLegId: number | null; sortNewestFirst: boolean; onEditShow: (eventId: number) => void; onDeleteShow: (eventId: number) => void;
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -2740,7 +2742,9 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
 
     // Sort items within each group by date
     legMap.forEach((items: ItineraryItem[]) => {
-      items.sort((a: ItineraryItem, b: ItineraryItem) => (a.date || "").localeCompare(b.date || ""));
+      items.sort((a: ItineraryItem, b: ItineraryItem) => sortNewestFirst
+        ? (b.date || "").localeCompare(a.date || "")
+        : (a.date || "").localeCompare(b.date || ""));
     });
 
     // Build groups: sorted legs first, then unassigned
@@ -2749,7 +2753,7 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
       const bItems = legMap.get(b.id) || [];
       const aDate = aItems.reduce((min, i) => i.date && i.date < min ? i.date : min, "9999");
       const bDate = bItems.reduce((min, i) => i.date && i.date < min ? i.date : min, "9999");
-      return aDate.localeCompare(bDate);
+      return sortNewestFirst ? bDate.localeCompare(aDate) : aDate.localeCompare(bDate);
     });
     const groups: LegGroup[] = [];
     for (const leg of sortedLegs) {
@@ -2763,12 +2767,14 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
 
     // If no legs exist at all, just return one group with everything
     if (legs.length === 0 && groups.length === 0) {
-      const all = [...showItems, ...travelItems].sort((a, b) => (a.date || "").localeCompare(b.date || ""));
+      const all = [...showItems, ...travelItems].sort((a, b) => sortNewestFirst
+        ? (b.date || "").localeCompare(a.date || "")
+        : (a.date || "").localeCompare(b.date || ""));
       return [{ legId: null, leg: null, items: all }];
     }
 
     return groups;
-  }, [events, venues, allDayVenues, travelDays, legs]);
+  }, [events, venues, allDayVenues, travelDays, legs, sortNewestFirst]);
 
   // Filter to active leg when leg tabs exist
   const visibleGroups = useMemo(() => {
@@ -3084,6 +3090,160 @@ function TourItinerary({ project, events, venues, allDayVenues, travelDays, isAd
   );
 }
 
+function QuickAddDays({ projectId, legId, isFestival, venues, onCreated }: {
+  projectId: number;
+  legId: number | null;
+  isFestival: boolean;
+  venues: Venue[];
+  onCreated: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [dayType, setDayType] = useState<DayType>("show");
+  const [name, setName] = useState("");
+  const [venueId, setVenueId] = useState<number | null>(null);
+  const [isPending, setIsPending] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
+
+  const defaultName = (type: DayType) => {
+    switch (type) {
+      case "show": return isFestival ? "Stage" : "Show";
+      case "rehearsal": return "Rehearsal";
+      case "load-in": return "Load In";
+      case "day-off": return "Day Off";
+      case "travel": return "";
+      default: return "";
+    }
+  };
+
+  async function handleSubmit() {
+    if (isPending) return;
+    const effectiveName = name.trim() || defaultName(dayType);
+    setIsPending(true);
+    try {
+      if (dayType === "travel") {
+        await apiRequest("POST", `/api/projects/${projectId}/travel-days`, {
+          date,
+          legId,
+          notes: name.trim() || null,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/projects", projectId, "travel-days"] });
+      } else {
+        await apiRequest("POST", "/api/events", {
+          name: effectiveName,
+          startDate: date,
+          endDate: date,
+          projectId,
+          legId,
+          eventType: dayType,
+          venueId: venueId || undefined,
+          venueForAllDays: true,
+        });
+        queryClient.invalidateQueries({ queryKey: ["/api/events"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/event-assignments"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/event-day-venues"] });
+      }
+      toast({ title: `${DAY_TYPES.find(t => t.value === dayType)?.label || "Day"} added` });
+      // Advance date and reset
+      setDate(format(addDays(parseISO(date), 1), "yyyy-MM-dd"));
+      setName("");
+      onCreated();
+      nameRef.current?.focus();
+    } catch (err: any) {
+      toast({ title: "Error", description: err.message, variant: "destructive" });
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  return (
+    <Card className="border-primary/20 border-dashed" data-testid="quick-add-days">
+      <CardContent className="p-3">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-1">
+            {DAY_TYPES.map(t => {
+              const c = EVENT_TYPE_COLORS[t.value as keyof typeof EVENT_TYPE_COLORS];
+              const active = dayType === t.value;
+              const Icon = { show: Guitar, rehearsal: FileMusic, "load-in": Truck, "day-off": Moon, travel: Plane }[t.value] || Circle;
+              return (
+                <button
+                  key={t.value}
+                  onClick={() => setDayType(t.value as DayType)}
+                  className={cn(
+                    "flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-semibold border transition-all",
+                    active
+                      ? `${c.activeBg} ${c.activeText} ${c.activeBorder} shadow-sm`
+                      : `bg-transparent ${c.text} border-transparent opacity-50 hover:opacity-80`
+                  )}
+                  data-testid={`quick-type-${t.value}`}
+                >
+                  <Icon className="w-5 h-5" />
+                  <span className={cn("hidden sm:inline", active && "inline")}>{t.label}</span>
+                </button>
+              );
+            })}
+          </div>
+          <div className="flex items-center gap-2">
+            <DatePicker
+              value={date}
+              onChange={setDate}
+              compact
+              data-testid="quick-add-date"
+            />
+            <Input
+              ref={nameRef}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={dayType === "travel" ? "Notes (optional)" : `${defaultName(dayType)} name (optional)`}
+              className="flex-1 h-8 text-xs"
+              onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
+              data-testid="quick-add-name"
+            />
+            {dayType !== "travel" && (
+              <div className="hidden md:block">
+                <Select value={venueId != null ? String(venueId) : "none"} onValueChange={val => setVenueId(val === "none" ? null : Number(val))}>
+                  <SelectTrigger className="h-8 text-xs w-[140px]" data-testid="quick-add-venue-desktop">
+                    <MapPin className="w-3 h-3 shrink-0 text-muted-foreground" />
+                    <SelectValue placeholder="Venue" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No venue</SelectItem>
+                    {venues.map(v => <SelectItem key={v.id} value={String(v.id)}>{v.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <Button
+              size="sm"
+              className="h-8 px-3"
+              disabled={isPending || !date}
+              onClick={handleSubmit}
+              data-testid="quick-add-submit"
+            >
+              {isPending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+            </Button>
+          </div>
+          {dayType !== "travel" && (
+            <div className="md:hidden">
+              <Select value={venueId != null ? String(venueId) : "none"} onValueChange={val => setVenueId(val === "none" ? null : Number(val))}>
+                <SelectTrigger className="h-8 text-xs" data-testid="quick-add-venue-mobile">
+                  <MapPin className="w-3 h-3 shrink-0 text-muted-foreground" />
+                  <SelectValue placeholder="Venue (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No venue</SelectItem>
+                  {venues.map(v => <SelectItem key={v.id} value={String(v.id)}>{v.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function CreateShowInline({ isFestival, venues, isPending, onSubmit, onCancel }: {
   isFestival: boolean;
   venues: Venue[];
@@ -3197,6 +3357,8 @@ export default function ProjectPage() {
     if (legs.length > 0) return legs[0].id;
     return null;
   }, [legParam, legs]);
+
+  const [sortNewestFirst, setSortNewestFirst] = useState(true);
 
   const setActiveLeg = useCallback((legId: number | null) => {
     const sp = new URLSearchParams(searchString);
@@ -3361,17 +3523,33 @@ export default function ProjectPage() {
       </AppHeader>
 
       <div className="max-w-5xl mx-auto px-4 py-4 space-y-3">
-        {legs.length > 0 && (
-          <div className="flex gap-1.5 flex-wrap" data-testid="leg-tabs">
+        <div className={cn("flex items-center gap-1.5", legs.length > 0 && "border-b border-border")} data-testid="leg-tabs">
+          {/* Dropdown on mobile */}
+          {legs.length > 0 && (
+            <div className="md:hidden -mb-px">
+              <Select value={activeLegId != null ? String(activeLegId) : ""} onValueChange={val => setActiveLeg(Number(val))}>
+                <SelectTrigger className="h-8 text-xs font-semibold uppercase tracking-wider w-auto min-w-[120px]">
+                  <SelectValue placeholder="Select leg" />
+                </SelectTrigger>
+                <SelectContent>
+                  {legs.map(leg => (
+                    <SelectItem key={leg.id} value={String(leg.id)}>{leg.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+          {/* Tabs on desktop */}
+          <div className="hidden md:flex items-center gap-1.5">
             {legs.map(leg => (
               <button
                 key={leg.id}
                 onClick={() => setActiveLeg(leg.id)}
                 className={cn(
-                  "px-3 py-1.5 rounded-full text-xs font-display font-semibold uppercase tracking-wider transition-colors",
+                  "px-3 py-1.5 text-xs font-display font-semibold uppercase tracking-wider transition-colors rounded-t-md -mb-px",
                   activeLegId === leg.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
+                    ? "bg-background text-primary border border-border border-b-background"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
                 )}
                 data-testid={`leg-tab-${leg.id}`}
               >
@@ -3379,23 +3557,20 @@ export default function ProjectPage() {
               </button>
             ))}
           </div>
-        )}
-        {isAdmin && (
-          <div className="flex justify-end">
-            <Button size="sm" onClick={() => setShowCreateDialog(true)} data-testid="button-add-show">
-              <Plus className="w-4 h-4 mr-2" />
-              New {project.isFestival ? "Stage" : "Show"}
+          <div className="ml-auto">
+            <Button variant="ghost" size="sm" className="text-xs gap-1 h-7" onClick={() => setSortNewestFirst(v => !v)}>
+              <ArrowUpDown className="h-3 w-3" />
+              {sortNewestFirst ? "Newest first" : "Oldest first"}
             </Button>
           </div>
-        )}
-
-        {showCreateDialog && (
-          <CreateShowInline
+        </div>
+        {isAdmin && (
+          <QuickAddDays
+            projectId={projectId!}
+            legId={activeLegId}
             isFestival={project.isFestival ?? false}
             venues={venues}
-            isPending={createShowMutation.isPending}
-            onSubmit={(data) => createShowMutation.mutate(data)}
-            onCancel={() => setShowCreateDialog(false)}
+            onCreated={() => {}}
           />
         )}
 
@@ -3416,6 +3591,7 @@ export default function ProjectPage() {
               allEventAssignments={allEventAssignments}
               contacts={contacts}
               activeLegId={activeLegId}
+              sortNewestFirst={sortNewestFirst}
               onEditShow={(eventId) => setEditShowDialogId(eventId)}
               onDeleteShow={(eventId) => deleteShowMutation.mutate(eventId)}
             />
