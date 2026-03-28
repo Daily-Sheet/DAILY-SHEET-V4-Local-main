@@ -91,6 +91,16 @@ function FileTypeIcon({ type, className }: { type: string; className?: string })
   }
 }
 
+function downloadFile(fileId: number) {
+  const a = document.createElement("a");
+  a.href = buildApiUrl(`/api/files/${fileId}/download`);
+  a.target = "_blank";
+  a.rel = "noopener noreferrer";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
 function timeAgo(dateStr: string): string {
   const d = new Date(dateStr);
   const diff = Date.now() - d.getTime();
@@ -667,7 +677,7 @@ export function FinderView({
                   onDoubleClick={() => { selectFile(file); setShowPreview(true); }}
                   onStartRename={() => startRename("file", file.id, file.name)}
                   onDelete={() => setDeleteTarget({ type: "file", id: file.id, name: file.name })}
-                  onDownload={() => window.open(buildApiUrl(`/api/files/${file.id}/download`), "_blank")}
+                  onDownload={() => downloadFile(file.id)}
                   onPreview={() => { selectFile(file); setShowPreview(true); }}
                 />
               ))}
@@ -713,7 +723,7 @@ export function FinderView({
                     onOpenFolder={(folderId, folderName) => openFolder(col.scopeName!, folderId, folderName, colIdx)}
                     onStartRename={startRename}
                     onDelete={(type, id, name) => setDeleteTarget({ type, id, name })}
-                    onDownload={(id) => window.open(buildApiUrl(`/api/files/${id}/download`), "_blank")}
+                    onDownload={(id) => downloadFile(id)}
                     onPreview={(file) => { selectFile(file); setShowPreview(true); }}
                     onNewFolder={() => startNewFolder(col.scopeName!, col.folderId ?? null)}
                     onUpload={() => {
@@ -764,7 +774,7 @@ export function FinderView({
                       onOpenFolder={(folderId, folderName) => openFolder(col.scopeName!, folderId, folderName, colIdx)}
                       onStartRename={startRename}
                       onDelete={(type, id, name) => setDeleteTarget({ type, id, name })}
-                      onDownload={(id) => window.open(buildApiUrl(`/api/files/${id}/download`), "_blank")}
+                      onDownload={(id) => downloadFile(id)}
                       onPreview={(file) => { selectFile(file); setShowPreview(true); }}
                       onNewFolder={() => startNewFolder(col.scopeName!, col.folderId ?? null)}
                       onUpload={() => {
@@ -801,7 +811,7 @@ export function FinderView({
                   <FinderPreviewPanel
                     file={previewFile}
                     onClose={() => setShowPreview(false)}
-                    onDownload={() => window.open(buildApiUrl(`/api/files/${previewFile.id}/download`), "_blank")}
+                    onDownload={() => downloadFile(previewFile.id)}
                   />
                 </motion.div>
               )}
@@ -842,7 +852,7 @@ export function FinderView({
             onSelectFile={selectFile}
             onStartRename={startRename}
             onDelete={(type, id, name) => setDeleteTarget({ type, id, name })}
-            onDownload={(id) => window.open(buildApiUrl(`/api/files/${id}/download`), "_blank")}
+            onDownload={(id) => downloadFile(id)}
             onPreview={(file) => { selectFile(file); setShowPreview(true); }}
           />
         </div>
