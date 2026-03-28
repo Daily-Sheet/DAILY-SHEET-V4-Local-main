@@ -99,17 +99,27 @@ async function migrateExistingUsersToWorkspaces() {
   try {
     const allUsers = await db.select().from(users).where(isNull(users.workspaceId));
     if (allUsers.length === 0) {
-      const orphanTables = [
-        { name: "schedules", table: schedules, col: schedules.workspaceId },
-        { name: "events", table: events, col: events.workspaceId },
-        { name: "contacts", table: contacts, col: contacts.workspaceId },
-        { name: "venues", table: venues, col: venues.workspaceId },
-        { name: "files", table: files, col: files.workspaceId },
-      ];
-      for (const { name, table, col } of orphanTables) {
-        const orphaned = await db.select({ id: (table as any).id }).from(table).where(isNull(col)).limit(1);
-        if (orphaned.length > 0) {
-          console.warn(`WARNING: Found orphaned records in ${name} table with null workspaceId`);
+      // Clean up orphaned records: assign to first workspace, or delete venues with no workspace
+      const [firstWs] = await db.select().from(workspaces).orderBy(workspaces.id);
+      if (firstWs) {
+        // Delete orphaned venues (no workspace = leftover data)
+        const deletedVenues = await db.delete(venues).where(isNull(venues.workspaceId)).returning({ id: venues.id });
+        if (deletedVenues.length > 0) {
+          console.log(`Cleaned up ${deletedVenues.length} orphaned venues with null workspaceId`);
+        }
+
+        // Assign other orphaned records to the first workspace
+        const orphanTables = [
+          { name: "schedules", table: schedules, col: schedules.workspaceId },
+          { name: "events", table: events, col: events.workspaceId },
+          { name: "contacts", table: contacts, col: contacts.workspaceId },
+          { name: "files", table: files, col: files.workspaceId },
+        ];
+        for (const { name, table, col } of orphanTables) {
+          const updated = await db.update(table).set({ workspaceId: firstWs.id } as any).where(isNull(col)).returning({ id: (table as any).id });
+          if (updated.length > 0) {
+            console.log(`Assigned ${updated.length} orphaned ${name} to workspace ${firstWs.id}`);
+          }
         }
       }
       return;
