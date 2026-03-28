@@ -39,6 +39,17 @@ export function registerFileRoutes(app: Express, upload: multer.Multer) {
       const eventName = req.body.eventName || null;
       const folderName = req.body.folderName || null;
       const projectId = req.body.projectId ? Number(req.body.projectId) : null;
+      // Resolve folderId from folderName or direct folderId param
+      let folderId: number | null = req.body.folderId ? Number(req.body.folderId) : null;
+      if (!folderId && folderName && workspaceId) {
+        const folders = await storage.getFileFolders(workspaceId);
+        const match = folders.find((f: any) =>
+          f.name === folderName &&
+          f.eventName === eventName &&
+          (f.projectId || null) === (projectId || null)
+        );
+        if (match) folderId = match.id;
+      }
       const diskPath = req.file.path;
       const url = await saveFileFromDisk(diskPath, req.file.filename);
       const fileData: any = {
@@ -48,6 +59,7 @@ export function registerFileRoutes(app: Express, upload: multer.Multer) {
         size: req.file.size,
         eventName,
         folderName,
+        folderId,
         workspaceId,
         projectId,
       };
@@ -58,21 +70,73 @@ export function registerFileRoutes(app: Express, upload: multer.Multer) {
     }
   });
 
+  // Bulk move files to a folder (must be before /:id routes)
+  app.patch("/api/files/bulk-move", isAuthenticated, requireRole("owner", "manager", "admin"), async (req: any, res) => {
+    try {
+      const workspaceId = req.user.workspaceId;
+      const schema = z.object({
+        fileIds: z.array(z.number()).min(1),
+        folderId: z.number().nullable(),
+      });
+      const { fileIds, folderId } = schema.parse(req.body);
+      await storage.moveFiles(fileIds, folderId, workspaceId);
+      res.json({ moved: fileIds.length });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(500).json({ message: "Failed to move files" });
+    }
+  });
+
+  // Bulk delete files (must be before /:id routes)
+  app.delete("/api/files/bulk", isAuthenticated, requireRole("owner", "manager", "admin"), async (req: any, res) => {
+    try {
+      const workspaceId = req.user.workspaceId;
+      const schema = z.object({
+        fileIds: z.array(z.number()).min(1),
+      });
+      const { fileIds } = schema.parse(req.body);
+      const allFiles = await storage.getFiles(workspaceId);
+      const toDelete = allFiles.filter((f: any) => fileIds.includes(f.id));
+      for (const f of toDelete) {
+        await deleteStoredFile(f.url);
+      }
+      const count = await storage.bulkDeleteFiles(fileIds);
+      res.json({ deleted: count });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      res.status(500).json({ message: "Failed to delete files" });
+    }
+  });
+
   app.patch("/api/files/:id", isAuthenticated, requireRole("owner", "manager", "admin"), async (req: any, res) => {
     try {
       const workspaceId = req.user.workspaceId;
       const fileId = Number(req.params.id);
-      const { name } = req.body;
-      if (!name || typeof name !== "string" || !name.trim()) {
-        return res.status(400).json({ message: "Name is required" });
+      const { name, folderId } = req.body;
+      const updateData: { name?: string; folderId?: number | null } = {};
+      if (name !== undefined) {
+        if (typeof name !== "string" || !name.trim()) {
+          return res.status(400).json({ message: "Name must be a non-empty string" });
+        }
+        updateData.name = name.trim();
+      }
+      if (folderId !== undefined) {
+        updateData.folderId = folderId === null ? null : Number(folderId);
+      }
+      if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ message: "No update fields provided" });
       }
       const allFiles = await storage.getFiles(workspaceId);
       const record = allFiles.find((f: any) => f.id === fileId);
       if (!record) return res.status(404).json({ message: "File not found" });
-      const updated = await storage.updateFile(fileId, { name: name.trim() });
+      const updated = await storage.updateFile(fileId, updateData);
       res.json(updated);
     } catch (err) {
-      res.status(500).json({ message: "Failed to rename file" });
+      res.status(500).json({ message: "Failed to update file" });
     }
   });
 
@@ -168,6 +232,29 @@ export function registerFileRoutes(app: Express, upload: multer.Multer) {
       res.json(updated);
     } catch (err) {
       res.status(500).json({ message: "Failed to rename folder" });
+    }
+  });
+
+  // Move folder to a new parent
+  app.patch("/api/file-folders/:id/move", isAuthenticated, requireRole("owner", "manager", "admin"), async (req: any, res) => {
+    try {
+      const workspaceId = req.user.workspaceId;
+      const folderId = Number(req.params.id);
+      const schema = z.object({
+        parentId: z.number().nullable(),
+      });
+      const { parentId } = schema.parse(req.body);
+      const updated = await storage.moveFolder(folderId, parentId, workspaceId);
+      if (!updated) return res.status(404).json({ message: "Folder not found" });
+      res.json(updated);
+    } catch (err: any) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      if (err.message === "Cannot move a folder into its own subtree") {
+        return res.status(400).json({ message: err.message });
+      }
+      res.status(500).json({ message: "Failed to move folder" });
     }
   });
 

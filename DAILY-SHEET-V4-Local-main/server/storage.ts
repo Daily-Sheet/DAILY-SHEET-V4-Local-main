@@ -78,14 +78,17 @@ export interface IStorage {
   // Files
   getFiles(workspaceId: number): Promise<DbFile[]>;
   createFile(file: InsertFile): Promise<DbFile>;
-  updateFile(id: number, data: { name: string }): Promise<DbFile>;
+  updateFile(id: number, data: { name?: string; folderId?: number | null }): Promise<DbFile>;
   deleteFile(id: number): Promise<void>;
+  moveFiles(fileIds: number[], folderId: number | null, workspaceId: number): Promise<void>;
+  bulkDeleteFiles(fileIds: number[]): Promise<number>;
 
   // File Folders
   getFileFolders(workspaceId: number): Promise<FileFolder[]>;
   createFileFolder(folder: InsertFileFolder): Promise<FileFolder>;
   updateFileFolder(id: number, data: { name?: string; parentId?: number | null }): Promise<FileFolder>;
   deleteFileFolder(id: number, workspaceId?: number): Promise<void>;
+  moveFolder(id: number, newParentId: number | null, workspaceId: number): Promise<FileFolder>;
 
   // Events
   getEvents(workspaceId: number): Promise<Event[]>;
@@ -434,13 +437,41 @@ export class DatabaseStorage implements IStorage {
     return item;
   }
 
-  async updateFile(id: number, data: { name: string }): Promise<DbFile> {
-    const [updated] = await db.update(files).set({ name: data.name }).where(eq(files.id, id)).returning();
+  async updateFile(id: number, data: { name?: string; folderId?: number | null }): Promise<DbFile> {
+    const setData: Record<string, any> = {};
+    if (data.name !== undefined) setData.name = data.name;
+    if (data.folderId !== undefined) {
+      setData.folderId = data.folderId;
+      // Dual-write: sync folderName from the folder record
+      if (data.folderId === null) {
+        setData.folderName = null;
+      } else {
+        const [folder] = await db.select().from(fileFolders).where(eq(fileFolders.id, data.folderId));
+        if (folder) setData.folderName = folder.name;
+      }
+    }
+    const [updated] = await db.update(files).set(setData).where(eq(files.id, id)).returning();
     return updated;
   }
 
   async deleteFile(id: number): Promise<void> {
     await db.delete(files).where(eq(files.id, id));
+  }
+
+  async moveFiles(fileIds: number[], folderId: number | null, workspaceId: number): Promise<void> {
+    let folderName: string | null = null;
+    if (folderId !== null) {
+      const [folder] = await db.select().from(fileFolders).where(eq(fileFolders.id, folderId));
+      if (folder) folderName = folder.name;
+    }
+    await db.update(files)
+      .set({ folderId, folderName })
+      .where(and(inArray(files.id, fileIds), eq(files.workspaceId, workspaceId)));
+  }
+
+  async bulkDeleteFiles(fileIds: number[]): Promise<number> {
+    const result = await db.delete(files).where(inArray(files.id, fileIds));
+    return result.rowCount ?? fileIds.length;
   }
 
   // File Folders
@@ -461,16 +492,68 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteFileFolder(id: number, workspaceId?: number): Promise<void> {
-    const [folder] = await db.select().from(fileFolders).where(eq(fileFolders.id, id));
-    if (folder && workspaceId) {
+    // Collect this folder + all descendants
+    const idsToDelete = await this._getFolderDescendantIds(id);
+
+    // Delete files in all affected folders
+    if (workspaceId) {
       await db.delete(files)
         .where(and(
-          eq(files.folderName, folder.name),
-          eq(files.eventName, folder.eventName ?? ''),
+          inArray(files.folderId, idsToDelete),
           eq(files.workspaceId, workspaceId)
         ));
+      // Also catch un-migrated files (folderId is null, matched by folderName)
+      const [folder] = await db.select().from(fileFolders).where(eq(fileFolders.id, id));
+      if (folder) {
+        await db.delete(files)
+          .where(and(
+            isNull(files.folderId),
+            eq(files.folderName, folder.name),
+            eq(files.eventName, folder.eventName ?? ''),
+            eq(files.workspaceId, workspaceId)
+          ));
+      }
     }
-    await db.delete(fileFolders).where(eq(fileFolders.id, id));
+    // Delete all folders (descendants + self)
+    await db.delete(fileFolders).where(inArray(fileFolders.id, idsToDelete));
+  }
+
+  async moveFolder(id: number, newParentId: number | null, workspaceId: number): Promise<FileFolder> {
+    // Cycle detection: newParentId must not be a descendant of id
+    if (newParentId !== null) {
+      const descendants = await this._getFolderDescendantIds(id);
+      if (descendants.includes(newParentId)) {
+        throw new Error("Cannot move a folder into its own subtree");
+      }
+    }
+    const [updated] = await db.update(fileFolders)
+      .set({ parentId: newParentId })
+      .where(and(eq(fileFolders.id, id), eq(fileFolders.workspaceId, workspaceId)))
+      .returning();
+    return updated;
+  }
+
+  private async _getFolderDescendantIds(rootId: number): Promise<number[]> {
+    const allFolders = await db.select({ id: fileFolders.id, parentId: fileFolders.parentId }).from(fileFolders);
+    const childrenMap = new Map<number, number[]>();
+    for (const f of allFolders) {
+      if (f.parentId !== null) {
+        const list = childrenMap.get(f.parentId) || [];
+        list.push(f.id);
+        childrenMap.set(f.parentId, list);
+      }
+    }
+    const result: number[] = [rootId];
+    const stack = [rootId];
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      const children = childrenMap.get(current) || [];
+      for (const child of children) {
+        result.push(child);
+        stack.push(child);
+      }
+    }
+    return result;
   }
 
   // Venues

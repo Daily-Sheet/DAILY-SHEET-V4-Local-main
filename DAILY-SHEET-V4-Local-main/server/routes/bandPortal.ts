@@ -41,10 +41,19 @@ export function registerBandPortalRoutes(app: Express, upload: multer.Multer) {
         ? new Date(Date.now() + expiresInDays * 24 * 60 * 60 * 1000)
         : null;
 
+      // Resolve folderId from folderName
+      let folderId: number | null = null;
+      const folders = await storage.getFileFolders(workspaceId);
+      const matchedFolder = folders.find((f: any) =>
+        f.name === folderName && f.eventName === eventName
+      );
+      if (matchedFolder) folderId = matchedFolder.id;
+
       const link = await storage.createBandPortalLink({
         token,
         eventName,
         folderName,
+        folderId,
         workspaceId,
         bandName: bandName.trim(),
         notes: notes || null,
@@ -132,11 +141,11 @@ export function registerBandPortalRoutes(app: Express, upload: multer.Multer) {
         return res.status(410).json({ message: "This upload link has expired" });
       }
 
-      // Get existing files in this specific folder
+      // Get existing files in this specific folder (prefer folderId, fallback to folderName)
       const allFiles = await storage.getFiles(link.workspaceId);
-      const folderFiles = allFiles.filter(
-        (f: any) => f.eventName === link.eventName && f.folderName === link.folderName
-      );
+      const folderFiles = link.folderId
+        ? allFiles.filter((f: any) => f.folderId === link.folderId)
+        : allFiles.filter((f: any) => f.eventName === link.eventName && f.folderName === link.folderName);
 
       res.json({
         bandName: link.bandName,
@@ -182,6 +191,7 @@ export function registerBandPortalRoutes(app: Express, upload: multer.Multer) {
         size: req.file.size,
         eventName: link.eventName,
         folderName: link.folderName,
+        folderId: link.folderId ?? null,
         workspaceId: link.workspaceId,
       });
 

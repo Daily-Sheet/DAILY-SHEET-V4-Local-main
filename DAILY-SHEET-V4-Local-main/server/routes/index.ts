@@ -6,7 +6,7 @@ import fs from "fs";
 import { setupAuth } from "../replit_integrations/auth";
 import { db } from "../db";
 import { users, workspaces, workspaceMembers } from "@shared/models/auth";
-import { schedules, contacts, files, venues, events, fileFolders, comments, settings as settingsTable, eventAssignments } from "@shared/schema";
+import { schedules, contacts, files, venues, events, fileFolders, comments, settings as settingsTable, eventAssignments, bandPortalLinks } from "@shared/schema";
 import { eq, and, isNull, isNotNull, sql } from "drizzle-orm";
 
 import { registerAuthRoutes } from "./auth";
@@ -85,6 +85,9 @@ export async function registerRoutes(
 
   // Backfill schedules.eventId from eventName
   await migrateScheduleEventIds();
+
+  // Backfill files.folderId and band_portal_links.folderId from folderName
+  await migrateFileFolderIds();
 
   return httpServer;
 }
@@ -186,5 +189,64 @@ async function migrateScheduleEventIds() {
     }
   } catch (error) {
     console.error("Schedule eventId migration error (non-fatal):", error);
+  }
+}
+
+async function migrateFileFolderIds() {
+  try {
+    // Ensure columns exist
+    await db.execute(sql`ALTER TABLE files ADD COLUMN IF NOT EXISTS folder_id INTEGER`);
+    await db.execute(sql`ALTER TABLE band_portal_links ADD COLUMN IF NOT EXISTS folder_id INTEGER`);
+
+    // Load all folders for lookup
+    const allFolders = await db.select().from(fileFolders);
+    if (allFolders.length === 0) return;
+
+    // Build lookup: (folderName, eventName, projectId, workspaceId) → folder.id
+    const folderLookup = new Map<string, number>();
+    for (const f of allFolders) {
+      const key = `${f.name}::${f.eventName ?? ""}::${f.projectId ?? ""}::${f.workspaceId ?? ""}`;
+      folderLookup.set(key, f.id);
+    }
+
+    // Backfill files
+    const orphanFiles = await db.select({
+      id: files.id, folderName: files.folderName,
+      eventName: files.eventName, projectId: files.projectId, workspaceId: files.workspaceId,
+    }).from(files).where(and(isNull(files.folderId), isNotNull(files.folderName)));
+
+    let updatedFiles = 0;
+    for (const row of orphanFiles) {
+      const key = `${row.folderName}::${row.eventName ?? ""}::${row.projectId ?? ""}::${row.workspaceId ?? ""}`;
+      const folderId = folderLookup.get(key);
+      if (folderId) {
+        await db.update(files).set({ folderId }).where(eq(files.id, row.id));
+        updatedFiles++;
+      }
+    }
+    if (updatedFiles > 0) {
+      console.log(`Migrated ${updatedFiles}/${orphanFiles.length} files: backfilled folderId from folderName`);
+    }
+
+    // Backfill band portal links
+    const orphanLinks = await db.select({
+      id: bandPortalLinks.id, folderName: bandPortalLinks.folderName,
+      eventName: bandPortalLinks.eventName, workspaceId: bandPortalLinks.workspaceId,
+    }).from(bandPortalLinks).where(isNull(bandPortalLinks.folderId));
+
+    let updatedLinks = 0;
+    for (const row of orphanLinks) {
+      const key = `${row.folderName}::${row.eventName ?? ""}::${""/* no projectId */}::${row.workspaceId ?? ""}`;
+      const folderId = folderLookup.get(key);
+      if (folderId) {
+        await db.update(bandPortalLinks).set({ folderId }).where(eq(bandPortalLinks.id, row.id));
+        updatedLinks++;
+      }
+    }
+    if (updatedLinks > 0) {
+      console.log(`Migrated ${updatedLinks}/${orphanLinks.length} band portal links: backfilled folderId`);
+    }
+  } catch (error) {
+    console.error("File folderId migration error (non-fatal):", error);
   }
 }

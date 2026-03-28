@@ -91,7 +91,7 @@ import { ProfileDialog } from "@/components/dashboard/header/ProfileDialog";
 import { DayNavigator } from "@/components/dashboard/header/DayNavigator";
 import { ShowSwitcher } from "@/components/dashboard/header/ShowSwitcher";
 import { EditShowDialog } from "@/components/dashboard/shows/EditShowDialog";
-import { FilesView, FilePreviewPanel } from "@/components/dashboard/files/FilesView";
+import { FinderView } from "@/components/dashboard/files/FinderView";
 import { AssignedCrewView, getContactShowNames, NoAssignmentState } from "@/components/dashboard/crew/AssignedCrewView";
 import { ContactsView } from "@/components/dashboard/contacts/ContactsView";
 import { SendDailyDialog } from "@/components/dashboard/pdf/SendDailyDialog";
@@ -2205,7 +2205,7 @@ export default function Dashboard() {
                     }
                     return null;
                   })()}
-                  <FilesView
+                  <FinderView
                     selectedEvents={effectiveSelectedEvents}
                     projects={(() => {
                       const seen = new Set<number>();
