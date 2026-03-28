@@ -1053,7 +1053,8 @@ function FinderFolderColumn({
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <ScrollArea className="h-full">
+        <div className="flex flex-col h-full">
+        <ScrollArea className="flex-1">
           <div
             ref={setDropRef}
             className={cn("p-1 min-h-[340px] transition-colors", isOverColumn && "bg-primary/5")}
@@ -1138,19 +1139,9 @@ function FinderFolderColumn({
 
             {/* Empty state */}
             {isEmpty && !showNewFolderInput && (
-              <div className="flex flex-col items-center justify-center py-12 gap-2">
+              <div className="flex flex-col items-center justify-center py-8 gap-2">
                 <FolderOpen className="h-8 w-8 text-muted-foreground/20" />
                 <p className="text-[10px] text-muted-foreground">Empty</p>
-                {canEdit && (
-                  <div className="flex gap-1 mt-1">
-                    <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1" onClick={onNewFolder}>
-                      <Plus className="h-3 w-3" /> Folder
-                    </Button>
-                    <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1" onClick={onUpload}>
-                      <Upload className="h-3 w-3" /> Upload
-                    </Button>
-                  </div>
-                )}
               </div>
             )}
 
@@ -1162,6 +1153,18 @@ function FinderFolderColumn({
             )}
           </div>
         </ScrollArea>
+        {/* Action bar — always visible when user can edit */}
+        {canEdit && (
+          <div className="flex items-center gap-1 px-2 py-1.5 border-t border-border/30 bg-card/80">
+            <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 flex-1" onClick={onNewFolder}>
+              <Plus className="h-3 w-3" /> New Folder
+            </Button>
+            <Button variant="ghost" size="sm" className="h-6 text-[10px] gap-1 flex-1" onClick={onUpload}>
+              <Upload className="h-3 w-3" /> Upload
+            </Button>
+          </div>
+        )}
+        </div>
       </ContextMenuTrigger>
       {canEdit && (
         <ContextMenuContent>
