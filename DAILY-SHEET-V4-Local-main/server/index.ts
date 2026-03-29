@@ -209,6 +209,39 @@ app.use((req, res, next) => {
     console.error("After job reports migration error (non-fatal):", err);
   }
 
+  // Achievement tables
+  try {
+    const { pool } = await import("./db");
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS user_achievements (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR NOT NULL,
+        achievement_key VARCHAR NOT NULL,
+        unlocked_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        metadata JSON,
+        UNIQUE(user_id, achievement_key)
+      );
+      CREATE TABLE IF NOT EXISTS achievement_progress (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR NOT NULL,
+        metric_key VARCHAR NOT NULL,
+        value INTEGER NOT NULL DEFAULT 0,
+        details JSON,
+        updated_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        UNIQUE(user_id, metric_key)
+      );
+      CREATE TABLE IF NOT EXISTS achievement_display_prefs (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR NOT NULL UNIQUE,
+        pinned_achievements JSON,
+        show_on_crew_card BOOLEAN DEFAULT TRUE
+      );
+    `);
+    log("Achievement tables ready");
+  } catch (err) {
+    console.error("Achievement tables migration error (non-fatal):", err);
+  }
+
   // Make events.project_id nullable (allows unassigned shows)
   try {
     const { pool } = await import("./db");
