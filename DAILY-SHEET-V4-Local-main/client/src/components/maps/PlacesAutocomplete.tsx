@@ -81,6 +81,27 @@ export function PlacesAutocomplete({
     autocompleteRef.current = ac;
   }, [ready]);
 
+  // Google Places dropdown (.pac-container) renders on <body>, outside any
+  // Radix Dialog. The dialog's focus-trap intercepts pointerdown on elements
+  // outside its content, which prevents the autocomplete click from firing.
+  // Stop propagation so the dialog never sees these pointer events.
+  useEffect(() => {
+    function stopDialogTrap(e: Event) {
+      e.stopPropagation();
+    }
+    const observer = new MutationObserver(() => {
+      document.querySelectorAll(".pac-container").forEach((el) => {
+        if (!(el as HTMLElement).dataset.fixed) {
+          el.addEventListener("pointerdown", stopDialogTrap);
+          el.addEventListener("mousedown", stopDialogTrap);
+          (el as HTMLElement).dataset.fixed = "1";
+        }
+      });
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
   return (
     <Input
       ref={inputRef}
