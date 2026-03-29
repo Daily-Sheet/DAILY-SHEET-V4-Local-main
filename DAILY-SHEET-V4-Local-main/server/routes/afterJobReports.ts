@@ -8,6 +8,7 @@ import { requireRole, storePdf, pdfCache, logActivity } from "./utils";
 import { Resend } from "resend";
 import { generateAfterJobReportPdf } from "../afterJobReportPdf";
 import { saveFile } from "../fileStorage";
+import { checkAchievements } from "../achievements/engine";
 import { storage } from "../storage";
 
 const RESEND_FROM_EMAIL = process.env.RESEND_FROM_EMAIL || "Daily Sheet <noreply@daily-sheet.app>";
@@ -81,6 +82,8 @@ export function registerAfterJobReportRoutes(app: Express, upload: multer.Multer
         clientNotes: data.clientNotes || null,
         venueNotes: data.venueNotes || null,
       }).returning();
+
+      checkAchievements(user.id, "report:submitted", { workspaceId, actorName: submitterName }).catch(() => {});
 
       // Log activity
       logActivity(

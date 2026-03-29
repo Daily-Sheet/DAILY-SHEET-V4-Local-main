@@ -3,6 +3,7 @@ import type multer from "multer";
 import { storage } from "../storage";
 import { db } from "../db";
 import { users, systemInvites } from "@shared/models/auth";
+import { maybeRecalculate } from "../achievements/engine";
 import { eq, count, isNotNull, and } from "drizzle-orm";
 import { randomBytes } from "crypto";
 import { sendInviteEmail } from "./utils";
@@ -343,6 +344,9 @@ export function registerAuthRoutes(app: Express, upload: multer.Multer) {
             const projEvents = events.filter((e: any) => e.projectId === a.projectId);
             return projEvents.length > 0;
           });
+
+      // Debounced achievement progress recalculation (runs at most once per hour per user)
+      maybeRecalculate(user.id).catch(() => {});
 
       res.json({
         user: {

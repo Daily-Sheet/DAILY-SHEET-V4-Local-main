@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import { wsClient } from "@/lib/wsClient";
+import { toast } from "@/hooks/use-toast";
 
 /** Maps WS event types to React Query keys that should be invalidated */
 function getInvalidations(type: string): string[][] {
@@ -43,6 +44,9 @@ function getInvalidations(type: string): string[][] {
     case "notification:new":
       return [["/api/notifications"], ["/api/notifications/unread-count"]];
 
+    case "achievement:unlocked":
+      return [["/api/achievements/catalog"], ["/api/achievements/my"]];
+
     case "activity:new":
       return [["/api/activity"]];
 
@@ -78,7 +82,15 @@ export function useWebSocket() {
 
       // Activity and notification events are server-side side effects —
       // always invalidate them even for own actions since no client mutation handles it
-      const alwaysInvalidate = msg.type === "activity:new" || msg.type === "notification:new";
+      const alwaysInvalidate = msg.type === "activity:new" || msg.type === "notification:new" || msg.type === "achievement:unlocked";
+
+      // Show celebratory toast when YOU unlock an achievement
+      if (msg.type === "achievement:unlocked" && msg.payload.targetUserId === userId) {
+        toast({
+          title: `${msg.payload.icon} ${msg.payload.name}`,
+          description: String(msg.payload.description),
+        });
+      }
 
       // Skip invalidation for own actions on direct mutations (React Query handles via onSuccess)
       if (msg.meta.actorId === userId && !alwaysInvalidate) return;

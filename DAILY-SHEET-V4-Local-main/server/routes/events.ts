@@ -3,6 +3,7 @@ import type multer from "multer";
 import { storage } from "../storage";
 import { z } from "zod";
 import { insertEventSchema, eventAssignments } from "@shared/schema";
+import { checkAchievements } from "../achievements/engine";
 import { db } from "../db";
 import { eq, and } from "drizzle-orm";
 import { isAuthenticated } from "../replit_integrations/auth";
@@ -224,6 +225,7 @@ export function registerEventRoutes(app: Express, upload: multer.Multer) {
         date: date && typeof date === "string" ? date : null,
       });
       res.status(201).json(assignment);
+      checkAchievements(req.params.id, "assignment:created", { workspaceId, actorName: req.user.firstName }).catch(() => {});
 
       const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
       emitDomainEvent({ type: "crew:assigned", workspaceId, eventName: eventName.trim(), actorId: req.user.id, actorName, payload: { userId: req.params.id } });
@@ -358,6 +360,7 @@ export function registerEventRoutes(app: Express, upload: multer.Multer) {
         }
       }
       res.json(assignments);
+      checkAchievements(req.params.id, "assignment:created", { workspaceId, actorName: req.user.firstName }).catch(() => {});
       const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
       emitDomainEvent({ type: "crew:assigned", workspaceId, actorId: req.user.id, actorName, payload: { userId: req.params.id, bulk: true } });
     } catch (err) {

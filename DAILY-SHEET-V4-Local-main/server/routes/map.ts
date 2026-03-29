@@ -2,6 +2,7 @@ import type { Express } from "express";
 import type multer from "multer";
 import { storage } from "../storage";
 import { isAuthenticated } from "../replit_integrations/auth";
+import { checkAchievements } from "../achievements/engine";
 
 export function registerMapRoutes(app: Express, _upload: multer.Multer) {
   // Get all pins with like counts, comment counts, and current user's like status
@@ -37,6 +38,7 @@ export function registerMapRoutes(app: Express, _upload: multer.Multer) {
       address: address || null,
       website: website || null,
     });
+    checkAchievements(userId, "pin:created", { workspaceId: req.user.workspaceId, actorName: userName }).catch(() => {});
     res.status(201).json(pin);
   });
 

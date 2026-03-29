@@ -2,7 +2,7 @@ import { db } from "./db";
 import {
   schedules, contacts, files, venues, venueTechPackets, comments, users, eventAssignments, events, sessions, fileFolders, settings,
   workspaces, workspaceMembers, workspaceInvites, taskTypes, scheduleTemplates, eventDayVenues, zones, projects, sections, departments, crewPositions, timesheetEntries, notifications, activityLog, travelDays, gearRequests, projectAssignments, crewTravel, dailyCheckins, accessLinks,
-  mapPins, mapPinLikes, mapPinComments, legs, bandPortalLinks,
+  mapPins, mapPinLikes, mapPinComments, legs, bandPortalLinks, userAchievements, achievementProgress, achievementDisplayPrefs,
   type InsertSchedule, type InsertContact, type InsertFile, type InsertVenue, type InsertVenueTechPacket, type VenueTechPacket, type InsertComment,
   type InsertEventAssignment, type InsertEvent, type InsertFileFolder,
   type InsertWorkspace, type InsertWorkspaceMember, type InsertWorkspaceInvite,
@@ -19,7 +19,7 @@ import {
   type InsertDailyCheckin, type DailyCheckin,
   type InsertAccessLink, type AccessLink,
   type InsertBandPortalLink, type BandPortalLink,
-  type MapPin, type InsertMapPin, type MapPinLike, type MapPinComment, type InsertMapPinComment,
+  type MapPin, type InsertMapPin, type MapPinLike, type MapPinComment, type InsertMapPinComment, type UserAchievement, type AchievementProgress, type AchievementDisplayPrefs,
   type Schedule, type Contact, type Venue, type Comment, type User, type EventAssignment, type Event, type FileFolder, type Setting,
   type Workspace, type WorkspaceMember, type WorkspaceInvite, type TaskType, type ScheduleTemplate, type EventDayVenue,
   type Zone, type Project, type Section, type Department, type CrewPosition
@@ -273,6 +273,14 @@ export interface IStorage {
   getBandPortalLinks(workspaceId: number): Promise<BandPortalLink[]>;
   revokeBandPortalLink(id: number, workspaceId: number): Promise<BandPortalLink | undefined>;
   deleteBandPortalLink(id: number): Promise<void>;
+
+  // Achievements (user-level, no workspace scoping)
+  getUserAchievements(userId: string): Promise<UserAchievement[]>;
+  unlockAchievement(userId: string, achievementKey: string, metadata?: Record<string, any>): Promise<UserAchievement | null>;
+  getAchievementProgress(userId: string): Promise<AchievementProgress[]>;
+  upsertAchievementProgress(userId: string, metricKey: string, value: number, details?: Record<string, any>): Promise<AchievementProgress>;
+  getAchievementDisplayPrefs(userId: string): Promise<AchievementDisplayPrefs | undefined>;
+  upsertAchievementDisplayPrefs(userId: string, pinnedAchievements?: string[], showOnCrewCard?: boolean): Promise<AchievementDisplayPrefs>;
 
   // Community Map
   getMapPins(): Promise<MapPin[]>;
@@ -1609,6 +1617,69 @@ export class DatabaseStorage implements IStorage {
 
   async deleteBandPortalLink(id: number): Promise<void> {
     await db.delete(bandPortalLinks).where(eq(bandPortalLinks.id, id));
+  }
+
+  // Achievements
+  async getUserAchievements(userId: string): Promise<UserAchievement[]> {
+    return await db.select().from(userAchievements)
+      .where(eq(userAchievements.userId, userId))
+      .orderBy(desc(userAchievements.unlockedAt));
+  }
+
+  async unlockAchievement(userId: string, achievementKey: string, metadata?: Record<string, any>): Promise<UserAchievement | null> {
+    const [existing] = await db.select().from(userAchievements)
+      .where(and(eq(userAchievements.userId, userId), eq(userAchievements.achievementKey, achievementKey)));
+    if (existing) return null;
+    const [created] = await db.insert(userAchievements)
+      .values({ userId, achievementKey, metadata: metadata || null })
+      .returning();
+    return created;
+  }
+
+  async getAchievementProgress(userId: string): Promise<AchievementProgress[]> {
+    return await db.select().from(achievementProgress)
+      .where(eq(achievementProgress.userId, userId));
+  }
+
+  async upsertAchievementProgress(userId: string, metricKey: string, value: number, details?: Record<string, any>): Promise<AchievementProgress> {
+    const [existing] = await db.select().from(achievementProgress)
+      .where(and(eq(achievementProgress.userId, userId), eq(achievementProgress.metricKey, metricKey)));
+    if (existing) {
+      const [updated] = await db.update(achievementProgress)
+        .set({ value, details: details || existing.details, updatedAt: new Date() })
+        .where(eq(achievementProgress.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(achievementProgress)
+      .values({ userId, metricKey, value, details: details || null })
+      .returning();
+    return created;
+  }
+
+  async getAchievementDisplayPrefs(userId: string): Promise<AchievementDisplayPrefs | undefined> {
+    const [prefs] = await db.select().from(achievementDisplayPrefs)
+      .where(eq(achievementDisplayPrefs.userId, userId));
+    return prefs;
+  }
+
+  async upsertAchievementDisplayPrefs(userId: string, pinnedAchievements?: string[], showOnCrewCard?: boolean): Promise<AchievementDisplayPrefs> {
+    const [existing] = await db.select().from(achievementDisplayPrefs)
+      .where(eq(achievementDisplayPrefs.userId, userId));
+    if (existing) {
+      const update: any = {};
+      if (pinnedAchievements !== undefined) update.pinnedAchievements = pinnedAchievements;
+      if (showOnCrewCard !== undefined) update.showOnCrewCard = showOnCrewCard;
+      const [updated] = await db.update(achievementDisplayPrefs)
+        .set(update)
+        .where(eq(achievementDisplayPrefs.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(achievementDisplayPrefs)
+      .values({ userId, pinnedAchievements: pinnedAchievements || [], showOnCrewCard: showOnCrewCard ?? true })
+      .returning();
+    return created;
   }
 
 }

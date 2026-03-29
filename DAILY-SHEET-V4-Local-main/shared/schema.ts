@@ -556,3 +556,36 @@ export const afterJobReports = pgTable("after_job_reports", {
 export const insertAfterJobReportSchema = createInsertSchema(afterJobReports).omit({ id: true, createdAt: true });
 export type AfterJobReport = typeof afterJobReports.$inferSelect;
 export type InsertAfterJobReport = z.infer<typeof insertAfterJobReportSchema>;
+
+// Achievements (USER-level, no workspaceId — portable crew identity)
+export const userAchievements = pgTable("user_achievements", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull(),
+  achievementKey: varchar("achievement_key").notNull(),
+  unlockedAt: timestamp("unlocked_at").defaultNow().notNull(),
+  metadata: json("metadata").$type<Record<string, any>>(),
+});
+
+export type UserAchievement = typeof userAchievements.$inferSelect;
+export type InsertUserAchievement = typeof userAchievements.$inferInsert;
+
+export const achievementProgress = pgTable("achievement_progress", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull(),
+  metricKey: varchar("metric_key").notNull(),
+  value: integer("value").default(0).notNull(),
+  details: json("details").$type<Record<string, any>>(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export type AchievementProgress = typeof achievementProgress.$inferSelect;
+export type InsertAchievementProgress = typeof achievementProgress.$inferInsert;
+
+export const achievementDisplayPrefs = pgTable("achievement_display_prefs", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull(),
+  pinnedAchievements: json("pinned_achievements").$type<string[]>(),
+  showOnCrewCard: boolean("show_on_crew_card").default(true),
+});
+
+export type AchievementDisplayPrefs = typeof achievementDisplayPrefs.$inferSelect;

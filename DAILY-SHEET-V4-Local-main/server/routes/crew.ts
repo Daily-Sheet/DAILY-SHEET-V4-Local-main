@@ -3,6 +3,7 @@ import type multer from "multer";
 import { storage } from "../storage";
 import { db } from "../db";
 import { dailyCheckins } from "@shared/schema";
+import { checkAchievements } from "../achievements/engine";
 import { insertTaskTypeSchema, insertDepartmentSchema, insertCrewPositionSchema } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
@@ -33,6 +34,7 @@ export function registerCrewRoutes(app: Express, upload: multer.Multer) {
     }
     if (!eventName || !date) return res.status(400).json({ message: "eventName and date are required" });
     const checkin = await storage.upsertDailyCheckin({ userId: targetUserId, eventName, date, workspaceId });
+    checkAchievements(targetUserId, "checkin:created", { workspaceId, actorName: req.user.firstName, hour: new Date().getHours() }).catch(() => {});
 
     const targetUser = await storage.getUser(targetUserId);
     const targetName = targetUser?.firstName || "Unknown";
@@ -62,6 +64,10 @@ export function registerCrewRoutes(app: Express, upload: multer.Multer) {
       }
     }
     const checkin = await storage.checkOutDaily(id);
+    if (checkin.checkedInAt && checkin.checkedOutAt) {
+      const hoursWorked = (new Date(checkin.checkedOutAt).getTime() - new Date(checkin.checkedInAt).getTime()) / (1000 * 60 * 60);
+      checkAchievements(existing.userId, "checkout:completed", { workspaceId, actorName: req.user.firstName, hoursWorked }).catch(() => {});
+    }
 
     const targetUser = await storage.getUser(existing.userId);
     const targetName = targetUser?.firstName || "Unknown";

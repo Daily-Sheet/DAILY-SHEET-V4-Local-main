@@ -3,6 +3,7 @@ import type multer from "multer";
 import { storage } from "../storage";
 import { z } from "zod";
 import { api } from "@shared/routes";
+import { checkAchievements } from "../achievements/engine";
 import { insertCommentSchema, insertScheduleTemplateSchema } from "@shared/schema";
 import { isAuthenticated } from "../replit_integrations/auth";
 import {
@@ -173,6 +174,10 @@ export function registerScheduleRoutes(app: Express, upload: multer.Multer) {
         completedBy: isCompleting ? req.user.id : null,
       });
       res.json(schedule);
+      if (isCompleting) {
+        const completedHour = new Date().getHours();
+        checkAchievements(req.user.id, "schedule:completed", { workspaceId, actorName: req.user.firstName, completedHour }).catch(() => {});
+      }
 
       const actorName = [req.user.firstName, req.user.lastName].filter(Boolean).join(" ") || req.user.email || "Unknown";
       emitDomainEvent({ type: "schedule:completed", workspaceId, eventName: record.eventName ?? undefined, actorId: req.user.id, actorName, payload: { id: schedule.id, completed: isCompleting } });
