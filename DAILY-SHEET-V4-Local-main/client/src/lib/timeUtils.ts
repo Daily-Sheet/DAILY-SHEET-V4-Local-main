@@ -55,38 +55,50 @@ export function getUrgencyStatus(item: {
   isNextDay?: boolean | null;
 }): UrgencyStatus {
   if (item.completed) return "complete";
-  if (!item.endTime || !item.eventDate) return "none";
+  if (!item.eventDate) return "none";
 
   const now = new Date();
   const todayLocal = new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(now);
 
+  // Determine the actual calendar date this item occurs on
+  let actualDate: string;
   if (item.isNextDay) {
-    // Next-day items: eventDate is the logical day, actual time is on eventDate+1
-    // Only overdue if we're past eventDate+1
-    const nextDay = new Date(item.eventDate + "T12:00:00");
-    nextDay.setDate(nextDay.getDate() + 1);
-    const nextDayStr = nextDay.toISOString().split("T")[0];
-    if (nextDayStr < todayLocal) return "overdue";
-    if (nextDayStr > todayLocal) return "none";
+    const nd = new Date(item.eventDate + "T12:00:00");
+    nd.setDate(nd.getDate() + 1);
+    actualDate = nd.toISOString().split("T")[0];
   } else {
-    if (item.eventDate < todayLocal) return "overdue";
-    if (item.eventDate > todayLocal) return "none";
+    actualDate = item.eventDate;
   }
 
+  // Past date → overdue, future date → none
+  if (actualDate < todayLocal) return "overdue";
+  if (actualDate > todayLocal) return "none";
+
+  // We're on the item's actual calendar date — compare times
   const nowTime = getLocalTimeOfDay(now);
   const nowMin = nowTime.hour * 60 + nowTime.minute;
-
   const startMin = getLocalTimeMinutes(item.startTime);
-  if (startMin > nowMin) return "none";
 
-  let endMin = getLocalTimeMinutes(item.endTime);
-  if (endMin < startMin) endMin += 24 * 60;
-  let adjustedNow = nowMin;
-  if (nowMin < startMin) adjustedNow += 24 * 60;
-  const minLeft = endMin - adjustedNow;
+  if (item.endTime) {
+    // Has end time: urgency based on how close to (or past) end time
+    if (startMin > nowMin) return "none";
 
-  if (minLeft <= 0) return "overdue";
-  if (minLeft <= 5) return "urgent";
-  if (minLeft <= 15) return "warning";
+    let endMin = getLocalTimeMinutes(item.endTime);
+    if (endMin < startMin) endMin += 24 * 60;
+    let adjustedNow = nowMin;
+    if (nowMin < startMin) adjustedNow += 24 * 60;
+    const minLeft = endMin - adjustedNow;
+
+    if (minLeft <= 0) return "overdue";
+    if (minLeft <= 5) return "urgent";
+    if (minLeft <= 15) return "warning";
+    return "none";
+  }
+
+  // No end time (e.g. bus call, lobby call): urgency based on start time
+  const minUntilStart = startMin - nowMin;
+  if (minUntilStart <= 0) return "overdue";
+  if (minUntilStart <= 5) return "urgent";
+  if (minUntilStart <= 15) return "warning";
   return "none";
 }

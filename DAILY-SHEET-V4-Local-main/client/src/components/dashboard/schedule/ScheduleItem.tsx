@@ -165,7 +165,7 @@ export function ScheduleItem({
                   urgency === "urgent" && "border-orange-500 text-orange-600 dark:text-orange-400 bg-orange-500/10",
                   urgency === "overdue" && "border-red-500 text-red-600 dark:text-red-400 bg-red-500/10",
                 )} data-testid={`badge-urgency-${item.id}`}>
-                  {urgency === "warning" ? "Ending Soon" : urgency === "urgent" ? "Almost Done" : "Overdue"}
+                  {urgency === "overdue" ? "Overdue" : item.endTime ? (urgency === "warning" ? "Ending Soon" : "Almost Done") : (urgency === "warning" ? "Starting Soon" : "Imminent")}
                 </Badge>
               )}
               {urgency === "complete" && (
