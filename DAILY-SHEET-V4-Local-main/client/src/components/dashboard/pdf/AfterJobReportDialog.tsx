@@ -252,7 +252,7 @@ export function AfterJobReportDialog({
 
         {/* Step 1: Select Show */}
         {step === "select" && (
-          <div className="space-y-2 overflow-y-auto flex-1 min-h-0">
+          <div className="space-y-2 overflow-y-auto flex-1 min-h-0 p-1 -m-1">
             {showsForSelectedDate.map(show => (
               <label
                 key={show.id}
@@ -281,7 +281,7 @@ export function AfterJobReportDialog({
 
         {/* Step 2: Smart Form */}
         {step === "form" && (
-          <div className="space-y-4 overflow-y-auto flex-1 min-h-0 pr-1">
+          <div className="space-y-4 overflow-y-auto flex-1 min-h-0 p-1 -m-1">
             {reportAlreadyExists && (
               <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md p-3 flex items-start gap-2">
                 <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 flex-shrink-0" />

@@ -394,7 +394,7 @@ export function CreateScheduleDialog({ defaultEventName, defaultDate, trigger }:
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-4 min-h-0">
-            <div className="space-y-4 overflow-y-auto min-h-0 flex-1 pr-1" style={{ WebkitOverflowScrolling: "touch" }}>
+            <div className="space-y-4 overflow-y-auto min-h-0 flex-1 p-1 -m-1" style={{ WebkitOverflowScrolling: "touch" }}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 control={form.control}

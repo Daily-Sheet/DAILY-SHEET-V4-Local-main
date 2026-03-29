@@ -84,7 +84,7 @@ export function CrewDirectoryDialog({ contacts, canEdit, allEventAssignments }: 
             ))}
           </div>
         </div>
-        <div className="flex-1 overflow-y-auto space-y-2 pr-1">
+        <div className="flex-1 overflow-y-auto space-y-2 p-1 -m-1">
           {filteredContacts.length === 0 ? (
             <div className="p-8 text-center text-muted-foreground">
               {contacts.length === 0 ? "No contacts yet." : "No contacts match your filters."}

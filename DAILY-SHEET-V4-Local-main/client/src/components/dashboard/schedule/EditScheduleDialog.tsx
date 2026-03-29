@@ -185,7 +185,7 @@ export function EditScheduleDialog({ item, onClose }: { item: Schedule; onClose:
       </DialogHeader>
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col gap-3 min-h-0">
-          <div className="overflow-y-auto min-h-0 flex-1 pr-1 space-y-3" style={{ WebkitOverflowScrolling: "touch" }}>
+          <div className="overflow-y-auto min-h-0 flex-1 p-1 -m-1 space-y-3" style={{ WebkitOverflowScrolling: "touch" }}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <FormField control={form.control} name="title" render={({ field }) => (
               <FormItem>
