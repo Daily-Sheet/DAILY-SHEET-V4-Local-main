@@ -589,3 +589,40 @@ export const achievementDisplayPrefs = pgTable("achievement_display_prefs", {
 });
 
 export type AchievementDisplayPrefs = typeof achievementDisplayPrefs.$inferSelect;
+
+// ── Vendors ─────────────────────────────────────────────────────────────────
+
+export const vendors = pgTable("vendors", {
+  id: serial("id").primaryKey(),
+  workspaceId: integer("workspace_id").notNull(),
+  name: text("name").notNull(),
+  category: text("category").notNull(),
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  website: text("website"),
+  region: text("region"),
+  city: text("city"),
+  state: text("state"),
+  notes: text("notes"),
+  isPublic: boolean("is_public").default(false),
+  importedFromVendorId: integer("imported_from_vendor_id"),
+  createdBy: varchar("created_by").notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type Vendor = typeof vendors.$inferSelect;
+export type InsertVendor = typeof vendors.$inferInsert;
+
+export const vendorRatings = pgTable("vendor_ratings", {
+  id: serial("id").primaryKey(),
+  vendorId: integer("vendor_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  workspaceId: integer("workspace_id").notNull(),
+  rating: integer("rating").notNull(),
+  review: text("review"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type VendorRating = typeof vendorRatings.$inferSelect;
+export type InsertVendorRating = typeof vendorRatings.$inferInsert;

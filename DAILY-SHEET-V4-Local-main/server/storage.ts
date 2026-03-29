@@ -2,7 +2,7 @@ import { db } from "./db";
 import {
   schedules, contacts, files, venues, venueTechPackets, comments, users, eventAssignments, events, sessions, fileFolders, settings,
   workspaces, workspaceMembers, workspaceInvites, taskTypes, scheduleTemplates, eventDayVenues, zones, projects, sections, departments, crewPositions, timesheetEntries, notifications, activityLog, travelDays, gearRequests, projectAssignments, crewTravel, dailyCheckins, accessLinks,
-  mapPins, mapPinLikes, mapPinComments, legs, bandPortalLinks, userAchievements, achievementProgress, achievementDisplayPrefs,
+  mapPins, mapPinLikes, mapPinComments, legs, bandPortalLinks, userAchievements, achievementProgress, achievementDisplayPrefs, vendors, vendorRatings,
   type InsertSchedule, type InsertContact, type InsertFile, type InsertVenue, type InsertVenueTechPacket, type VenueTechPacket, type InsertComment,
   type InsertEventAssignment, type InsertEvent, type InsertFileFolder,
   type InsertWorkspace, type InsertWorkspaceMember, type InsertWorkspaceInvite,
@@ -19,7 +19,7 @@ import {
   type InsertDailyCheckin, type DailyCheckin,
   type InsertAccessLink, type AccessLink,
   type InsertBandPortalLink, type BandPortalLink,
-  type MapPin, type InsertMapPin, type MapPinLike, type MapPinComment, type InsertMapPinComment, type UserAchievement, type AchievementProgress, type AchievementDisplayPrefs,
+  type MapPin, type InsertMapPin, type MapPinLike, type MapPinComment, type InsertMapPinComment, type UserAchievement, type AchievementProgress, type AchievementDisplayPrefs, type Vendor, type InsertVendor, type VendorRating, type InsertVendorRating,
   type Schedule, type Contact, type Venue, type Comment, type User, type EventAssignment, type Event, type FileFolder, type Setting,
   type Workspace, type WorkspaceMember, type WorkspaceInvite, type TaskType, type ScheduleTemplate, type EventDayVenue,
   type Zone, type Project, type Section, type Department, type CrewPosition
@@ -281,6 +281,16 @@ export interface IStorage {
   upsertAchievementProgress(userId: string, metricKey: string, value: number, details?: Record<string, any>): Promise<AchievementProgress>;
   getAchievementDisplayPrefs(userId: string): Promise<AchievementDisplayPrefs | undefined>;
   upsertAchievementDisplayPrefs(userId: string, pinnedAchievements?: string[], showOnCrewCard?: boolean): Promise<AchievementDisplayPrefs>;
+
+  // Vendors
+  getVendors(workspaceId: number): Promise<Vendor[]>;
+  getVendor(id: number): Promise<Vendor | undefined>;
+  createVendor(vendor: InsertVendor): Promise<Vendor>;
+  updateVendor(id: number, data: Partial<InsertVendor>): Promise<Vendor>;
+  deleteVendor(id: number): Promise<void>;
+  getPublicVendors(): Promise<Vendor[]>;
+  getVendorRatings(vendorId: number): Promise<VendorRating[]>;
+  upsertVendorRating(rating: InsertVendorRating): Promise<VendorRating>;
 
   // Community Map
   getMapPins(): Promise<MapPin[]>;
@@ -1679,6 +1689,58 @@ export class DatabaseStorage implements IStorage {
     const [created] = await db.insert(achievementDisplayPrefs)
       .values({ userId, pinnedAchievements: pinnedAchievements || [], showOnCrewCard: showOnCrewCard ?? true })
       .returning();
+    return created;
+  }
+
+  // Vendors
+
+  async getVendors(workspaceId: number): Promise<Vendor[]> {
+    return db.select().from(vendors).where(eq(vendors.workspaceId, workspaceId)).orderBy(vendors.name);
+  }
+
+  async getVendor(id: number): Promise<Vendor | undefined> {
+    const [vendor] = await db.select().from(vendors).where(eq(vendors.id, id));
+    return vendor;
+  }
+
+  async createVendor(vendor: InsertVendor): Promise<Vendor> {
+    const [created] = await db.insert(vendors).values(vendor).returning();
+    return created;
+  }
+
+  async updateVendor(id: number, data: Partial<InsertVendor>): Promise<Vendor> {
+    const [updated] = await db.update(vendors).set(data).where(eq(vendors.id, id)).returning();
+    return updated;
+  }
+
+  async deleteVendor(id: number): Promise<void> {
+    await db.delete(vendorRatings).where(eq(vendorRatings.vendorId, id));
+    await db.delete(vendors).where(eq(vendors.id, id));
+  }
+
+  async getPublicVendors(): Promise<Vendor[]> {
+    return db.select().from(vendors).where(eq(vendors.isPublic, true)).orderBy(vendors.name);
+  }
+
+  async getVendorRatings(vendorId: number): Promise<VendorRating[]> {
+    return db.select().from(vendorRatings).where(eq(vendorRatings.vendorId, vendorId)).orderBy(desc(vendorRatings.createdAt));
+  }
+
+  async upsertVendorRating(rating: InsertVendorRating): Promise<VendorRating> {
+    const [existing] = await db.select().from(vendorRatings)
+      .where(and(
+        eq(vendorRatings.vendorId, rating.vendorId),
+        eq(vendorRatings.userId, rating.userId),
+        eq(vendorRatings.workspaceId, rating.workspaceId),
+      ));
+    if (existing) {
+      const [updated] = await db.update(vendorRatings)
+        .set({ rating: rating.rating, review: rating.review })
+        .where(eq(vendorRatings.id, existing.id))
+        .returning();
+      return updated;
+    }
+    const [created] = await db.insert(vendorRatings).values(rating).returning();
     return created;
   }
 

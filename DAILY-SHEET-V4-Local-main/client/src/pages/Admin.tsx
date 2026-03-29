@@ -21,9 +21,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Calendar as CalendarIcon, Users, Speaker, MapPin, Upload, Search, Briefcase,
   Plus, Pencil, Trash2, Save, X, Clock, Shield, KeyRound, CalendarPlus, Eye, Sparkles, Loader2, FileText,
-  ChevronDown, ChevronRight, Check, UserPlus, Mail, Send, RotateCw, UserCheck, Sun, Moon, Palette, Filter, Layers, Settings, Archive, ArchiveRestore, Headphones, ExternalLink, LogOut, Download, MessageSquare, BarChart3, Map as MapIcon, List, Link2, Copy, MoreHorizontal, Building2, Plane
+  ChevronDown, ChevronRight, Check, UserPlus, Mail, Send, RotateCw, UserCheck, Sun, Moon, Palette, Filter, Layers, Settings, Archive, ArchiveRestore, Headphones, ExternalLink, LogOut, Download, MessageSquare, BarChart3, Map as MapIcon, List, Link2, Copy, MoreHorizontal, Building2, Plane, Store
 } from "lucide-react";
 import { PlacesAutocomplete } from "@/components/maps/PlacesAutocomplete";
+import { VendorDirectory } from "@/components/community/VendorDirectory";
 import { GoogleMapView } from "@/components/maps/GoogleMapView";
 import * as XLSX from "xlsx";
 
@@ -158,6 +159,7 @@ function AdminSettingsPopover() {
 const ADMIN_NAV_ITEMS = [
   { value: "projects", label: "Projects", icon: Briefcase },
   { value: "venue", label: "Venues", icon: MapPin },
+  { value: "vendors", label: "Vendors", icon: Store },
   { value: "people", label: "People", icon: Users },
   { value: "settings", label: "Settings", icon: Settings },
   { value: "timesheets", label: "Time Sheets", icon: Clock },
@@ -222,6 +224,7 @@ export default function Admin() {
           <div className="flex-1 min-w-0 space-y-4">
             {activeTab === "projects" && <ProjectsAdmin />}
             {activeTab === "venue" && <VenueAdmin />}
+            {activeTab === "vendors" && <VendorDirectory />}
             {activeTab === "people" && <PeopleAdmin />}
             {activeTab === "settings" && <SettingsAdmin />}
             {activeTab === "timesheets" && <TimeSheetsAdmin />}

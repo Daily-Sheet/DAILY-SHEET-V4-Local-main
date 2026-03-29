@@ -242,6 +242,44 @@ app.use((req, res, next) => {
     console.error("Achievement tables migration error (non-fatal):", err);
   }
 
+  // Vendor tables
+  try {
+    const { pool } = await import("./db");
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS vendors (
+        id SERIAL PRIMARY KEY,
+        workspace_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        contact_name TEXT,
+        contact_email TEXT,
+        contact_phone TEXT,
+        website TEXT,
+        region TEXT,
+        city TEXT,
+        state TEXT,
+        notes TEXT,
+        is_public BOOLEAN DEFAULT FALSE,
+        imported_from_vendor_id INTEGER,
+        created_by VARCHAR NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS vendor_ratings (
+        id SERIAL PRIMARY KEY,
+        vendor_id INTEGER NOT NULL,
+        user_id VARCHAR NOT NULL,
+        workspace_id INTEGER NOT NULL,
+        rating INTEGER NOT NULL,
+        review TEXT,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        UNIQUE(vendor_id, user_id, workspace_id)
+      );
+    `);
+    log("Vendor tables ready");
+  } catch (err) {
+    console.error("Vendor tables migration error (non-fatal):", err);
+  }
+
   // Make events.project_id nullable (allows unassigned shows)
   try {
     const { pool } = await import("./db");
