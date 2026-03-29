@@ -105,15 +105,10 @@ async function migrateExistingUsersToWorkspaces() {
   try {
     const allUsers = await db.select().from(users).where(isNull(users.workspaceId));
     if (allUsers.length === 0) {
-      // Clean up orphaned records: assign to first workspace, or delete venues with no workspace
+      // Clean up orphaned records: assign to first workspace
+      // NOTE: venues intentionally have null workspaceId (they are global) — do NOT delete them
       const [firstWs] = await db.select().from(workspaces).orderBy(workspaces.id);
       if (firstWs) {
-        // Delete orphaned venues (no workspace = leftover data)
-        const deletedVenues = await db.delete(venues).where(isNull(venues.workspaceId)).returning({ id: venues.id });
-        if (deletedVenues.length > 0) {
-          console.log(`Cleaned up ${deletedVenues.length} orphaned venues with null workspaceId`);
-        }
-
         // Assign other orphaned records to the first workspace
         const orphanTables = [
           { name: "schedules", table: schedules, col: schedules.workspaceId },
