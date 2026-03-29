@@ -57,6 +57,40 @@ export function useCheckAchievements() {
   });
 }
 
+export type WorkspaceAchievementData = {
+  members: {
+    userId: string;
+    name: string;
+    profileImageUrl: string | null;
+    role: string;
+    unlockedCount: number;
+    achievements: { key: string; name: string; icon: string; category: string; secret: boolean; unlockedAt: string }[];
+  }[];
+  achievements: {
+    key: string;
+    name: string;
+    description: string;
+    icon: string;
+    category: string;
+    secret: boolean;
+    threshold: number;
+    holderCount: number;
+    holders: { userId: string; name: string; profileImageUrl: string | null }[];
+  }[];
+  totalAchievements: number;
+};
+
+export function useWorkspaceAchievements() {
+  return useQuery<WorkspaceAchievementData>({
+    queryKey: ["/api/achievements/workspace"],
+    queryFn: async () => {
+      const res = await fetch(buildApiUrl("/api/achievements/workspace"), { credentials: "include" });
+      if (!res.ok) throw new Error("Failed to fetch workspace achievements");
+      return res.json();
+    },
+  });
+}
+
 export function useUpdateAchievementPrefs() {
   const queryClient = useQueryClient();
   return useMutation({

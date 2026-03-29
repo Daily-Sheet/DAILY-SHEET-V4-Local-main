@@ -21,11 +21,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import {
   Calendar as CalendarIcon, Users, Speaker, MapPin, Upload, Search, Briefcase,
   Plus, Pencil, Trash2, Save, X, Clock, Shield, KeyRound, CalendarPlus, Eye, Sparkles, Loader2, FileText,
-  ChevronDown, ChevronRight, Check, UserPlus, Mail, Send, RotateCw, UserCheck, Sun, Moon, Palette, Filter, Layers, Settings, Archive, ArchiveRestore, Headphones, ExternalLink, LogOut, Download, MessageSquare, BarChart3, Map as MapIcon, List, Link2, Copy, MoreHorizontal, Building2, Plane, Store
+  ChevronDown, ChevronRight, Check, UserPlus, Mail, Send, RotateCw, UserCheck, Sun, Moon, Palette, Filter, Layers, Settings, Archive, ArchiveRestore, Headphones, ExternalLink, LogOut, Download, MessageSquare, BarChart3, Map as MapIcon, List, Link2, Copy, MoreHorizontal, Building2, Plane, Store, Trophy
 } from "lucide-react";
 import { PlacesAutocomplete } from "@/components/maps/PlacesAutocomplete";
 import { VendorDirectory } from "@/components/community/VendorDirectory";
 import { JobBoard } from "@/components/community/JobBoard";
+import { AchievementAdmin } from "@/components/achievements/AchievementAdmin";
 import { GoogleMapView } from "@/components/maps/GoogleMapView";
 import * as XLSX from "xlsx";
 
@@ -162,6 +163,7 @@ const ADMIN_NAV_ITEMS = [
   { value: "venue", label: "Venues", icon: MapPin },
   { value: "vendors", label: "Vendors", icon: Store },
   { value: "jobs", label: "Job Board", icon: Briefcase },
+  { value: "achievements", label: "Achievements", icon: Trophy },
   { value: "people", label: "People", icon: Users },
   { value: "settings", label: "Settings", icon: Settings },
   { value: "timesheets", label: "Time Sheets", icon: Clock },
@@ -228,6 +230,7 @@ export default function Admin() {
             {activeTab === "venue" && <VenueAdmin />}
             {activeTab === "vendors" && <VendorDirectory />}
             {activeTab === "jobs" && <JobBoard />}
+            {activeTab === "achievements" && <AchievementAdmin />}
             {activeTab === "people" && <PeopleAdmin />}
             {activeTab === "settings" && <SettingsAdmin />}
             {activeTab === "timesheets" && <TimeSheetsAdmin />}

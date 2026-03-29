@@ -89,6 +89,66 @@ export function registerAchievementRoutes(app: Express, _upload: multer.Multer) 
     });
   });
 
+  // Workspace-wide achievement overview (owner/manager/admin)
+  app.get("/api/achievements/workspace", isAuthenticated, async (req: any, res) => {
+    const role = req.user.role;
+    if (!["owner", "manager", "admin"].includes(role)) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+    const workspaceId = req.user.workspaceId;
+    // Get all workspace members
+    const members = await storage.getWorkspaceMembers(workspaceId);
+    const memberData = await Promise.all(members.map(async (m) => {
+      const user = await storage.getUser(m.userId);
+      const unlocked = await storage.getUserAchievements(m.userId);
+      const unlockedKeys = new Set(unlocked.map(a => a.achievementKey));
+      const achievements = unlocked.map(u => {
+        const def = ACHIEVEMENT_BY_KEY.get(u.achievementKey);
+        if (!def) return null;
+        return {
+          key: def.key,
+          name: def.name,
+          icon: def.icon,
+          category: def.category,
+          secret: def.secret,
+          unlockedAt: u.unlockedAt,
+        };
+      }).filter(Boolean);
+      return {
+        userId: m.userId,
+        name: user ? [user.firstName, user.lastName].filter(Boolean).join(" ") || user.email : m.userId,
+        profileImageUrl: user?.profileImageUrl || null,
+        role: m.role,
+        unlockedCount: unlocked.length,
+        achievements,
+      };
+    }));
+
+    // Build per-achievement breakdown: who has each one
+    const achievementBreakdown = ACHIEVEMENT_CATALOG.map(a => {
+      const holders = memberData
+        .filter(m => m.achievements.some((ua: any) => ua.key === a.key))
+        .map(m => ({ userId: m.userId, name: m.name, profileImageUrl: m.profileImageUrl }));
+      return {
+        key: a.key,
+        name: a.name,
+        description: a.description,
+        icon: a.icon,
+        category: a.category,
+        secret: a.secret,
+        threshold: a.threshold,
+        holderCount: holders.length,
+        holders,
+      };
+    });
+
+    res.json({
+      members: memberData.sort((a, b) => b.unlockedCount - a.unlockedCount),
+      achievements: achievementBreakdown,
+      totalAchievements: ACHIEVEMENT_CATALOG.length,
+    });
+  });
+
   // Manual trigger for achievement recheck
   app.post("/api/achievements/check", isAuthenticated, async (req: any, res) => {
     const newlyUnlocked = await recalculateAllProgress(req.user.id);
