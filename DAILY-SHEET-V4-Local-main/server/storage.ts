@@ -2,7 +2,7 @@ import { db } from "./db";
 import {
   schedules, contacts, files, venues, venueTechPackets, comments, users, eventAssignments, events, sessions, fileFolders, settings,
   workspaces, workspaceMembers, workspaceInvites, taskTypes, scheduleTemplates, eventDayVenues, zones, projects, sections, departments, crewPositions, timesheetEntries, notifications, activityLog, travelDays, gearRequests, projectAssignments, crewTravel, dailyCheckins, accessLinks,
-  mapPins, mapPinLikes, mapPinComments, legs, bandPortalLinks, userAchievements, achievementProgress, achievementDisplayPrefs, vendors, vendorRatings,
+  mapPins, mapPinLikes, mapPinComments, legs, bandPortalLinks, userAchievements, achievementProgress, achievementDisplayPrefs, vendors, vendorRatings, jobListings, jobApplications,
   type InsertSchedule, type InsertContact, type InsertFile, type InsertVenue, type InsertVenueTechPacket, type VenueTechPacket, type InsertComment,
   type InsertEventAssignment, type InsertEvent, type InsertFileFolder,
   type InsertWorkspace, type InsertWorkspaceMember, type InsertWorkspaceInvite,
@@ -19,7 +19,7 @@ import {
   type InsertDailyCheckin, type DailyCheckin,
   type InsertAccessLink, type AccessLink,
   type InsertBandPortalLink, type BandPortalLink,
-  type MapPin, type InsertMapPin, type MapPinLike, type MapPinComment, type InsertMapPinComment, type UserAchievement, type AchievementProgress, type AchievementDisplayPrefs, type Vendor, type InsertVendor, type VendorRating, type InsertVendorRating,
+  type MapPin, type InsertMapPin, type MapPinLike, type MapPinComment, type InsertMapPinComment, type UserAchievement, type AchievementProgress, type AchievementDisplayPrefs, type Vendor, type InsertVendor, type VendorRating, type InsertVendorRating, type JobListing, type InsertJobListing, type JobApplication, type InsertJobApplication,
   type Schedule, type Contact, type Venue, type Comment, type User, type EventAssignment, type Event, type FileFolder, type Setting,
   type Workspace, type WorkspaceMember, type WorkspaceInvite, type TaskType, type ScheduleTemplate, type EventDayVenue,
   type Zone, type Project, type Section, type Department, type CrewPosition
@@ -281,6 +281,18 @@ export interface IStorage {
   upsertAchievementProgress(userId: string, metricKey: string, value: number, details?: Record<string, any>): Promise<AchievementProgress>;
   getAchievementDisplayPrefs(userId: string): Promise<AchievementDisplayPrefs | undefined>;
   upsertAchievementDisplayPrefs(userId: string, pinnedAchievements?: string[], showOnCrewCard?: boolean): Promise<AchievementDisplayPrefs>;
+
+  // Jobs
+  getJobListings(): Promise<JobListing[]>;
+  getJobListing(id: number): Promise<JobListing | undefined>;
+  createJobListing(job: InsertJobListing): Promise<JobListing>;
+  updateJobListing(id: number, data: Partial<InsertJobListing>): Promise<JobListing>;
+  deleteJobListing(id: number): Promise<void>;
+  getJobApplications(jobId: number): Promise<JobApplication[]>;
+  getJobApplicationsByUser(userId: string): Promise<JobApplication[]>;
+  createJobApplication(app: InsertJobApplication): Promise<JobApplication>;
+  updateJobApplication(id: number, data: Partial<InsertJobApplication>): Promise<JobApplication>;
+  deleteJobApplication(id: number): Promise<void>;
 
   // Vendors
   getVendors(workspaceId: number): Promise<Vendor[]>;
@@ -1742,6 +1754,54 @@ export class DatabaseStorage implements IStorage {
     }
     const [created] = await db.insert(vendorRatings).values(rating).returning();
     return created;
+  }
+
+  // Jobs
+
+  async getJobListings(): Promise<JobListing[]> {
+    return db.select().from(jobListings).orderBy(desc(jobListings.createdAt));
+  }
+
+  async getJobListing(id: number): Promise<JobListing | undefined> {
+    const [job] = await db.select().from(jobListings).where(eq(jobListings.id, id));
+    return job;
+  }
+
+  async createJobListing(job: InsertJobListing): Promise<JobListing> {
+    const [created] = await db.insert(jobListings).values(job).returning();
+    return created;
+  }
+
+  async updateJobListing(id: number, data: Partial<InsertJobListing>): Promise<JobListing> {
+    const [updated] = await db.update(jobListings).set(data).where(eq(jobListings.id, id)).returning();
+    return updated;
+  }
+
+  async deleteJobListing(id: number): Promise<void> {
+    await db.delete(jobApplications).where(eq(jobApplications.jobId, id));
+    await db.delete(jobListings).where(eq(jobListings.id, id));
+  }
+
+  async getJobApplications(jobId: number): Promise<JobApplication[]> {
+    return db.select().from(jobApplications).where(eq(jobApplications.jobId, jobId)).orderBy(desc(jobApplications.createdAt));
+  }
+
+  async getJobApplicationsByUser(userId: string): Promise<JobApplication[]> {
+    return db.select().from(jobApplications).where(eq(jobApplications.userId, userId)).orderBy(desc(jobApplications.createdAt));
+  }
+
+  async createJobApplication(app: InsertJobApplication): Promise<JobApplication> {
+    const [created] = await db.insert(jobApplications).values(app).returning();
+    return created;
+  }
+
+  async updateJobApplication(id: number, data: Partial<InsertJobApplication>): Promise<JobApplication> {
+    const [updated] = await db.update(jobApplications).set(data).where(eq(jobApplications.id, id)).returning();
+    return updated;
+  }
+
+  async deleteJobApplication(id: number): Promise<void> {
+    await db.delete(jobApplications).where(eq(jobApplications.id, id));
   }
 
 }

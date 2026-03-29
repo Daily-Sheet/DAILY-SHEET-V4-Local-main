@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { PlacesAutocomplete } from "@/components/maps/PlacesAutocomplete";
 import { VendorDirectory } from "@/components/community/VendorDirectory";
+import { JobBoard } from "@/components/community/JobBoard";
 import { GoogleMapView } from "@/components/maps/GoogleMapView";
 import * as XLSX from "xlsx";
 
@@ -160,6 +161,7 @@ const ADMIN_NAV_ITEMS = [
   { value: "projects", label: "Projects", icon: Briefcase },
   { value: "venue", label: "Venues", icon: MapPin },
   { value: "vendors", label: "Vendors", icon: Store },
+  { value: "jobs", label: "Job Board", icon: Briefcase },
   { value: "people", label: "People", icon: Users },
   { value: "settings", label: "Settings", icon: Settings },
   { value: "timesheets", label: "Time Sheets", icon: Clock },
@@ -225,6 +227,7 @@ export default function Admin() {
             {activeTab === "projects" && <ProjectsAdmin />}
             {activeTab === "venue" && <VenueAdmin />}
             {activeTab === "vendors" && <VendorDirectory />}
+            {activeTab === "jobs" && <JobBoard />}
             {activeTab === "people" && <PeopleAdmin />}
             {activeTab === "settings" && <SettingsAdmin />}
             {activeTab === "timesheets" && <TimeSheetsAdmin />}

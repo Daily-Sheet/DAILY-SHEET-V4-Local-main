@@ -280,6 +280,48 @@ app.use((req, res, next) => {
     console.error("Vendor tables migration error (non-fatal):", err);
   }
 
+  // Job board tables
+  try {
+    const { pool } = await import("./db");
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS job_listings (
+        id SERIAL PRIMARY KEY,
+        workspace_id INTEGER NOT NULL,
+        posted_by VARCHAR NOT NULL,
+        posted_by_name TEXT,
+        title TEXT NOT NULL,
+        position TEXT NOT NULL,
+        description TEXT,
+        event_id INTEGER,
+        project_id INTEGER,
+        location TEXT,
+        dates TEXT,
+        start_date TEXT,
+        end_date TEXT,
+        pay_rate TEXT,
+        pay_type TEXT,
+        visibility TEXT NOT NULL DEFAULT 'public',
+        status TEXT NOT NULL DEFAULT 'open',
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS job_applications (
+        id SERIAL PRIMARY KEY,
+        job_id INTEGER NOT NULL,
+        user_id VARCHAR NOT NULL,
+        user_name TEXT,
+        message TEXT,
+        status TEXT NOT NULL DEFAULT 'pending',
+        reviewed_by VARCHAR,
+        reviewed_at TIMESTAMP,
+        created_at TIMESTAMP DEFAULT NOW() NOT NULL,
+        UNIQUE(job_id, user_id)
+      );
+    `);
+    log("Job board tables ready");
+  } catch (err) {
+    console.error("Job board tables migration error (non-fatal):", err);
+  }
+
   // Make events.project_id nullable (allows unassigned shows)
   try {
     const { pool } = await import("./db");

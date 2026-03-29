@@ -626,3 +626,44 @@ export const vendorRatings = pgTable("vendor_ratings", {
 
 export type VendorRating = typeof vendorRatings.$inferSelect;
 export type InsertVendorRating = typeof vendorRatings.$inferInsert;
+
+// ── Job Board ───────────────────────────────────────────────────────────────
+
+export const jobListings = pgTable("job_listings", {
+  id: serial("id").primaryKey(),
+  workspaceId: integer("workspace_id").notNull(),
+  postedBy: varchar("posted_by").notNull(),
+  postedByName: text("posted_by_name"),
+  title: text("title").notNull(),
+  position: text("position").notNull(),
+  description: text("description"),
+  eventId: integer("event_id"),
+  projectId: integer("project_id"),
+  location: text("location"),
+  dates: text("dates"),
+  startDate: text("start_date"),
+  endDate: text("end_date"),
+  payRate: text("pay_rate"),
+  payType: text("pay_type"),
+  visibility: text("visibility").notNull().default("public"),
+  status: text("status").notNull().default("open"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type JobListing = typeof jobListings.$inferSelect;
+export type InsertJobListing = typeof jobListings.$inferInsert;
+
+export const jobApplications = pgTable("job_applications", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id").notNull(),
+  userId: varchar("user_id").notNull(),
+  userName: text("user_name"),
+  message: text("message"),
+  status: text("status").notNull().default("pending"),
+  reviewedBy: varchar("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type JobApplication = typeof jobApplications.$inferSelect;
+export type InsertJobApplication = typeof jobApplications.$inferInsert;
